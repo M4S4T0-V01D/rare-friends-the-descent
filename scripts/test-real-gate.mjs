@@ -26,7 +26,7 @@ const server = target ? null : createGameServer("./site");
 if (server) await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 const pageUrl = target ?? `http://127.0.0.1:${server.address().port}/`;
 const origin = new URL(pageUrl).origin;
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH || undefined });
 const results = [];
 
 async function scenario(name, { account, chainId }, check) {

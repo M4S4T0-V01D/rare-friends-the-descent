@@ -11,7 +11,7 @@ export const CAMP_THEME: FloorTheme = {
   decor: [["rubble", 3], ["bones", 1], ["candles", 2], ["runeCircle", 2], ["crystal", 1]], roster: [],
 };
 
-export type CampStation = "descend" | "friend" | "stash" | "codex" | "hall" | "rf";
+export type CampStation = "descend" | "friend" | "wardrobe" | "stash" | "codex" | "hall" | "rf";
 export type CampProp = "statue" | "tent" | "fire" | "lantern" | "pillar" | "crates" | "bedroll";
 
 const W = 36, H = 26, OX = 4, OY = 4;
@@ -63,6 +63,7 @@ export function generateCamp(): { floor: Floor; spawn: Vec; things: Omit<Interac
     station("codex", 29, 14, "RUNE TABLET"),
     station("hall", 25, 8.5, "OBELISK OF DESCENTS"),
     station("rf", 11, 8.5, "RF LEDGER"),
+    station("wardrobe", cx - 0.5, 22, "THE DYE ALTAR", 30),
     prop("tent", 5, 12), prop("tent", 9, 21), prop("tent", 28, 19),
     prop("bedroll", cx - 4, 18), prop("bedroll", cx + 3, 19),
     prop("lantern", 12, 13), prop("lantern", 24, 13), prop("lantern", cx - 4, 8), prop("lantern", cx + 3, 8),
