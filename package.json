@@ -9,8 +9,8 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "friendsdk dev .",
-    "build": "friendsdk build . --outdir ./site",
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/site.mjs",
     "check": "friendsdk check .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",

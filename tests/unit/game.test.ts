@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CURSED_BOX, EVENTS, GATES, GOLDEN_DOOR_RARITIES, LEGENDARY_GAMBLE, MERCHANT, SHRINES } from "../../src/game/content.ts";
+import { bandForFloor, FLOOR_THEMES, CURSED_BOX, EVENTS, GATES, GOLDEN_DOOR_RARITIES, LEGENDARY_GAMBLE, MERCHANT, SHRINES } from "../../src/game/content.ts";
 import { generateArena, generateFloor, T, TILE } from "../../src/game/dungeon.ts";
 import { generateItem, itemScore, RARITIES, rollRarity, SLOTS } from "../../src/game/items.ts";
 import { Rng } from "../../src/game/rng.ts";
@@ -81,6 +81,21 @@ test("deeper floors are larger and more complex, with every tile still reachable
   assert.ok(deep.loops > mid.loops && shallow.loops === 0, "deep floors loop; the first floor is linear");
   assert.ok(deep.walls > shallow.walls * 5, "deep rooms have interior architecture");
   assert.equal(generateFloor(9, 1).gridW, 9);
+});
+
+test("every floor has its own scenery and enemy roster", () => {
+  const areas = new Set(FLOOR_THEMES.map(t => t.area));
+  assert.equal(areas.size, 9, "nine distinct floors before the endless void");
+  assert.deepEqual([...new Set(FLOOR_THEMES.map(t => t.style))], ["crypt", "tech", "flesh"]);
+  assert.equal(bandForFloor(12).style, "void");
+  assert.equal(bandForFloor(12).area, "Stratum 3");
+  const seen = new Set<string>();
+  for (let depth = 1; depth <= 10; depth++) for (const [kind] of bandForFloor(depth).roster) seen.add(kind);
+  for (const kind of ["wisp", "gunner", "drone", "turret", "mite", "spitter", "eyestalk", "bloodling", "shade"]) assert.ok(seen.has(kind), `${kind} appears on some floor`);
+  // New enemy types are introduced as you descend, not all at once.
+  assert.ok(!bandForFloor(1).roster.some(([kind]) => kind === "drone" || kind === "spitter"));
+  assert.ok(bandForFloor(4).roster.some(([kind]) => kind === "drone"));
+  assert.ok(bandForFloor(7).roster.some(([kind]) => kind === "spitter"));
 });
 
 test("arenas are single closed rooms", () => {

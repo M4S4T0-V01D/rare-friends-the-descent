@@ -85,7 +85,7 @@ export function computeStats(level: number, trait: Mods, boons: ReadonlyMap<Boon
     critDmg: 150 + v("critDmg"),
     moveSpeed: 200 * Math.min(1.6, Math.max(0.6, 1 + v("moveSpeed") / 100)) * (crown > 1 ? 1.05 : 1),
     energyMax: 100,
-    energyRegen: 14 * (1 + v("energyRegen") / 100),
+    energyRegen: 18 * (1 + v("energyRegen") / 100),
     luck: Math.max(0, v("luck") * crown + (crown > 1 ? 5 : 0)),
     dodgeCd: 1.1 / (1 + Math.max(0, dodge) / 100) * (powers.has("phaseWalker") ? 0.6 : 1),
     evasion: Math.min(30, Math.max(0, dodge * 0.5)),

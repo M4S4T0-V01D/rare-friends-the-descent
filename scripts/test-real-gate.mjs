@@ -101,7 +101,15 @@ await scenario("a real Generations holder passes the gate and plays with on-chai
 
 await scenario("an account without Generations NFTs cannot play", { account: "0x000000000000000000000000000000000000dEaD", chainId: "0x1237" }, async page => {
   await page.getByRole("button", { name: /^Connect (wallet|Browser wallet)$/ }).click();
-  await page.getByText(/No eligible Friends available|No playable Friends found/).waitFor({ timeout: 60000 });
+  const empty = page.getByText(/No eligible Friends available|No Rare Friends Generations NFTs found/);
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const retry = page.getByRole("button", { name: "Retry loading Friends" });
+    await Promise.race([empty.waitFor({ timeout: 60000 }), retry.waitFor({ timeout: 60000 })]);
+    if (await empty.isVisible()) break;
+    await page.waitForTimeout(4000 * attempt);
+    await retry.click();
+  }
+  await empty.waitFor({ timeout: 60000 });
   assert.equal(await page.locator("iframe").count(), 0, "no game frame without an eligible Friend");
   await page.screenshot({ path: `${OUT}/04-no-friends.png` });
 });

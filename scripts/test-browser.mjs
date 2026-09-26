@@ -3,7 +3,7 @@
 // Game state is read through window.__descent, which exists only in automated browsers (navigator.webdriver).
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { testGame } from "@rarefriends/friendsdk/testing";
+import { cleanup, testSite } from "./harness.mjs";
 
 const OUT = "artifacts/test";
 await mkdir(OUT, { recursive: true });
@@ -50,8 +50,21 @@ async function harness({ page }) {
   return { consoleErrors, child, st, call, shot, press, waitFor, teleport, lastTx, focusGame, clearRoom };
 }
 
-await testGame(".", {
-  width: 1100, height: 780, timeout: 30000, screenshot: `${OUT}/final.png`,
+await testSite({
+  width: 1100, height: 780, timeout: 30000,
+  picker: async ({ page }) => {
+    await step("picker shows each Friend's canonical artwork and family", async () => {
+      const card = page.getByRole("button", { name: /^Friend #7730\b/ });
+      await page.getByText("Hoverer", { exact: true }).waitFor();
+      const inked = await card.locator("canvas").evaluate(canvas => {
+        const data = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+        let dark = 0; for (let i = 0; i < data.length; i += 4) if (data[i] < 40) dark++;
+        return dark;
+      });
+      assert(inked > 50, `thumbnail drew the Friend's pixels (${inked} dark pixels)`);
+      await page.screenshot({ path: `${OUT}/00-picker.png` });
+    });
+  },
   check: async ({ page, game }) => {
     const h = await harness({ page, game });
     const { st, call, shot, press, waitFor, teleport, lastTx, focusGame, clearRoom } = h;
@@ -63,14 +76,36 @@ await testGame(".", {
       await shot("01-title");
     });
 
-    await step("camp opens and the descent starts on keyboard input", async () => {
+    await step("the chosen Friend is locked in: the runtime toolbar offers no Friend switch", async () => {
+      assert.equal(await page.getByRole("button", { name: "Choose Friend" }).count(), 0);
+      assert.equal(await page.getByRole("button", { name: /^Friend #/ }).count(), 0, "no Friend picker button while playing");
+      await page.locator(".rf-frame-selected-friend", { hasText: "Friend #7730" }).waitFor();
+    });
+
+    await step("the camp is walkable: the Friend walks up the great stairs and descends", async () => {
       await page.keyboard.press("Enter");
-      await game.getByRole("button", { name: /Descend/ }).waitFor();
+      await game.getByRole("button", { name: "Descend ▾" }).waitFor();
+      const camp = await waitFor(s => s.screen === "camp" && s.interactables.some(it => it.kind === "station"), "walkable camp");
+      assert.equal(camp.interactables.filter(it => it.kind === "prop" && it.label === "").length > 5, true, "camp props present");
+      await page.waitForTimeout(600);
       await shot("02-camp");
-      await game.getByRole("tab", { name: "Friend" }).click();
+      await game.getByRole("button", { name: "Camp menu" }).click();
       await game.getByText(/Family trait/).waitFor();
-      await game.getByRole("tab", { name: "Descend" }).click();
-      await game.getByRole("button", { name: /Descend/ }).click();
+      await shot("02b-camp-menu");
+      await page.keyboard.press("Escape");
+      await waitFor(s => s.screen === "camp", "menu closed");
+      await focusGame();
+      const stairs = (await st()).interactables.find(it => it.label === "THE DESCENT");
+      const start = (await st()).pos;
+      await page.keyboard.down("w"); await page.waitForTimeout(1500); await page.keyboard.up("w");
+      const walked = await st();
+      assert(walked.pos.y < start.y - 150, `walked north toward the stairs (${start.y} -> ${walked.pos.y})`);
+      await teleport(stairs.x, stairs.y + 20);
+      await page.waitForTimeout(200);
+      await press("e", 400);
+      await game.getByRole("button", { name: "Begin the Descent" }).waitFor();
+      await shot("02c-stairs");
+      await game.getByRole("button", { name: "Begin the Descent" }).click();
       const s = await waitFor(s => s.screen === "run" && s.depth === 1, "run start");
       assert.equal(s.balance, 25, "starts with 25 RF");
       assert.equal(s.history[0].reason, "Starting balance (simulated)");
@@ -97,9 +132,13 @@ await testGame(".", {
       assert.equal(cleared.locked, null, "doors unlock");
       assert((await st()).drops.some(d => d.kind === "item"), "the first fight drops loot");
       await page.waitForTimeout(700);
-      const loot = (await st()).drops.find(d => d.kind === "item");
-      await teleport(loot.x, loot.y);
-      await waitFor(s => s.equipment[0] !== "Rune Claw", "loot equipped");
+      for (let i = 0; i < 6; i++) {
+        const loot = (await st()).drops.find(d => d.kind === "item");
+        if (!loot) break;
+        await teleport(loot.x, loot.y);
+        await page.waitForTimeout(400);
+      }
+      await waitFor(s => s.equipment[0] !== "Rune Claw", "the guaranteed weapon upgrade is equipped");
       await shot("04-loot");
     });
 
@@ -332,8 +371,25 @@ await testGame(".", {
       await game.getByRole("heading", { name: "Your Friend Has Fallen" }).waitFor();
       await game.getByRole("button", { name: "Return to Camp" }).click();
       await waitFor(s => s.screen === "camp", "camp");
+      await game.getByRole("button", { name: "Camp menu" }).click();
       await game.getByRole("tab", { name: /Stash/ }).click();
       await shot("23-stash");
+    });
+
+    await step("audio: every place has its own mood and every family its own voice", async () => {
+      const result = await call(`
+        const a = g.audio;
+        return a.unlock().then(running => {
+          for (const mode of ["camp", "crypt", "tech", "flesh", "void", "boss"]) { a.setMusicMode(mode); for (let i = 0; i < 6; i++) a.musicStep(mode, 0); }
+          for (const family of ["Skeleton", "Mask", "Family", "Cellular", "Asymmetry", "Hoverer", "Colossus", "Sparkling", "Hollow"]) {
+            a.setVoice(family, 7730); a.lastPlayed.clear(); a.friendVoice("signature");
+          }
+          a.setVoice(g.friend.family, g.kit.seed);
+          a.setMusicMode("crypt");
+          return { running, state: a.ctx && a.ctx.state };
+        });
+      `);
+      assert.equal(result.state, "running", "audio context runs after a gesture");
     });
 
     await step("no console errors during play", async () => {
@@ -382,7 +438,7 @@ await testGame(".", {
 });
 
 // A phone-sized pass exercises the touch controls.
-await testGame(".", {
+await testSite({
   width: 480, height: 700, timeout: 30000,
   check: async ({ page, game }) => {
     const h = await harness({ page, game });
@@ -411,4 +467,5 @@ await testGame(".", {
   },
 });
 
+await cleanup();
 console.log(`\n${results.join("\n")}\n${results.filter(r => r.startsWith("PASS")).length}/${results.length} passed`);

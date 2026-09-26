@@ -1,4 +1,4 @@
-import { AudioEngine, type SfxName } from "../audio/audio";
+import { AudioEngine, type MusicMode, type SfxName } from "../audio/audio";
 import { InsufficientRfError, rf, wholeRf, type RfCategory, type RfTransaction, type TokenEconomy } from "../economy/TokenEconomy";
 import {
   GAMBLER_PAYOUTS, RF_COSTS, RF_GOBLIN_MAX_COINS, RF_NORMAL_ENEMY_CHANCE, RF_REWARDS, RF_STARTING_BALANCE,
@@ -6,7 +6,7 @@ import {
 } from "../economy/terms";
 import type { FriendArt } from "../render/sprites";
 import {
-  CURSED_BOX, EVENTS, GATES, GOLDEN_DOOR_RARITIES, LEGENDARY_GAMBLE, MERCHANT, SHRINES, bandForFloor,
+  CURSED_BOX, EVENTS, GATES, type RosterKind, GOLDEN_DOOR_RARITIES, LEGENDARY_GAMBLE, MERCHANT, SHRINES, bandForFloor,
 } from "./content";
 import { generateArena, generateFloor, roomAt, roomCenter, TILE, T, type Floor, type Rect, type Room } from "./dungeon";
 import { createEnemy, rollModifiers, updateEnemy, type SpawnOptions, type World } from "./enemies";
@@ -22,7 +22,8 @@ import { angleDiff, angleTo, dist, fromAngle, inCone, normalize, segmentDistance
 import { hash32, randomSeed, Rng } from "./rng";
 import { BOONS, DEFAULT_TRAIT, FAMILY_TRAITS, computeStats, xpForLevel, type BoonId, type Buff, type Stats } from "./stats";
 import { Store } from "./store";
-import type { Banner, CodexEntry, FollowUp, Modal, RunSummary, Screen, Settings, Toast, UiState } from "./types";
+import type { Banner, CampTab, CodexEntry, FollowUp, Modal, RunSummary, Screen, Settings, Toast, UiState } from "./types";
+import { generateCamp } from "./camp";
 
 export type FriendIdentity = Readonly<{ id: bigint; label: string; family: string }>;
 export type Renderer = { render(dt: number): void; floorChanged(): void };
@@ -37,6 +38,10 @@ type RunState = {
 };
 
 const PLAYER_RADIUS = 14;
+/** Encounter budget cost of each roster enemy (a mite entry spawns a pack of four). */
+const ENEMY_COST: Readonly<Record<RosterKind, number>> = {
+  cursed: 1, crawler: 1.3, wisp: 1.2, gunner: 1.4, drone: 1.4, turret: 1.8, mite: 2, spitter: 1.6, eyestalk: 1.6, bloodling: 1.1, shade: 2,
+};
 const BAG_LIMIT = 10;
 const STASH_LIMIT = 12;
 const MAX_PARTICLES = 900;
@@ -108,12 +113,13 @@ export class Game implements World {
   constructor(readonly friend: FriendIdentity, readonly art: FriendArt, readonly economy: TokenEconomy, settings: Settings) {
     this.trait = FAMILY_TRAITS[friend.family] ?? DEFAULT_TRAIT;
     this.kit = friendKit(friend.family, art.sprites?.seed ?? Number(friend.id % 4294967296n));
+    this.audio.setVoice(friend.family, this.kit.seed);
     this.stats = computeStats(1, this.trait.mods, this.boons, [], []);
     this.store = new Store<UiState>({
       screen: "title", modal: { kind: "none" }, busy: false,
       balance: wholeRf(economy.getBalance()), rfFlash: null, recent: [...economy.getHistory()].slice(-5).reverse(),
-      depth: 1, floorName: bandForFloor(1).name, toasts: [], banner: null, settings, pendingLevels: 0, touch: false,
-      canInteract: false, summary: null, version: 0,
+      depth: 1, floorName: bandForFloor(1).area.toUpperCase(), toasts: [], banner: null, settings, pendingLevels: 0, touch: false,
+      canInteract: false, summary: null, version: 0, campPanel: null,
     });
     this.audio.setMuted(!settings.sound);
     this.audio.setMusic(settings.music);
@@ -124,6 +130,7 @@ export class Game implements World {
   }
 
   get ui() { return this.store.get(); }
+  get bulletColor() { return this.floor?.band.bullet ?? "#c9b8ff"; }
   get settings() { return this.ui.settings; }
   get screen(): Screen { return this.ui.screen; }
   get modal(): Modal { return this.ui.modal; }
@@ -165,7 +172,8 @@ export class Game implements World {
   }
 
   private simulating() {
-    return this.screen === "run" && this.modal.kind === "none" && !this.externalPause;
+    if (this.externalPause || this.modal.kind !== "none") return false;
+    return this.screen === "run" || (this.screen === "camp" && this.ui.campPanel === null && this.floor !== null);
   }
 
   private tick(dt: number) {
@@ -224,14 +232,45 @@ export class Game implements World {
   beginFromTitle() {
     void this.audio.unlock();
     this.audio.cue("action-start");
-    this.patch({ screen: "camp", modal: { kind: "none" }, toasts: [] });
-    this.audio.setMusicMode("ambient");
+    this.audio.friendVoice("greet");
+    this.enterCamp();
+    this.toast("Walk down the great stairs to begin your descent", "#ccff00");
   }
 
   returnToCamp() {
-    this.patch({ screen: "camp", modal: { kind: "none" }, summary: null, banner: null, toasts: [] });
-    this.audio.setMusicMode("ambient");
+    this.enterCamp();
   }
+
+  /** The walkable camp: a ruined Rare Friends sanctuary above the Descent. */
+  private enterCamp() {
+    const camp = generateCamp();
+    this.resetFloorEntities();
+    this.floor = camp.floor;
+    for (const thing of camp.things) this.addInteractable(thing);
+    this.player = freshPlayer(camp.spawn);
+    this.player.aim = -Math.PI / 2;
+    this.player.facing = "up";
+    this.player.dodgeCharges = this.kit.dodge.charges;
+    this.stats = computeStats(1, this.trait.mods, new Map(), [], []);
+    this.player.hp = this.stats.maxHp;
+    this.camera = { x: camp.spawn.x - 480, y: camp.spawn.y - 330 };
+    this.currentRoom = 0;
+    this.barriers = [];
+    this.renderer?.floorChanged();
+    this.audio.setMusicMode("camp");
+    this.patch({ screen: "camp", modal: { kind: "none" }, summary: null, banner: null, toasts: [], campPanel: null });
+  }
+
+  /** The mood for where the Friend stands: the camp or this floor's style. */
+  private placeMusic(): MusicMode { return this.screen === "camp" || !this.floor ? "camp" : this.floor.band.style; }
+
+  openCampPanel(tab: CampTab) {
+    if (tab === "friend") this.audio.friendVoice("greet");
+    this.input.clear();
+    this.sfx("ui");
+    this.patch({ campPanel: tab });
+  }
+  closeCampPanel() { this.patch({ campPanel: null }); }
 
   setHeirloom(id: number | null) {
     this.heirloomId = id;
@@ -285,7 +324,7 @@ export class Game implements World {
     this.player.energy = this.stats.energyMax;
     this.player.potions = 3;
     this.player.dodgeCharges = this.kit.dodge.charges;
-    this.patch({ screen: "run", modal: { kind: "none" }, summary: null, pendingLevels: 0, toasts: [] });
+    this.patch({ screen: "run", modal: { kind: "none" }, summary: null, pendingLevels: 0, toasts: [], campPanel: null });
     this.enterFloor(1);
   }
 
@@ -303,9 +342,9 @@ export class Game implements World {
     this.currentRoom = 0;
     this.recomputeBarriers();
     this.renderer?.floorChanged();
-    this.audio.setMusicMode("ambient");
-    this.patch({ depth, floorName: this.floor.band.name });
-    this.banner(`DEPTH ${depth}`, this.floor.band.name, this.floor.band.accent, "floor");
+    this.audio.setMusicMode(this.placeMusic());
+    this.patch({ depth, floorName: this.floor.band.area.toUpperCase() });
+    this.banner(`DEPTH ${depth}`, `${this.floor.band.name} · ${this.floor.band.area}`, this.floor.band.accent, "floor");
     if (depth === 1 && this.runsStarted === 1) this.toast(this.ui.touch ? "Drag the left side to move · tap ATTACK" : "WASD to move · J / click to attack · SPACE to dodge", "#ccff00");
   }
 
@@ -542,6 +581,17 @@ export class Game implements World {
   private update(dt: number) {
     this.time += dt;
     const p = this.player;
+    if (this.screen === "camp") {
+      this.updatePlayer(dt);
+      this.updateInteractables(dt);
+      this.updateEffects(dt);
+      this.updateCamera(dt);
+      const fire = this.interactables.find(it => it.prop === "fire");
+      if (fire && !this.reducedMotion && Math.random() < 0.5) {
+        this.particle({ x: fire.pos.x + (Math.random() - 0.5) * 24, y: fire.pos.y - 16, vx: (Math.random() - 0.5) * 20, vy: -40 - Math.random() * 40, life: 1.2, size: 2, color: "#ffb347", kind: "pixel", drag: 0.5, gravity: -10 });
+      }
+      return;
+    }
     if (p.dead) {
       p.deathTime += dt;
       if (p.deathTime > 1.2 && this.modal.kind === "none") this.setModal({ kind: "death" });
@@ -627,9 +677,15 @@ export class Game implements World {
     if (input.consume("nova") && p.novaCd <= 0) this.castSignature();
     if (input.consume("potion")) this.drinkPotion();
     if (input.consume("interact")) this.interact();
-    if (input.consume("character")) this.setModal({ kind: "character" });
-    if (input.consume("log")) this.setModal({ kind: "log" });
-    if (input.consume("pause")) this.setModal({ kind: "pause" });
+    if (this.screen === "camp") {
+      if (input.consume("character")) this.openCampPanel("friend");
+      if (input.consume("log")) this.openCampPanel("rf");
+      if (input.consume("pause")) this.openCampPanel("descend");
+    } else {
+      if (input.consume("character")) this.setModal({ kind: "character" });
+      if (input.consume("log")) this.setModal({ kind: "log" });
+      if (input.consume("pause")) this.setModal({ kind: "pause" });
+    }
 
     if (s.powers.has("runeOrbit") || s.powers.has("voidHeart")) {
       for (let i = 0; i < 3; i++) {
@@ -658,6 +714,7 @@ export class Game implements World {
     p.swing = { t: 0, dur: style.id === "whirl" ? 0.22 : 0.16, angle, arc, range, heavy };
     p.attackCd = style.cd;
     this.sfx(heavy ? "heavySwing" : "swing");
+    if (heavy) this.audio.friendVoice("heavy");
     let hits = 0;
     for (const e of this.enemies) {
       if (e.dead || e.spawnT > 0) continue;
@@ -714,6 +771,7 @@ export class Game implements World {
     if (p.energy < sig.energy) { this.toast(`${sig.name} needs ${sig.energy} energy`, "#8f6fd8"); this.sfx("deny"); return; }
     p.energy -= sig.energy;
     p.novaCd = sig.cd;
+    this.audio.friendVoice("signature");
     const atk = s.atk * s.novaMult, aim = this.aimFor(320), at = (a: number, d: number) => ({ x: p.pos.x + Math.cos(a) * d, y: p.pos.y + Math.sin(a) * d });
     p.aim = aim;
     const ring = (x: number, y: number, r: number) => this.particle({ x, y: y - 10, vx: 0, vy: 0, life: 0.45, size: r, color: sig.color, kind: "ring", drag: 0, gravity: 0 });
@@ -778,6 +836,7 @@ export class Game implements World {
     p.dodgeCharges--;
     p.iframes = Math.max(p.iframes, 0.3 + (s.powers.has("nullSignal") ? 0.3 : 0));
     this.sfx("dodge");
+    this.audio.friendVoice("dodge");
     if (s.powers.has("nullSignal")) this.castNova(true);
   }
 
@@ -816,7 +875,7 @@ export class Game implements World {
     e.hp -= dmg;
     e.hitFlash = 0.1;
     if (o.knock && o.from) {
-      const resist = e.boss ? 0.12 : e.elite ? 0.45 : 1;
+      const resist = e.boss || e.speed === 0 ? 0.12 : e.elite ? 0.45 : 1;
       const dir = normalize(e.pos.x - o.from.x, e.pos.y - o.from.y);
       e.knock.x += dir.x * o.knock * resist;
       e.knock.y += dir.y * o.knock * resist;
@@ -848,6 +907,12 @@ export class Game implements World {
     if (e.mods.includes("explosive")) this.hazard({ shape: "circle", pos: { ...e.pos }, radius: 90, delay: 0.7, dmg: e.dmg * 1.3, color: "#ff9a3c", source: e });
     if (e.mods.includes("cursed")) this.hazard({ shape: "circle", pos: { ...e.pos }, radius: 60, delay: 0.3, dmg: e.dmg * 0.2, linger: 3, tick: 0.5, color: "#7a2cff", curse: true });
     if (e.boss) { this.bossDefeated(e); return; }
+    if (e.kind === "bloodling" && !e.minion) {
+      for (let i = 0; i < 2; i++) {
+        const child = this.spawn("bloodling", { x: e.pos.x + (i ? 14 : -14), y: e.pos.y }, e.roomId, { minion: true });
+        child.spawnT = 0.15; child.radius = 10;
+      }
+    }
     const luck = s.luck + s.lootDrops;
     if (e.bounty === "voidHunt") {
       this.dropItem(e.pos, generateItem(this.rng, this.depth, { rarity: "legendary" }));
@@ -883,6 +948,7 @@ export class Game implements World {
       this.refreshStats();
       this.heal(this.stats.maxHp * 0.15);
       this.sfx("levelUp");
+      this.audio.friendVoice("happy");
       this.audio.cue("action-ready");
       this.burst(p.pos.x, p.pos.y - 20, "#ccff00", 40, 260);
       this.banner(`LEVEL ${this.level}`, "Choose an upgrade when the room is clear", "#ccff00", "level");
@@ -924,6 +990,7 @@ export class Game implements World {
     if (source?.mods.includes("vampiric") && !source.dead) source.hp = Math.min(source.maxHp, source.hp + dmg * 0.5);
     this.floater(p.pos.x, p.pos.y - 44, `-${dmg}`, "#ff4d6d", 18);
     this.sfx("playerHurt");
+    this.audio.friendVoice("hurt");
     this.shake(5);
     this.burst(p.pos.x, p.pos.y - 16, "#ff2e4d", 10, 160);
     if (p.hp <= 0) this.playerDied();
@@ -1011,14 +1078,19 @@ export class Game implements World {
   private planEncounter(room: Room): Encounter {
     const d = this.depth, run = this.run!;
     const budget = room.type === "bonus" ? (4 + d * 1.4) * 1.3 : d === 1 ? [4, 5, 6][Math.min(2, run.combatRoomsCleared)] : 4 + d * 1.25;
+    // Each floor draws from its own roster (see FLOOR_THEMES); stationary shooters are capped per wave.
+    const roster = this.floor!.band.roster;
     const normals = (points: number): Wave => {
       const wave: Wave = [];
-      let left = points;
+      let left = points, stationary = 0;
       while (left > 0.5) {
-        const crawler = this.rng.chance(d === 1 ? 0.2 : 0.33);
-        const champion = d > 1 && this.rng.chance(Math.min(0.25, 0.04 + d * 0.02));
-        wave.push({ kind: crawler ? "crawler" : "cursed", options: champion ? { champion: true, mods: rollModifiers(this.rng, 1) } : {} });
-        left -= crawler ? 1.3 : 1;
+        let kind: RosterKind = this.rng.weighted(roster);
+        if ((kind === "turret" || kind === "eyestalk") && ++stationary > 2) kind = "cursed";
+        const champion = d > 1 && kind !== "mite" && this.rng.chance(Math.min(0.25, 0.04 + d * 0.02));
+        const options: SpawnOptions = champion ? { champion: true, mods: rollModifiers(this.rng, 1) } : {};
+        if (kind === "mite") for (let i = 0; i < 4; i++) wave.push({ kind, options: {} });
+        else wave.push({ kind, options });
+        left -= ENEMY_COST[kind];
       }
       return wave;
     };
@@ -1071,6 +1143,8 @@ export class Game implements World {
     const wasFight = !room.cleared;
     room.cleared = true;
     for (const pickup of this.pickups) if (pickup.kind === "rf") pickup.magnet = true;
+    for (const proj of this.projectiles) if (proj.owner === "enemy") this.burst(proj.pos.x, proj.pos.y, proj.color, 2, 60);
+    this.projectiles = this.projectiles.filter(proj => proj.owner === "player");
     if (wasFight && room.type !== "boss" && !run.firstLootGiven && this.depth === 1) {
       // The first fight always pays out a visible upgrade, so loot shows up in the first minute.
       run.firstLootGiven = true;
@@ -1109,7 +1183,7 @@ export class Game implements World {
     const room = floor.rooms[e.roomId];
     run.bosses.push(e.name);
     this.boss = null;
-    this.audio.setMusicMode("ambient");
+    this.audio.setMusicMode(this.placeMusic());
     this.audio.cue("reveal-legendary");
     this.shake(16);
     for (const other of this.enemies) if (!other.dead) { other.dead = true; this.burst(other.pos.x, other.pos.y, "#8f6fd8", 10); }
@@ -1185,8 +1259,10 @@ export class Game implements World {
       proj.life -= dt;
       proj.pos.x += proj.vel.x * dt;
       proj.pos.y += proj.vel.y * dt;
+      if (proj.burst && proj.life <= 0) { this.burstProjectile(proj); continue; }
       if (this.solidAt(proj.pos.x, proj.pos.y)) {
         if (proj.owner === "player") this.hitSecretWallAt(proj.pos, proj.dmg);
+        if (proj.burst) { proj.pos.x -= proj.vel.x * dt; proj.pos.y -= proj.vel.y * dt; this.burstProjectile(proj); continue; }
         proj.life = 0;
         this.burst(proj.pos.x, proj.pos.y, proj.color, 5, 90);
         continue;
@@ -1206,6 +1282,19 @@ export class Game implements World {
       if (!this.reducedMotion && Math.random() < 0.5) this.particle({ x: proj.pos.x, y: proj.pos.y, vx: 0, vy: 0, life: 0.18, size: proj.radius * 0.8, color: proj.color, kind: "glow", drag: 0, gravity: 0 });
     }
     this.projectiles = this.projectiles.filter(proj => proj.life > 0);
+  }
+
+  /** A lobbed glob pops into a ring of bullets. */
+  private burstProjectile(proj: Projectile) {
+    const b = proj.burst!;
+    proj.life = 0;
+    proj.burst = undefined;
+    const offset = Math.random() * TAU;
+    for (let i = 0; i < b.count; i++) {
+      this.fire({ pos: { ...proj.pos }, vel: fromAngle(offset + (i / b.count) * TAU, b.speed), radius: 7, dmg: b.dmg, owner: "enemy", life: 4, color: b.color, kind: "orb", source: proj.source });
+    }
+    this.burst(proj.pos.x, proj.pos.y, b.color, 14, 160);
+    this.sfx("explode", 0.6);
   }
 
   private hazardHits(h: Hazard, pos: Vec, r: number): boolean {
@@ -1337,7 +1426,7 @@ export class Game implements World {
       if (d < it.radius + p.radius + 34 && d < bestD && this.isInteractable(it)) { best = it; bestD = d; }
     }
     const text = best ? this.promptFor(best) : null;
-    const lift = best?.kind === "shrine" ? (best.shrine === "void" ? 140 : best.shrine === "fate" ? 118 : 70)
+    const lift = best?.kind === "station" && best.station === "descend" ? 120 : best?.kind === "shrine" ? (best.shrine === "void" ? 140 : best.shrine === "fate" ? 118 : 70)
       : best?.kind === "event" && (best.event === "blackDoor" || best.event === "goldenDoor" || best.event === "mirror") ? 100 : best ? best.radius + 36 : 0;
     this.prompt = best && text ? { text, pos: { x: best.pos.x, y: best.pos.y - lift }, color: this.promptColor(best) } : null;
     const canInteract = Boolean(best && best.kind !== "secretWall");
@@ -1348,6 +1437,7 @@ export class Game implements World {
     if (it.kind === "secretWall") { const c = this.floor?.connections.find(c => c.kind === "secret" && dist(c.centerA, it.pos) < 2); return Boolean(c && !c.open); }
     if (it.kind === "gate") return !it.used;
     if (it.kind === "chest") return !it.used;
+    if (it.kind === "prop") return false;
     if (it.kind === "event" || it.kind === "shrine") return true;
     return true;
   }
@@ -1363,6 +1453,8 @@ export class Game implements World {
       case "stairs": return `${key}${it.label}`;
       case "waystone": return `${key}TOUCH THE WAYSTONE`;
       case "secretWall": return "A cracked wall. Strike it!";
+      case "station": return it.station === "descend" ? `${key}DESCEND THE GREAT STAIRS` : `${key}${it.label}`;
+      case "prop": return "";
     }
   }
   private promptColor(it: Interactable) {
@@ -1402,6 +1494,7 @@ export class Game implements World {
         else this.nextFloor();
         return;
       case "waystone": this.secureLoot(); this.setModal({ kind: "waystone" }); return;
+      case "station": if (best.station) this.openCampPanel(best.station); return;
     }
   }
 
@@ -1792,7 +1885,7 @@ export class Game implements World {
     this.particle({ x: p.pos.x, y: p.pos.y - 10, vx: 0, vy: 0, life: 0.6, size: 260, color: "#ccff00", kind: "ring", drag: 0, gravity: 0 });
     this.burst(p.pos.x, p.pos.y - 16, "#ccff00", 60, 320);
     this.audio.cue("reveal-rare");
-    this.audio.setMusicMode(this.boss ? "boss" : "ambient");
+    this.audio.setMusicMode(this.boss ? "boss" : this.placeMusic());
     this.setModal({ kind: "none" });
     this.toast(kind === "full" ? "FULL REVIVAL" : "REVIVED", "#ccff00");
   }
@@ -1859,7 +1952,7 @@ export class Game implements World {
     this.saved = null;
     this.recomputeBarriers();
     this.renderer?.floorChanged();
-    this.audio.setMusicMode("ambient");
+    this.audio.setMusicMode(this.placeMusic());
     this.toast("You return from the rift.", "#ccff00");
   }
 

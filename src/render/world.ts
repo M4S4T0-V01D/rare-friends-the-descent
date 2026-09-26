@@ -36,7 +36,7 @@ export function paintChunk(ctx: CanvasRenderingContext2D, floor: Floor, cx: numb
   for (const room of floor.rooms) {
     const rx = room.x * TILE, ry = room.y * TILE, rw = room.w * TILE, rh = room.h * TILE;
     if (rx > (cx + 1) * CHUNK + 64 || ry > (cy + 1) * CHUNK + 64 || rx + rw < cx * CHUNK - 64 || ry + rh < cy * CHUNK - 64) continue;
-    if (room.type === "boss" || room.type === "arena") paintArenaSigil(ctx, band, rx + rw / 2, ry + rh / 2, Math.min(rw, rh) * 0.36);
+    if (room.type === "boss" || (room.type === "arena" && floor.depth > 0)) paintArenaSigil(ctx, band, rx + rw / 2, ry + rh / 2, Math.min(rw, rh) * 0.36);
     for (const decor of room.decor) paintDecor(ctx, band, decor);
     for (const torch of room.torches) paintTorchBracket(ctx, torch.x, torch.y);
   }
@@ -71,6 +71,23 @@ function paintFloorTile(ctx: CanvasRenderingContext2D, floor: Floor, band: Band,
     ctx.fillStyle = shade(base, 14);
     ctx.fillRect(x + 20, y + 20, 2, 2); ctx.fillRect(x + 7, y + 24, 2, 1);
   }
+  // Floor-specific surface detail.
+  if (!corridor) {
+    if (band.style === "tech") {
+      ctx.fillStyle = shade(base, -16); ctx.fillRect(x + 15, y, 2, TILE); ctx.fillRect(x, y + 15, TILE, 2);
+      ctx.fillStyle = shade(base, 22); for (const [bx, by] of [[3, 3], [27, 3], [3, 27], [27, 27]]) ctx.fillRect(x + bx, y + by, 2, 2);
+      if (n > 0.9) { ctx.fillStyle = band.accent; ctx.globalAlpha = 0.28; ctx.fillRect(x + 4, y + 15, 24, 2); ctx.globalAlpha = 1; }
+    } else if (band.style === "flesh") {
+      if (n > 0.55) {
+        ctx.strokeStyle = shade(base, 24); ctx.lineWidth = 1.5; ctx.beginPath();
+        ctx.moveTo(x, y + n * 30); ctx.quadraticCurveTo(x + 16, y + (1 - n) * 32, x + TILE, y + n * 20); ctx.stroke();
+      }
+      if (n < 0.06) { ctx.fillStyle = "#6a1020"; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.ellipse(x + 16, y + 16, 9, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+    } else if (band.style === "void") {
+      if (n > 0.8) { ctx.fillStyle = n > 0.97 ? band.accent : "#6d6780"; ctx.fillRect(x + Math.floor(n * 97) % 28 + 2, y + Math.floor(n * 53) % 28 + 2, 1, 1); }
+      if ((tx + ty * 3) % 11 === 0) { ctx.fillStyle = band.torch; ctx.globalAlpha = 0.12; ctx.fillRect(x, y, TILE, 1); ctx.globalAlpha = 1; }
+    }
+  }
   if (tile === T.Door) {
     ctx.fillStyle = shade(band.wall, -10);
     ctx.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
@@ -101,6 +118,8 @@ function paintWallTile(ctx: CanvasRenderingContext2D, floor: Floor, band: Band, 
     ctx.fillRect(x + ((tx % 2) ? 20 : 4), y + 21, 1, 11);
     ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.fillRect(x, y + TILE - 3, TILE, 3);
+    if (band.style === "flesh" && n > 0.6) { ctx.fillStyle = shade(band.wallTop, 20); ctx.fillRect(x + Math.floor(n * 90) % 26 + 3, y + 10, 2, 6 + Math.floor(n * 10)); }
+    if (band.style === "tech" && n > 0.45 && n < 0.6) { ctx.fillStyle = band.accent; ctx.globalAlpha = 0.5; ctx.fillRect(x + 6, y + 22, 3, 3); ctx.fillRect(x + 12, y + 22, 3, 3); ctx.globalAlpha = 1; }
     if (n > 0.9) {
       ctx.globalAlpha = 0.5; ctx.fillStyle = band.accent;
       ctx.fillRect(x + 12, y + 13, 8, 2); ctx.fillRect(x + 15, y + 13, 2, 12);
@@ -203,6 +222,60 @@ export function paintDecor(ctx: CanvasRenderingContext2D, band: Band, d: Decor) 
       ctx.fillStyle = "#5c1422"; ctx.fillRect(x - 6, y - 22, 12, 18);
       ctx.fillStyle = "#3d0d17"; ctx.fillRect(x - 6, y - 4, 4, 4); ctx.fillRect(x + 2, y - 4, 4, 5);
       ctx.fillStyle = band.accent; ctx.globalAlpha = 0.5; ctx.fillRect(x - 2, y - 17, 4, 8);
+      break;
+    case "coffin":
+      ctx.fillStyle = "#2a1c14"; ctx.beginPath(); ctx.moveTo(x - 6, y - 16); ctx.lineTo(x + 6, y - 16); ctx.lineTo(x + 9, y - 8); ctx.lineTo(x + 6, y + 14); ctx.lineTo(x - 6, y + 14); ctx.lineTo(x - 9, y - 8); ctx.fill();
+      ctx.fillStyle = "#4a3222"; ctx.fillRect(x - 1, y - 10, 2, 16); ctx.fillRect(x - 5, y - 5, 10, 2);
+      break;
+    case "gravestone":
+      ctx.fillStyle = shade(band.wallTop, 6); ctx.beginPath(); ctx.moveTo(x - 8, y + 4); ctx.lineTo(x - 8, y - 10); ctx.arc(x, y - 10, 8, Math.PI, 0); ctx.lineTo(x + 8, y + 4); ctx.fill();
+      ctx.fillStyle = shade(band.wallTop, -18); ctx.fillRect(x - 1, y - 12, 2, 10); ctx.fillRect(x - 4, y - 9, 8, 2);
+      ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.fillRect(x - 9, y + 4, 18, 3);
+      break;
+    case "serverRack":
+      ctx.fillStyle = "#0e1418"; ctx.fillRect(x - 10, y - 26, 20, 30);
+      ctx.fillStyle = "#1f2c33"; for (let i = 0; i < 5; i++) ctx.fillRect(x - 8, y - 24 + i * 6, 16, 4);
+      ctx.fillStyle = band.accent; ctx.globalAlpha = 0.8; for (let i = 0; i < 5; i++) if ((s >> i) & 1) ctx.fillRect(x + 4, y - 23 + i * 6, 2, 2);
+      break;
+    case "pipe":
+      ctx.fillStyle = "#1c262c"; ctx.fillRect(x - 24, y - 4, 48, 8);
+      ctx.fillStyle = "#2c3a42"; ctx.fillRect(x - 24, y - 4, 48, 2); ctx.fillRect(x - 14, y - 6, 4, 12); ctx.fillRect(x + 10, y - 6, 4, 12);
+      ctx.fillStyle = band.accent; ctx.globalAlpha = 0.5; ctx.fillRect(x - 2, y - 1, 4, 2);
+      break;
+    case "screen":
+      ctx.fillStyle = "#0a0f12"; ctx.fillRect(x - 12, y - 18, 24, 16);
+      ctx.fillStyle = band.accent; ctx.globalAlpha = 0.35; ctx.fillRect(x - 10, y - 16, 20, 12);
+      ctx.globalAlpha = 0.7; for (let i = 0; i < 4; i++) ctx.fillRect(x - 8, y - 14 + i * 3, (s >> i) % 14 + 3, 1);
+      ctx.globalAlpha = 1; ctx.fillStyle = "#0a0f12"; ctx.fillRect(x - 2, y - 2, 4, 5);
+      break;
+    case "tendril":
+      ctx.strokeStyle = "#3d0d17"; ctx.lineWidth = 4; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(x - 14, y + 6); ctx.bezierCurveTo(x - 4, y - 12, x + 6, y + 10, x + 14, y - 10); ctx.stroke();
+      ctx.strokeStyle = "#7a1c30"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = band.accent; ctx.globalAlpha = 0.5; ctx.fillRect(x + 13, y - 12, 3, 3);
+      break;
+    case "fleshPool":
+      ctx.fillStyle = "#4a0c16"; ctx.beginPath(); ctx.ellipse(x, y, 20, 9, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#8a1c2b"; ctx.beginPath(); ctx.ellipse(x - 3, y - 1, 12, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ff8fa3"; ctx.globalAlpha = 0.6; ctx.fillRect(x - 8, y - 3, 4, 1);
+      break;
+    case "ribcage":
+      ctx.strokeStyle = "#a79fb3"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x - 14, y); ctx.lineTo(x + 14, y); ctx.stroke();
+      for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(x + i * 6, y, 7, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
+      break;
+    case "eyeball":
+      ctx.fillStyle = "#e9e4ff"; ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#c2283f"; ctx.beginPath(); ctx.arc(x + ((s % 3) - 1) * 2, y, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#07050b"; ctx.fillRect(x + ((s % 3) - 1) * 2 - 1, y - 1, 2, 2);
+      break;
+    case "voidShard":
+      ctx.fillStyle = s % 2 ? band.accent : band.torch; ctx.globalAlpha = 0.8;
+      ctx.beginPath(); ctx.moveTo(x, y - 18); ctx.lineTo(x + 6, y - 4); ctx.lineTo(x, y + 2); ctx.lineTo(x - 5, y - 6); ctx.fill();
+      ctx.globalAlpha = 0.4; ctx.fillRect(x + 8, y - 12, 3, 3); ctx.fillRect(x - 10, y - 2, 2, 2);
+      break;
+    case "glitch":
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? band.accent : band.torch; ctx.globalAlpha = 0.35; ctx.fillRect(x - 14 + ((s >> i) % 10), y - 8 + i * 4, 10 + ((s >> (i + 2)) % 16), 2); }
       break;
     case "crystal":
       ctx.fillStyle = band.accent; ctx.globalAlpha = 0.75;

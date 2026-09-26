@@ -9,7 +9,8 @@ export type T = typeof T[keyof typeof T];
 
 export type RoomType = "start" | "combat" | "elite" | "treasure" | "shrine" | "merchant" | "event" | "bonus" | "secret" | "boss" | "exit" | "arena";
 export type Rect = { x: number; y: number; w: number; h: number };
-export type DecorKind = "bones" | "skull" | "candles" | "chains" | "terminal" | "cables" | "runeCircle" | "rubble" | "banner" | "crystal";
+export type DecorKind = "bones" | "skull" | "candles" | "chains" | "terminal" | "cables" | "runeCircle" | "rubble" | "banner" | "crystal"
+  | "coffin" | "gravestone" | "serverRack" | "pipe" | "screen" | "tendril" | "fleshPool" | "ribcage" | "eyeball" | "voidShard" | "glitch";
 export type Decor = { x: number; y: number; kind: DecorKind; seed: number };
 
 export type Room = {
@@ -279,7 +280,8 @@ function tryGenerate(depth: number, seed: number): Floor | null {
     }
   }
 
-  for (const room of rooms) decorate(rng, room, get);
+  const theme = bandForFloor(depth);
+  for (const room of rooms) decorate(rng, room, get, theme.decor);
 
   const start = rooms[0];
   start.visited = true;
@@ -332,16 +334,15 @@ function carveCorridor(a: Room, b: Room, set: (x: number, y: number, v: T) => vo
   return { doorA, doorB, centerA: centre(doorA), centerB: centre(doorB) };
 }
 
-function decorate(rng: Rng, room: Room, get: (x: number, y: number) => number) {
-  const kinds: DecorKind[] = room.type === "boss" ? ["skull", "chains", "runeCircle", "bones", "rubble"]
-    : ["bones", "skull", "candles", "chains", "terminal", "cables", "rubble", "banner", "crystal"];
-  const count = Math.round(room.w * room.h / 45);
+function decorate(rng: Rng, room: Room, get: (x: number, y: number) => number, decor: readonly (readonly [string, number])[]) {
+  const pickKind = (): DecorKind => rng.weighted(decor as readonly (readonly [DecorKind, number])[]);
+  const count = Math.round(room.w * room.h / 42);
   for (let i = 0; i < count; i++) {
     const x = room.x + 1 + rng.next() * (room.w - 2), y = room.y + 1 + rng.next() * (room.h - 2);
     if (get(Math.floor(x), Math.floor(y)) !== T.Floor) continue;
     // Keep the middle of the room readable.
     if (Math.abs(x - (room.x + room.w / 2)) < 3 && Math.abs(y - (room.y + room.h / 2)) < 3) continue;
-    room.decor.push({ x: x * TILE, y: y * TILE, kind: rng.pick(kinds), seed: rng.int(0, 1e6) });
+    room.decor.push({ x: x * TILE, y: y * TILE, kind: pickKind(), seed: rng.int(0, 1e6) });
   }
   for (let x = room.x + 2; x < room.x + room.w - 1; x += rng.int(5, 7)) {
     if (get(x, room.y - 1) === T.Wall) room.torches.push({ x: x * TILE + TILE / 2, y: (room.y - 1) * TILE + TILE * 0.55 });
@@ -367,7 +368,7 @@ export function generateArena(depth: number, seed: number, w = 30, h = 22): Floo
     }
     if (near) tiles[y * width + x] = T.Wall;
   }
-  decorate(rng, room, (x, y) => (x >= 0 && y >= 0 && x < width && y < height ? tiles[y * width + x] : T.Void));
+  decorate(rng, room, (x, y) => (x >= 0 && y >= 0 && x < width && y < height ? tiles[y * width + x] : T.Void), bandForFloor(99).decor);
   return {
     depth, seed, width, height, tiles, rooms: [room], connections: [],
     start: { x: (room.x + w / 2) * TILE, y: (room.y + h - 3) * TILE }, band: { ...bandForFloor(99) }, isArena: true, gridW: 1, gridH: 1,
