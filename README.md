@@ -9,7 +9,7 @@ A dark action-RPG dungeon crawler for the Rare Friends Vibeathon. Your own Gener
 | **Builder** | M4S4T0 · GitHub [@M4S4T0-V01D](https://github.com/M4S4T0-V01D) |
 | **Category** | Game (FriendSDK). Entered for **Character Spotlight**, **Token Activity** and **Economy Potential** |
 | **Stack** | FriendSDK **v0.1.2** runtime · TypeScript · React 19 (UI) · Canvas 2D renderer · Web Audio |
-| **Playable preview** | GitHub Pages link: *added once the preview is published* |
+| **Playable preview** | *Not published yet.* Run it locally (see [Setup](#setup)), or deploy `site/` to GitHub Pages with the included workflow |
 | **Requirements** | A browser wallet on **Robinhood mainnet (chain 4663)** holding a **hardwired Rare Friends Generations NFT (generation ≥ 1)** |
 | **Economy** | **SIMULATED $RAREFRIENDS.** No real money, no token transfers, no purchases, no transactions. |
 
