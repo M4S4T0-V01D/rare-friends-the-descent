@@ -3,8 +3,11 @@
  * instruments (music box, harpsichord, chip lead, bell, organ, plucked bass, soft drums).
  * Notes are scheduled ahead on the Web Audio clock, so timing stays tight.
  */
-export type SongId = "camp" | "crypt" | "tech" | "flesh" | "void" | "boss";
-type Instrument = "musicbox" | "harpsi" | "chip" | "bell" | "organ" | "pluck";
+export type PlaceSong = "camp" | "crypt" | "tech" | "flesh" | "void" | "boss";
+/** Songs for special rooms. They fade in over the floor's tune while you stand in the room. */
+export type RoomSong = "shrine" | "voidShrine" | "corpse" | "lostFriend" | "mystery" | "merchant" | "gambler" | "treasure" | "secret";
+export type SongId = PlaceSong | RoomSong;
+type Instrument = "musicbox" | "harpsi" | "chip" | "bell" | "organ" | "pluck" | "choir" | "harp";
 type Track = { inst: Instrument; level: number; bars: string[]; octaveUpOnSection3?: boolean; mutedOnSection1?: boolean };
 type Song = {
   bpm: number; stepsPerBeat: number; stepsPerBar: number;
@@ -12,7 +15,7 @@ type Song = {
   /** Per-bar drum pattern characters: k kick, s snare, h hat, . rest. */
   drums?: string[]; drumLevel?: number;
   /** A quiet ambience one-shot for the place, and its chance per step. */
-  ambience?: { kind: "crackle" | "drip" | "blip" | "squelch" | "glitch"; chance: number };
+  ambience?: { kind: "crackle" | "drip" | "blip" | "squelch" | "glitch" | "chime"; chance: number };
 };
 
 const PC: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -116,7 +119,146 @@ const SONGS: Record<SongId, Song> = {
       { inst: "pluck", level: 0.12, bars: ["d2 d2 d3 d2 d2 d2 d3 d2 d2 d2 d3 d2 f2 d2 d3 d2", "bb1 bb1 bb2 bb1 bb1 bb1 bb2 bb1 bb1 bb1 bb2 bb1 d2 bb1 bb2 bb1", "c2 c2 c3 c2 c2 c2 c3 c2 c2 c2 c3 c2 e2 c2 c3 c2", "a1 a1 a2 a1 a1 a1 a2 a1 c#2 c#2 c#3 c#2 e2 e2 g2 e2"] },
     ],
   },
+
+  // ─── Special rooms ────────────────────────────────────────────────────────
+  // Shrines of Greed and Fate: a hushed, holy-but-wrong choir with harp. D minor: Dm, Bb, F, C.
+  shrine: {
+    bpm: 64, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "chime", chance: 0.02 },
+    tracks: [
+      { inst: "choir", level: 0.05, bars: [held("a4"), held("bb4"), held("a4"), held("g4")] },
+      { inst: "choir", level: 0.045, bars: [held("f4"), held("f4"), held("f4"), held("e4")] },
+      { inst: "choir", level: 0.045, bars: [held("d4"), held("d4"), held("c4"), held("c4")] },
+      { inst: "harp", level: 0.06, bars: [
+        "d4 - f4 - a4 - d5 - a4 - f4 - d4 - a3 -", "bb3 - d4 - f4 - bb4 - f4 - d4 - bb3 - f3 -",
+        "f3 - a3 - c4 - f4 - c4 - a3 - f3 - c4 -", "c4 - e4 - g4 - c5 - g4 - e4 - c4 - g3 -",
+      ] },
+      { inst: "bell", level: 0.06, mutedOnSection1: true, bars: [
+        "d5 - - - - - - - a5 - - - - - - -", "f5 - - - - - - - d5 - - - - - - -", "c5 - - - - - - - f5 - - - a5 - - -", "g5 - - - - - - - e5 - - - - - - -",
+        "a5 - - - - - - - f5 - - - d5 - - -", "bb5 - - - - - - - f5 - - - - - - -", "a5 - - - c6 - - - a5 - - - f5 - - -", "e5 - - - - - - - - - - - - - - -",
+      ] },
+      { inst: "pluck", level: 0.07, bars: [held("d2"), held("bb1"), held("f2"), held("c2")] },
+    ],
+  },
+  // The Shrine of the Void and The Black Door: a dissonant whole-tone choir over a slow heartbeat.
+  voidShrine: {
+    bpm: 52, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "glitch", chance: 0.03 },
+    drums: ["k - - k - - - - - - - - - - - -"], drumLevel: 0.55,
+    tracks: [
+      { inst: "choir", level: 0.05, bars: [held("g#4"), held("a#4"), held("c5"), held("a#4")] },
+      { inst: "choir", level: 0.045, bars: [held("e4"), held("f#4"), held("g#4"), held("f#4")] },
+      { inst: "choir", level: 0.05, bars: [held("c3"), held("d3"), held("e3"), held("d3")] },
+      { inst: "bell", level: 0.07, mutedOnSection1: true, bars: [
+        "c6 - - - - - - - - - f#5 - - - - -", "d6 - - - - - - - a#5 - - - - - - -", "e6 - - - - - - - - - c6 - - - g#5 -", "f#5 - - - - - - - - - - - - - - -",
+      ] },
+      { inst: "organ", level: 0.03, bars: [held("c2"), held("c2"), held("c2"), held("c#2")] },
+    ],
+  },
+  // The Corpse: a funeral dirge. A tolling bell, a low organ and a mourning voice. C minor.
+  corpse: {
+    bpm: 54, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "drip", chance: 0.03 },
+    drums: ["k - - - - - - - k - - - - - - -"], drumLevel: 0.45,
+    tracks: [
+      { inst: "bell", level: 0.07, bars: ["c4 - - - - - - - - - - - - - - -", "ab3 - - - - - - - - - - - - - - -", "f3 - - - - - - - - - - - - - - -", "g3 - - - - - - - - - - - g3 - - -"] },
+      { inst: "organ", level: 0.04, bars: [held("eb3"), held("c3"), held("ab2"), held("b2")] },
+      { inst: "organ", level: 0.035, bars: [held("c2"), held("ab1"), held("f1"), held("g1")] },
+      { inst: "choir", level: 0.055, mutedOnSection1: true, bars: [
+        "g4 - - - - - - - eb4 - - - d4 - - -", "c4 - - - - - - - - - - - b3 - - -", "c4 - - - eb4 - - - f4 - - - ab4 - - -", "g4 - - - - - - - - - - - - - - -",
+        "g4 - - - ab4 - - - g4 - - - f4 - - -", "eb4 - - - - - - - c4 - - - - - - -", "d4 - - - f4 - - - eb4 - d4 - c4 - - -", "b3 - - - - - - - - - - - - - - -",
+      ] },
+    ],
+  },
+  // A Lost Friend: a warm music-box lullaby with harp, the only kind tune in the dungeon. F major.
+  lostFriend: {
+    bpm: 76, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "chime", chance: 0.03 },
+    tracks: [
+      { inst: "musicbox", level: 0.1, octaveUpOnSection3: true, bars: [
+        "a5 - - - c6 - - - a5 - g5 - f5 - - -", "g5 - - - a5 - - - g5 - e5 - c5 - - -", "f5 - - - a5 - - - d6 - - - a5 - - -", "bb5 - a5 - g5 - f5 - - - - - - - - -",
+      ] },
+      { inst: "harp", level: 0.055, bars: [
+        "f3 - c4 - f4 - a4 - c5 - a4 - f4 - c4 -", "c3 - g3 - c4 - e4 - g4 - e4 - c4 - g3 -",
+        "d3 - a3 - d4 - f4 - a4 - f4 - d4 - a3 -", "bb2 - f3 - bb3 - d4 - f4 - d4 - bb3 - f3 -",
+      ] },
+      { inst: "choir", level: 0.03, bars: [held("c4"), held("e4"), held("f4"), held("d4")] },
+    ],
+  },
+  // The Well, The Stranger, The Mirror: tense pizzicato and a harp line that leans on the tritone. A minor.
+  mystery: {
+    bpm: 88, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "drip", chance: 0.025 },
+    drums: ["h - - - h - - - h - - - h - h -"], drumLevel: 0.35,
+    tracks: [
+      { inst: "pluck", level: 0.09, bars: [
+        "a2 - e3 - a2 - e3 - a2 - e3 - a2 - f3 -", "f2 - c3 - f2 - c3 - f2 - c3 - f2 - e3 -",
+        "d2 - a2 - d2 - a2 - d2 - a2 - d2 - f2 -", "e2 - b2 - e2 - b2 - e2 - g#2 - b2 - d3 -",
+      ] },
+      { inst: "harp", level: 0.07, mutedOnSection1: true, bars: [
+        "e5 - - - d#5 - - - e5 - - - a4 - - -", "c5 - - - b4 - - - f5 - - - e5 - - -", "d5 - - - c5 - b4 - c5 - - - a4 - - -", "b4 - - - g#4 - - - e4 - - - - - - -",
+      ] },
+      { inst: "choir", level: 0.03, bars: [held("e4"), held("f4"), held("f4"), held("e4")] },
+    ],
+  },
+  // Moth, the Peddler: a crooked bazaar tune. D phrygian dominant, with a hand-drum groove.
+  merchant: {
+    bpm: 112, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "crackle", chance: 0.06 },
+    drums: ["k - h k s - h - k - h k s - h h"], drumLevel: 0.45,
+    tracks: [
+      { inst: "harpsi", level: 0.08, mutedOnSection1: true, bars: [
+        "d5 - eb5 - f#5 - g5 - a5 - - - g5 - f#5 -", "eb5 - d5 - - - - - c5 - bb4 - a4 - - -",
+        "bb4 - c5 - d5 - eb5 - f#5 - eb5 - d5 - c5 -", "d5 - - - a4 - - - d5 - - - - - - -",
+      ] },
+      { inst: "pluck", level: 0.1, bars: [
+        "d2 - - d2 a2 - - - d2 - - d2 a2 - - -", "c2 - - c2 g2 - - - c2 - - c2 g2 - - -",
+        "bb1 - - bb1 f2 - - - bb1 - - bb1 f2 - - -", "a1 - - a1 e2 - - - a1 - - a1 d2 - - -",
+      ] },
+      { inst: "harp", level: 0.04, bars: ["d4 f#4 a4 - d4 f#4 a4 - d4 f#4 a4 - eb4 - - -", "c4 eb4 g4 - c4 eb4 g4 - c4 eb4 g4 - d4 - - -", "bb3 d4 f4 - bb3 d4 f4 - bb3 d4 f4 - c4 - - -", "a3 c#4 e4 - a3 c#4 e4 - a3 c#4 f#4 - - - - -"] },
+    ],
+  },
+  // The Gambler: a sly, walking-bass chiptune. C minor.
+  gambler: {
+    bpm: 100, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "blip", chance: 0.015 },
+    drums: ["k - h h h - h h k - h h h - h h"], drumLevel: 0.4,
+    tracks: [
+      { inst: "chip", level: 0.06, mutedOnSection1: true, bars: [
+        "c5 - eb5 - g5 - - - f#5 - g5 - eb5 - c5 -", "bb4 - - - g4 - - - bb4 - c5 - - - - -",
+        "f5 - - - eb5 - c5 - eb5 - - - f5 - f#5 -", "g5 - - - - - - - g4 - - - - - - -",
+      ] },
+      { inst: "pluck", level: 0.11, bars: [
+        "c2 - eb2 - g2 - a2 - bb2 - a2 - g2 - eb2 -", "c2 - g1 - bb1 - c2 - eb2 - d2 - c2 - bb1 -",
+        "f1 - a1 - c2 - eb2 - f2 - eb2 - c2 - a1 -", "g1 - b1 - d2 - f2 - g2 - f2 - d2 - b1 -",
+      ] },
+      { inst: "organ", level: 0.025, bars: ["- - - - eb4 - - - - - - - eb4 - - -", "- - - - d4 - - - - - - - d4 - - -", "- - - - eb4 - - - - - - - eb4 - - -", "- - - - f4 - - - - - - - d4 - - -"] },
+    ],
+  },
+  // Treasure rooms and The Golden Door: glittering arpeggios. E major: E, C#m, A, B.
+  treasure: {
+    bpm: 100, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "chime", chance: 0.05 },
+    tracks: [
+      { inst: "musicbox", level: 0.04, bars: [
+        "e5 g#5 b5 e6 b5 g#5 e5 g#5 b5 e6 b5 g#5 e5 g#5 b5 e6", "c#5 e5 g#5 c#6 g#5 e5 c#5 e5 g#5 c#6 g#5 e5 c#5 e5 g#5 c#6",
+        "a4 c#5 e5 a5 e5 c#5 a4 c#5 e5 a5 e5 c#5 a4 c#5 e5 a5", "b4 d#5 f#5 b5 f#5 d#5 b4 d#5 f#5 b5 f#5 d#5 b4 d#5 f#5 a5",
+      ] },
+      { inst: "bell", level: 0.07, mutedOnSection1: true, bars: [
+        "b5 - - - - - - - g#5 - - - e6 - - -", "c#6 - - - - - - - g#5 - - - - - - -", "a5 - - - c#6 - - - e6 - - - c#6 - - -", "d#6 - - - - - - - f#5 - - - b5 - - -",
+      ] },
+      { inst: "pluck", level: 0.08, bars: ["e2 - - - - - - - b2 - - - - - - -", "c#2 - - - - - - - g#2 - - - - - - -", "a1 - - - - - - - e2 - - - - - - -", "b1 - - - - - - - f#2 - - - - - - -"] },
+    ],
+  },
+  // A secret room: whole-tone harp glissandi and a far-off bell. Something was hidden here.
+  secret: {
+    bpm: 80, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "chime", chance: 0.03 },
+    tracks: [
+      { inst: "harp", level: 0.055, bars: [
+        "c4 d4 e4 f#4 g#4 a#4 c5 d5 e5 f#5 g#5 a#5 c6 - - -", "- - - - - - - - - - - - - - - -",
+        "c6 a#5 g#5 f#5 e5 d5 c5 a#4 g#4 f#4 e4 d4 c4 - - -", "- - - - - - - - - - - - - - - -",
+      ] },
+      { inst: "choir", level: 0.045, bars: [held("e4"), held("f#4"), held("g#4"), held("f#4")] },
+      { inst: "choir", level: 0.04, bars: [held("c4"), held("d4"), held("e4"), held("d4")] },
+      { inst: "bell", level: 0.06, mutedOnSection1: true, bars: ["- - - - - - - - e6 - - - - - - -", "- - - - - - - - c6 - - - - - - -", "- - - - - - - - d6 - - - a#5 - - -", "- - - - - - - - g#5 - - - - - - -"] },
+    ],
+  },
 };
+
+/** A note held for a whole 16-step bar (pads). */
+function held(note: string) { return `${note} - - - - - - - - - - - - - - -`; }
 
 export class MusicPlayer {
   private timer = 0;
@@ -168,7 +310,7 @@ export class MusicPlayer {
       if (f === null) continue;
       // Hold the note until the next note or rest in the bar.
       let len = 1;
-      while (inBar + len < tokens.length && tokens[inBar + len] === "-" && len < 8) len++;
+      while (inBar + len < tokens.length && tokens[inBar + len] === "-" && len < 16) len++;
       this.note(track.inst, t, f * (track.octaveUpOnSection3 && section === 3 ? 2 : 1), len * stepDur, track.level);
     }
     if (song.drums) {
@@ -241,6 +383,38 @@ export class MusicPlayer {
         this.osc("sine", f / 2, t, t + dur + 0.2, filter);
         break;
       }
+      case "choir": {
+        // A slow vowel pad: detuned saws through two formant filters, with a gentle vibrato.
+        const g = this.ctx.createGain();
+        const attack = Math.min(0.5, dur * 0.4), end = t + dur + 0.6;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(level, t + attack);
+        g.gain.setValueAtTime(level, t + Math.max(attack, dur - 0.1));
+        g.gain.linearRampToValueAtTime(0.0001, end);
+        const low = this.ctx.createBiquadFilter(); low.type = "lowpass"; low.frequency.value = 1900;
+        const f1 = this.ctx.createBiquadFilter(); f1.type = "bandpass"; f1.frequency.value = 750; f1.Q.value = 2;
+        const f2 = this.ctx.createBiquadFilter(); f2.type = "bandpass"; f2.frequency.value = 1150; f2.Q.value = 3;
+        f1.connect(low); f2.connect(low); low.connect(g); g.connect(this.bus);
+        const lfo = this.ctx.createOscillator(), depth = this.ctx.createGain();
+        lfo.frequency.value = 4.6; depth.gain.value = 9; lfo.connect(depth);
+        lfo.start(t); lfo.stop(end);
+        for (const cents of [-7, 0, 6]) {
+          const o = this.ctx.createOscillator();
+          o.type = "sawtooth"; o.frequency.value = f; o.detune.value = cents;
+          depth.connect(o.detune); o.connect(f1); o.connect(f2); o.start(t); o.stop(end);
+        }
+        break;
+      }
+      case "harp": {
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = "lowpass"; filter.frequency.setValueAtTime(3400, t); filter.frequency.exponentialRampToValueAtTime(900, t + 0.8);
+        const g = this.env(t, level, 0.003, 1.5);
+        filter.connect(g);
+        this.osc("triangle", f, t, t + 1.6, filter);
+        const g2 = this.env(t, level * 0.3, 0.003, 0.5);
+        this.osc("sine", f * 2, t, t + 0.6, g2);
+        break;
+      }
       case "pluck": {
         const filter = this.ctx.createBiquadFilter();
         filter.type = "lowpass"; filter.frequency.setValueAtTime(900, t); filter.frequency.exponentialRampToValueAtTime(180, t + 0.35);
@@ -277,6 +451,7 @@ export class MusicPlayer {
       case "blip": { const g = this.env(t, 0.025, 0.002, 0.06); this.osc("square", 1800 + Math.random() * 1600, t, t + 0.08, g); break; }
       case "squelch": this.hit(t, 0.16, 600, 120, 0.07, "lowpass"); break;
       case "glitch": { const g = this.env(t, 0.025, 0.002, 0.05); this.osc("square", 200 + Math.random() * 2400, t, t + 0.07, g); break; }
+      case "chime": { const f = [2093, 2349, 2637, 3136, 3520][Math.floor(Math.random() * 5)]; const g = this.env(t, 0.018, 0.003, 1.2); this.osc("sine", f, t, t + 1.3, g); break; }
     }
   }
 }

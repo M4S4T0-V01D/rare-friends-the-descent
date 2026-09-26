@@ -26,7 +26,7 @@ export function wholeRf(amount: RfAmount): number {
 
 export type RfCategory =
   | "shrine" | "gate" | "reroll" | "merchant" | "revive" | "event"
-  | "enemy" | "elite" | "treasure" | "boss" | "secret-boss" | "event-reward" | "stipend";
+  | "enemy" | "elite" | "treasure" | "boss" | "secret-boss" | "event-reward" | "stipend" | "cosmetic";
 
 export type RfTransaction = Readonly<{
   id: number;

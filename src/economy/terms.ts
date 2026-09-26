@@ -17,6 +17,8 @@ export const RF_COSTS = {
   revive: { partial: 10, full: 25 },
   merchant: { potion: 5, relic: 10, rareItem: 10, legendaryGamble: 25, cursedBox: 5 },
   event: { well: 5, stranger: 10, blackDoor: 25, gambler: 5, goldenDoor: 10 },
+  /** Wardrobe cosmetics at the camp's Dye Altar, by tier. */
+  cosmetic: { common: 5, rare: 10, legendary: 25 },
 } as const;
 
 export const RF_REWARDS = {

@@ -11,11 +11,12 @@ const results = [];
 const step = async (name, fn) => {
   const started = Date.now();
   try { await fn(); results.push(`PASS ${name} (${Date.now() - started}ms)`); console.log(`PASS ${name}`); }
-  catch (error) { results.push(`FAIL ${name}: ${error.message}`); console.log(`FAIL ${name}: ${error.stack}`); throw error; }
+  catch (error) { results.push(`FAIL ${name}: ${error.message}`); console.log(`FAIL ${name}: ${error.stack}`); if (globalThis.__consoleErrors?.length) console.log("Browser errors:", globalThis.__consoleErrors.join("\n")); throw error; }
 };
 
 async function harness({ page }) {
   const consoleErrors = [];
+  globalThis.__consoleErrors = consoleErrors;
   page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
   page.on("pageerror", error => consoleErrors.push(error.message));
   const child = () => {
@@ -166,6 +167,11 @@ await testSite({
       await press("Enter", 300);
       await press("e", 300);
       assert.notEqual((await st()).modal, "shrine", "a used shrine cannot be paid twice");
+      if ((await st()).modal !== "none") await press("Escape", 300);
+      await waitFor(s => s.roomSong === "shrine", "the shrine's own tune while inside the shrine room");
+      const start = (await st()).rooms.find(r => r.type === "start");
+      await teleport(start.x, start.y);
+      await waitFor(s => s.roomSong === null, "the shrine tune fading out after leaving");
     });
 
     await step("treasure room pays +3 RF; rerolls escalate 5 → 10 → 25 and stop", async () => {
@@ -356,8 +362,12 @@ await testSite({
       s = await waitFor(s => s.screen === "summary", "summary");
       await game.getByText("RF started").waitFor();
       await game.getByText("RF remaining").waitFor();
+      await game.getByText("Escaped with the loot", { exact: true }).waitFor();
+      await game.getByLabel(/^Score [\d,]+$/).waitFor();
+      await page.waitForTimeout(1600);
       await shot("22-summary");
       assert(s.stash > 0, "escaped loot reaches the stash");
+      assert(s.lifetimeScore > 0, "the run's score is added to the lifetime total");
     });
 
     await step("descend again restarts; death and End Run keep secured loot only", async () => {
@@ -376,22 +386,49 @@ await testSite({
       await shot("23-stash");
     });
 
+    await step("wardrobe: RF buys the Corrupted skin and a glow, which the Friend then wears", async () => {
+      if ((await st()).balance < 20) await call("return g.debugGrant(20)");
+      await game.getByRole("tab", { name: "Wardrobe" }).click();
+      const b0 = (await st()).balance;
+      await game.getByRole("button", { name: /Corrupted/ }).click();
+      let s = await waitFor(s => s.worn.skin === "skin-corrupted", "corrupted skin worn");
+      assert.equal(s.balance, b0 - 10);
+      assert.deepEqual([(await lastTx()).reason, (await lastTx()).category], ["Dye Altar: Corrupted", "cosmetic"]);
+      await game.getByRole("button", { name: /Blood Moon/ }).click();
+      s = await waitFor(s => s.worn.glow === "glow-crimson", "crimson glow worn");
+      assert.equal(s.balance, b0 - 15);
+      await game.getByRole("button", { name: /Canonical/ }).click();
+      s = await waitFor(s => s.worn.skin === "skin-hero", "owned looks can be swapped for free");
+      assert.equal(s.balance, b0 - 15);
+      await game.getByRole("button", { name: /Corrupted/ }).click();
+      await shot("23b-wardrobe");
+      await game.getByRole("button", { name: "Close camp menu" }).click();
+      await page.waitForTimeout(400);
+      await shot("23c-camp-corrupted");
+    });
+
     await step("audio: every place has its own mood and every family its own voice", async () => {
       const result = await call(`
         const a = g.audio;
         return a.unlock().then(running => {
           const songs = [];
-          for (const mode of ["camp", "crypt", "tech", "flesh", "void", "boss"]) { a.setMusicMode(mode); songs.push(a.player && a.player.playing); }
+          for (const mode of ["camp", "crypt", "tech", "flesh", "void", "boss"]) { a.setMusicMode(mode); songs.push(Boolean(a.place && a.place.player.playing)); }
+          const rooms = [];
+          for (const song of ["shrine", "voidShrine", "corpse", "lostFriend", "mystery", "merchant", "gambler", "treasure", "secret"]) {
+            a.setRoomSong(song); rooms.push(Boolean(a.room && a.room.player.playing) && a.currentRoomSong === song);
+          }
+          a.setRoomSong(null);
           for (const family of ["Skeleton", "Mask", "Family", "Cellular", "Asymmetry", "Hoverer", "Colossus", "Sparkling", "Hollow"]) {
             a.setVoice(family, 7730); a.lastPlayed.clear(); a.friendVoice("signature");
           }
           a.setVoice(g.friend.family, g.kit.seed);
           a.setMusicMode("crypt");
-          return { running, state: a.ctx && a.ctx.state, songs };
+          return { running, state: a.ctx && a.ctx.state, songs, rooms };
         });
       `);
       assert.equal(result.state, "running", "audio context runs after a gesture");
       assert.deepEqual(result.songs, [true, true, true, true, true, true], "every place has a tune");
+      assert.deepEqual(result.rooms, Array(9).fill(true), "every special room has a tune");
       await page.waitForTimeout(1500);
     });
 

@@ -40,17 +40,20 @@ export const MODIFIER_INFO: Readonly<Record<Modifier, { label: string; color: st
   armored: { label: "Armored", color: "#9aa3b8" },
   teleporting: { label: "Teleporting", color: "#bb66ff" },
   cursed: { label: "Cursed", color: "#7a2cff" },
+  shielded: { label: "Shielded", color: "#4fb0ff" },
+  splitting: { label: "Splitting", color: "#ff8fb3" },
+  storming: { label: "Storming", color: "#ccff00" },
 };
 export const ALL_MODIFIERS = Object.keys(MODIFIER_INFO) as Modifier[];
 
 const BASE: Readonly<Record<EnemyKind, { name: string; hp: number; dmg: number; speed: number; radius: number; xp: number }>> = {
-  cursed: { name: "CURSED FRIEND", hp: 38, dmg: 11, speed: 150, radius: 13, xp: 7 },
-  crawler: { name: "VOID CRAWLER", hp: 26, dmg: 9, speed: 110, radius: 13, xp: 8 },
+  cursed: { name: "CURSED FRIEND", hp: 40, dmg: 12, speed: 155, radius: 13, xp: 7 },
+  crawler: { name: "VOID CRAWLER", hp: 28, dmg: 10, speed: 115, radius: 13, xp: 8 },
   goblin: { name: "LOOT GOBLIN", hp: 70, dmg: 0, speed: 190, radius: 13, xp: 25 },
-  corrupted: { name: "CORRUPTED FRIEND", hp: 190, dmg: 18, speed: 125, radius: 20, xp: 45 },
-  warden: { name: "DUNGEON WARDEN", hp: 1100, dmg: 24, speed: 95, radius: 40, xp: 260 },
-  beast: { name: "THE RARE BEAST", hp: 9500, dmg: 30, speed: 112, radius: 56, xp: 700 },
-  unminted: { name: "THE UNMINTED", hp: 1000, dmg: 26, speed: 120, radius: 34, xp: 420 },
+  corrupted: { name: "CORRUPTED FRIEND", hp: 210, dmg: 20, speed: 130, radius: 20, xp: 45 },
+  warden: { name: "DUNGEON WARDEN", hp: 1600, dmg: 22, speed: 100, radius: 40, xp: 260 },
+  beast: { name: "THE RARE BEAST", hp: 11000, dmg: 28, speed: 115, radius: 56, xp: 700 },
+  unminted: { name: "THE UNMINTED", hp: 1200, dmg: 28, speed: 125, radius: 34, xp: 420 },
   wisp: { name: "CHOIR WISP", hp: 22, dmg: 7, speed: 90, radius: 12, xp: 7 },
   gunner: { name: "BONE GUNNER", hp: 36, dmg: 6, speed: 105, radius: 13, xp: 8 },
   drone: { name: "STATIC DRONE", hp: 26, dmg: 6, speed: 175, radius: 12, xp: 8 },
@@ -59,11 +62,20 @@ const BASE: Readonly<Record<EnemyKind, { name: string; hp: number; dmg: number; 
   spitter: { name: "MAW SPITTER", hp: 50, dmg: 8, speed: 80, radius: 15, xp: 10 },
   eyestalk: { name: "EYE STALK", hp: 58, dmg: 7, speed: 0, radius: 14, xp: 10 },
   bloodling: { name: "BLOODLING", hp: 40, dmg: 9, speed: 140, radius: 13, xp: 7 },
-  shade: { name: "NULL SHADE", hp: 62, dmg: 8, speed: 120, radius: 14, xp: 14 },
+  shade: { name: "NULL SHADE", hp: 62, dmg: 9, speed: 120, radius: 14, xp: 14 },
+  bomber: { name: "GRAVE BOMBER", hp: 24, dmg: 22, speed: 170, radius: 12, xp: 6 },
+  lancer: { name: "BONE LANCER", hp: 46, dmg: 16, speed: 115, radius: 13, xp: 10 },
+  hexer: { name: "HEX PRIEST", hp: 42, dmg: 12, speed: 95, radius: 13, xp: 12 },
+  sniper: { name: "RELAY SNIPER", hp: 30, dmg: 19, speed: 100, radius: 12, xp: 10 },
+  brute: { name: "FLESH BRUTE", hp: 150, dmg: 24, speed: 82, radius: 22, xp: 20 },
+  hive: { name: "HIVE MOTHER", hp: 115, dmg: 7, speed: 0, radius: 18, xp: 16 },
+  wraith: { name: "GRAVE WRAITH", hp: 46, dmg: 15, speed: 140, radius: 13, xp: 11 },
+  prism: { name: "VOID PRISM", hp: 95, dmg: 11, speed: 60, radius: 15, xp: 16 },
 };
 
-export const hpScale = (depth: number) => 1 + 0.42 * (depth - 1) + 0.06 * (depth - 1) ** 2;
-export const dmgScale = (depth: number) => 1 + 0.33 * (depth - 1);
+export const hpScale = (depth: number) => 1 + 0.45 * (depth - 1) + 0.07 * (depth - 1) ** 2;
+/** Enemies hit hard from the first floor and keep pace with the Friend's gear as you descend. */
+export const dmgScale = (depth: number) => 1.2 * (1 + 0.36 * (depth - 1));
 
 let nextEnemyId = 1;
 export function createEnemy(kind: EnemyKind, pos: Vec, depth: number, roomId: number, rng: Rng, options: SpawnOptions = {}): Enemy {
@@ -71,18 +83,19 @@ export function createEnemy(kind: EnemyKind, pos: Vec, depth: number, roomId: nu
   const boss = kind === "warden" || kind === "beast" || kind === "unminted";
   let hp = base.hp, dmg = base.dmg * dmgScale(depth), speed = base.speed, name = base.name, radius = base.radius;
   if (kind === "warden") {
-    hp = depth >= 6 ? 3800 : 1400;
+    hp = depth >= 6 ? 4200 : 1600;
     if (depth >= 6) name = "WARDEN OF THE DEEP";
     if (depth > 9) hp *= hpScale(depth) / hpScale(9);
   } else if (kind === "beast") {
     if (depth > 9) hp *= hpScale(depth) / hpScale(9);
   } else if (kind === "unminted") {
-    hp = 1000 + 520 * depth;
+    hp = 1200 + 600 * depth;
   } else hp *= hpScale(depth);
   const mods = [...(options.mods ?? [])];
   if (options.champion) { hp *= 1.5; radius += 2; }
   if (options.minion) { hp *= 0.6; dmg *= 0.8; }
   if (mods.includes("armored")) hp *= 1.6;
+  if (mods.includes("splitting")) hp *= 0.85;
   if (mods.includes("frenzied")) speed *= 1.35;
   if (mods.length && !boss) name = `${mods.map(mod => MODIFIER_INFO[mod].label).join(" ")} ${name}`;
   hp = Math.round(hp);
@@ -90,10 +103,11 @@ export function createEnemy(kind: EnemyKind, pos: Vec, depth: number, roomId: nu
     id: nextEnemyId++, kind, name, pos: { ...pos }, vel: { x: 0, y: 0 }, radius, hp, maxHp: hp, dmg, speed,
     xp: Math.round(base.xp * (1 + 0.1 * (depth - 1)) * (options.elite ? 1 : options.champion ? 1.6 : 1)),
     elite: options.elite ?? kind === "corrupted", champion: options.champion ?? false, boss, minion: options.minion ?? false, mods,
-    roomId, spawnT: boss ? 0 : 0.6, dead: false, state: "idle", stateT: 0,
+    roomId, spawnT: boss ? 1.4 : 0.45, dead: false, state: boss ? "intro" : "idle", stateT: 0,
     cd: rng.range(0.4, 1.4), cd2: rng.range(3, 5), cd3: rng.range(5, 8), aim: 0,
     hitFlash: 0, knock: { x: 0, y: 0 }, burnT: 0, burnDps: 0, burnTick: 0, seed: rng.int(0, 1e6), phase: 1, anim: 0,
     coins: 0, fleeT: 0, counter: 0, orbitHitT: 0, minionCd: 6, teleportCd: rng.range(3, 5), stunT: 0, invulnT: 0,
+    shield: mods.includes("shielded") ? 2 : 0, shieldCd: 0, stormCd: rng.range(2, 4),
   };
 }
 
@@ -134,6 +148,19 @@ export function updateEnemy(e: Enemy, w: World, dt: number) {
       e.state = "chase"; e.stateT = 0; e.cd = Math.max(e.cd, 0.5);
     }
     return;
+  }
+  if (e.mods.includes("shielded") && e.shield <= 0) {
+    e.shieldCd -= dt;
+    if (e.shieldCd <= 0) { e.shield = 2; w.burst(e.pos.x, e.pos.y - e.radius, "#4fb0ff", 10, 120); }
+  }
+  if (e.mods.includes("storming")) {
+    e.stormCd -= dt;
+    if (e.stormCd <= 0) {
+      e.stormCd = 4.2 * attackTempo(e);
+      const n = e.elite ? 12 : 8, off = w.rng.range(0, TAU);
+      for (let i = 0; i < n; i++) w.fire({ pos: { ...e.pos }, vel: fromAngle(off + (i / n) * TAU, 150), radius: 7, dmg: e.dmg * 0.6, owner: "enemy", life: 4, color: "#ccff00", kind: "orb", source: e });
+      w.sound("enemyShot");
+    }
   }
   if (e.mods.includes("swarm") && e.elite && e.minionCd <= 0 && w.enemies.filter(o => !o.dead && o.roomId === e.roomId).length < 12) {
     e.minionCd = 9;
@@ -311,6 +338,18 @@ function warden(e: Enemy, w: World, dt: number) {
       else if (e.counter === 2 && e.stateT > 1.1) { e.state = "idle"; e.stateT = 0; e.cd3 = 5.5 * fast; }
       return;
     }
+    case "chains": {
+      // Three chains of bullets whirl out of the Warden's core.
+      e.cd3 -= dt;
+      if (e.cd3 <= 0) {
+        e.cd3 = e.phase >= 2 ? 0.09 : 0.12;
+        e.aim += deep ? -0.31 : 0.27;
+        for (let arm = 0; arm < 3; arm++) w.fire({ pos: { x: e.pos.x, y: e.pos.y - 40 }, vel: fromAngle(e.aim + (arm / 3) * TAU, 175), radius: 8, dmg: e.dmg * 0.55, owner: "enemy",
+          life: 4, color: deep ? "#8fe3ff" : "#ffb347", kind: "orb", slow: deep, source: e });
+      }
+      if (e.stateT > 1.8) { e.state = "idle"; e.stateT = 0; e.cd3 = 1; }
+      return;
+    }
     case "chargeWait": return;
     case "blink": {
       if (e.stateT > 0.45) {
@@ -330,6 +369,7 @@ function warden(e: Enemy, w: World, dt: number) {
     ["slam", 3], ["sweep", d < 240 ? 4 : 1], ["charge", d > 200 ? 3 : 1],
     ["summon", e.minionCd <= 0 ? 2.5 : 0], ["ring", (e.phase >= 2 || deep) && e.cd3 <= 0 ? 3.5 : 0],
     ["blink", deep && d > 260 ? 2 : 0],
+    ["chains", e.cd3 <= 0 ? 2.5 : 0], ["quake", d > 160 ? 2.5 : 0.5],
   ];
   const pick = w.rng.weighted(options);
   e.stateT = 0;
@@ -355,6 +395,16 @@ function warden(e: Enemy, w: World, dt: number) {
     e.state = "ring"; e.counter = 0;
   } else if (pick === "blink") {
     e.state = "blink";
+  } else if (pick === "chains") {
+    e.state = "chains"; e.aim = angleTo(e.pos, p.pos); w.sound("charge");
+  } else if (pick === "quake") {
+    // A fissure marches from the Warden toward the Friend, one slam at a time.
+    e.state = "attack";
+    const a = angleTo(e.pos, p.pos), steps = e.phase >= 2 ? 7 : 5;
+    for (let i = 1; i <= steps; i++) {
+      w.hazard({ shape: "circle", pos: { x: e.pos.x + Math.cos(a) * i * 78, y: e.pos.y + Math.sin(a) * i * 78 }, radius: 58, delay: (0.55 + i * 0.13) * fast,
+        dmg: e.dmg, color: deep ? "#8fe3ff" : "#ff5a3c", source: e, slow: deep });
+    }
   }
 }
 
@@ -401,6 +451,17 @@ function beast(e: Enemy, w: World, dt: number) {
     }
     case "attack": if (e.stateT > 1.05 * tempo) { e.state = "idle"; e.stateT = 0; } return;
     case "chargeWait": return;
+    case "eyes": {
+      // Every eye fires a needle at the Friend, one after another.
+      const eyes = e.phase >= 2 ? 5 : 3;
+      if (e.counter < eyes * 2 && e.stateT > 0.35 + e.counter * 0.11) {
+        const ex = e.pos.x + ((e.counter % eyes) - (eyes - 1) / 2) * 22, ey = e.pos.y - 90;
+        w.fire({ pos: { x: ex, y: ey }, vel: fromAngle(angleTo({ x: ex, y: ey }, p.pos), 380), radius: 6, dmg: e.dmg * 0.5, owner: "enemy", life: 3, color: "#ccff00", kind: "needle", source: e });
+        e.counter++; w.sound("enemyShot");
+      }
+      if (e.stateT > 0.5 + eyes * 0.24) { e.state = "idle"; e.stateT = 0; }
+      return;
+    }
   }
   steer(e, w, p.pos, e.speed * (e.phase === 3 ? 1.2 : 1), dt);
   if (e.stateT < 0.8 * tempo) return;
@@ -409,6 +470,7 @@ function beast(e: Enemy, w: World, dt: number) {
     ["claw", d < 280 ? 4 : 0.5], ["spiral", 2.5], ["stomp", 3],
     ["summon", e.phase >= 2 && e.minionCd <= 0 ? 2 : 0], ["charge", e.phase >= 2 && d > 220 ? 3 : 0],
     ["pools", e.phase >= 3 ? 3 : 0], ["beam", e.phase >= 3 && e.cd <= 0 ? 3 : 0],
+    ["eyes", 2.5], ["curtain", e.phase >= 2 ? 2.5 : 1],
   ]);
   e.stateT = 0;
   if (pick === "claw") {
@@ -441,6 +503,20 @@ function beast(e: Enemy, w: World, dt: number) {
     const start = angleTo(e.pos, p.pos) - 1.3;
     w.hazard({ shape: "line", pos: { ...e.pos }, angle: start, length: 900, width: 34, delay: 1.0, dmg: e.dmg * 0.5, linger: 2.6, tick: 0.25, color: "#ccff00", sweep: 2.6 / 2.6, source: e });
     w.sound("charge");
+  } else if (pick === "eyes") {
+    e.state = "eyes"; e.counter = 0;
+  } else if (pick === "curtain") {
+    // A wall of bullets sweeps across the arena with one gap to dodge through.
+    e.state = "attack";
+    const r = w.roomRect(e.roomId), fromLeft = p.pos.x > r.x + r.w / 2, n = 18;
+    const gap = Math.floor(w.rng.range(3, n - 4));
+    for (let i = 0; i < n; i++) {
+      if (i >= gap && i < gap + 3) continue;
+      const y = r.y + 30 + (i / (n - 1)) * (r.h - 60);
+      w.fire({ pos: { x: fromLeft ? r.x + 20 : r.x + r.w - 20, y }, vel: { x: fromLeft ? 210 : -210, y: 0 }, radius: 9, dmg: e.dmg * 0.6, owner: "enemy",
+        life: r.w / 210, color: "#ff3d7f", kind: "orb", source: e });
+    }
+    w.sound("roar");
   }
 }
 
@@ -465,7 +541,7 @@ function unminted(e: Enemy, w: World, dt: number) {
   steer(e, w, away, e.speed * 0.6, dt);
   if (e.stateT < 0.8 * tempo) return;
   e.stateT = 0;
-  const pick = w.rng.weighted<string>([["ring", 3], ["triple", 3], ["blink", 2], ["pools", e.phase >= 2 ? 2.5 : 1]]);
+  const pick = w.rng.weighted<string>([["ring", 3], ["triple", 3], ["blink", 2], ["pools", e.phase >= 2 ? 2.5 : 1], ["starfall", e.phase >= 2 ? 2.5 : 1]]);
   if (pick === "ring") {
     e.state = "attack";
     const count = e.phase >= 2 ? 22 : 16, offset = w.rng.range(0, TAU);
@@ -478,6 +554,13 @@ function unminted(e: Enemy, w: World, dt: number) {
     w.sound("enemyShot");
   } else if (pick === "blink") {
     e.state = "blink";
+  } else if (pick === "starfall") {
+    // Void stars rain down in a widening spiral around the Friend.
+    e.state = "attack";
+    for (let i = 0; i < 9; i++) {
+      const a = i * 2.4, d = 40 + i * 26;
+      w.hazard({ shape: "circle", pos: { x: p.pos.x + Math.cos(a) * d, y: p.pos.y + Math.sin(a) * d }, radius: 44, delay: 0.6 + i * 0.09, dmg: e.dmg * 0.8, color: "#ff3d7f", source: e });
+    }
   } else {
     e.state = "attack";
     for (let i = 0; i < 4; i++) w.hazard({ shape: "circle", pos: i === 0 ? { ...p.pos } : w.pointNearPlayer(e.roomId, 60, 240), radius: 65, delay: 0.9, dmg: e.dmg * 0.35, linger: 2.5, tick: 0.5, color: "#ff3d7f", curse: true });
