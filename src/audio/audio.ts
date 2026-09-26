@@ -1,4 +1,4 @@
-import { MusicPlayer } from "./music";
+import { MusicPlayer, type RoomSong, type SongId } from "./music";
 import { createFriendSoundKit, type FriendSoundCue, type FriendSoundKit } from "@rarefriends/friendsdk/sounds";
 
 /**
@@ -7,12 +7,15 @@ import { createFriendSoundKit, type FriendSoundCue, type FriendSoundKit } from "
  */
 /** One mood per place: the camp, each floor style, and boss fights. */
 export type MusicMode = "none" | "camp" | "crypt" | "tech" | "flesh" | "void" | "boss";
+export type { RoomSong } from "./music";
 export type VoiceAction = "greet" | "dodge" | "hurt" | "signature" | "happy" | "heavy";
 
 export type SfxName =
   | "swing" | "heavySwing" | "hit" | "crit" | "enemyDie" | "playerHurt" | "dodge" | "bolt" | "nova" | "potion"
   | "coin" | "spend" | "pickup" | "levelUp" | "doorLock" | "doorOpen" | "enemySwing" | "enemyShot" | "charge"
   | "slam" | "roar" | "summon" | "blink" | "telegraph" | "death" | "ui" | "deny" | "shrine" | "explode" | "burn";
+
+type Layer = { player: MusicPlayer; gain: GainNode };
 
 const SDK_CUES: Partial<Record<string, FriendSoundCue>> = {
   purchase: "purchase", reward: "reward", anticipation: "anticipation", "reveal-common": "reveal-common",
@@ -31,7 +34,10 @@ export class AudioEngine {
   private musicOn = true;
   private musicMode: MusicMode = "none";
   private voice: { family: string; pitch: number } = { family: "", pitch: 1 };
-  private player: MusicPlayer | null = null;
+  /** The place tune (camp, floor or boss) and the special-room tune that fades in over it. */
+  private place: Layer | null = null;
+  private room: Layer | null = null;
+  private roomSong: RoomSong | null = null;
   private lastPlayed = new Map<string, number>();
 
   constructor() { this.kit = createFriendSoundKit({ volume: 0.7 }); }
@@ -55,7 +61,8 @@ export class AudioEngine {
       }
       if (this.ctx.state !== "running") await this.ctx.resume();
       await this.kit.unlock();
-      if (this.musicMode !== "none" && !this.player?.playing) this.startMusic(this.musicMode);
+      if (this.musicMode !== "none" && !this.place) this.place = this.startLayer(this.musicMode, this.roomSong ? 0 : 1, 1.2);
+      if (this.roomSong && !this.room) this.room = this.startLayer(this.roomSong, 1, 1.5);
       return this.ctx.state === "running";
     } catch { return false; }
   }
@@ -119,21 +126,59 @@ export class AudioEngine {
     }
   }
 
-  /** Background mood: a drone bed, a rhythmic layer and ambient one-shots, different for each place. */
+  /** Each place has its own tune. Changing place crossfades rather than cutting. */
   setMusicMode(mode: MusicMode) {
     if (mode === this.musicMode) return;
     this.musicMode = mode;
-    this.stopMusic();
-    if (mode !== "none") this.startMusic(mode);
+    this.fadeOut(this.place, mode === "none" ? 0.5 : 0.9);
+    this.place = mode === "none" ? null : this.startLayer(mode, this.roomSong ? 0 : 1, 1.0);
   }
 
-  private startMusic(mode: Exclude<MusicMode, "none">) {
-    if (!this.ctx || !this.musicBus || !this.noise) return;
-    this.player ??= new MusicPlayer(this.ctx, this.musicBus, this.noise);
-    this.player.start(mode);
+  /**
+   * Special rooms (shrines, The Corpse, the merchant, treasure, secrets…) have their own tune.
+   * It fades in as you walk in, the place tune ducks under it, and both reverse as you walk out.
+   */
+  setRoomSong(song: RoomSong | null) {
+    if (song === this.roomSong) return;
+    this.roomSong = song;
+    this.fadeOut(this.room, 1.4);
+    this.room = song ? this.startLayer(song, 1, 1.6) : null;
+    this.ramp(this.place, song ? 0 : 1, song ? 1.2 : 1.8);
+  }
+  get currentRoomSong() { return this.roomSong; }
+
+  private startLayer(id: SongId, target: number, fade: number): Layer | null {
+    const ctx = this.ctx;
+    if (!ctx || !this.musicBus || !this.noise) return null;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.0001;
+    gain.connect(this.musicBus);
+    const player = new MusicPlayer(ctx, gain, this.noise);
+    player.start(id);
+    const layer = { player, gain };
+    this.ramp(layer, target, fade);
+    return layer;
   }
 
-  private stopMusic() { this.player?.stop(); }
+  private ramp(layer: Layer | null, target: number, seconds: number) {
+    const ctx = this.ctx;
+    if (!layer || !ctx) return;
+    const g = layer.gain.gain, now = ctx.currentTime;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(Math.max(0.0001, g.value), now);
+    g.linearRampToValueAtTime(Math.max(0.0001, target), now + seconds);
+  }
+
+  private fadeOut(layer: Layer | null, seconds: number) {
+    if (!layer) return;
+    this.ramp(layer, 0, seconds);
+    window.setTimeout(() => { layer.player.stop(); layer.gain.disconnect(); }, seconds * 1000 + 400);
+  }
+
+  private stopMusic() {
+    for (const layer of [this.place, this.room]) if (layer) { layer.player.stop(); layer.gain.disconnect(); }
+    this.place = null; this.room = null;
+  }
 
   /** Each Generations family has its own little voice; each Friend's seed tunes it slightly. */
   setVoice(family: string, seed: number) { this.voice = { family, pitch: 2 ** (((seed % 7) - 3) / 12) }; }
@@ -191,7 +236,7 @@ export class AudioEngine {
   }
 
   /** Render a song to 16-bit PCM WAV bytes offline (for previews and tests; never used in play). */
-  static async renderSong(id: Exclude<MusicMode, "none">, seconds: number): Promise<Uint8Array> {
+  static async renderSong(id: SongId, seconds: number): Promise<Uint8Array> {
     const rate = 22050, ctx = new OfflineAudioContext(1, rate * seconds, rate);
     const noise = ctx.createBuffer(1, rate, rate);
     const data = noise.getChannelData(0);
@@ -210,7 +255,6 @@ export class AudioEngine {
 
   dispose() {
     this.stopMusic();
-    this.player = null;
     this.kit.dispose();
     void this.ctx?.close();
     this.ctx = null;

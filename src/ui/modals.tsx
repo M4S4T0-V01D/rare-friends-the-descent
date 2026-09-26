@@ -3,6 +3,7 @@ import { GAMBLER_PAYOUTS, RF_COSTS, type MerchantOffer } from "../economy/terms"
 import { EVENTS, GATES, MERCHANT, SHRINES } from "../game/content";
 import type { Game } from "../game/Game";
 import { RARITY_STYLE, SLOT_LABEL } from "../game/items";
+import { formatScore, OUTCOME_MULTIPLIER } from "../game/score";
 import { BOONS } from "../game/stats";
 import type { Modal, UiState } from "../game/types";
 import { Dialog, ItemCard, OddsTable, Rf, SimulatedTag, TxList } from "./components";
@@ -196,6 +197,7 @@ function WaystoneModal({ game, ui }: { game: Game; ui: UiState }) {
     </>}>
     <p>Your {carried} item{carried === 1 ? " is" : "s are"} now <b className="dx-pos">SECURED</b>. They return to your camp stash even if your Friend falls.</p>
     <p className="dx-dim">Escape now to end the run with everything, or risk more for deeper loot, bigger bosses and more RF.</p>
+    <p className="dx-death-score">Score if you escape now: <b>{formatScore(game.scoreFor(game.escapeOutcome).total)}</b> <span className="dx-dim">(×{OUTCOME_MULTIPLIER[game.escapeOutcome]} for {game.escapeOutcome === "conquered" ? "conquering the Descent" : "escaping"})</span></p>
     <Balance ui={ui} cost={0} />
   </Dialog>;
 }
@@ -216,6 +218,7 @@ function DeathModal({ game, ui }: { game: Game; ui: UiState }) {
         <kbd>3</kbd><strong>End Run</strong><span>Keep secured loot</span><small>{unsecured ? `${unsecured} unsecured item${unsecured === 1 ? "" : "s"} will be lost.` : "Nothing unsecured to lose."}</small>
       </button>
     </div>
+    <p className="dx-death-score">Score if you end here: <b>{formatScore(game.scoreFor("fallen").total)}</b> <span className="dx-dim">(×{OUTCOME_MULTIPLIER.fallen} for falling · escaping at a Waystone pays ×{OUTCOME_MULTIPLIER.escaped})</span></p>
     <Balance ui={ui} cost={0} />
   </Dialog>;
 }

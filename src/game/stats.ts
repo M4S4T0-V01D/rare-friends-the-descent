@@ -19,7 +19,7 @@ export type Buff = {
 
 /** Each Generations family grants its Friend a small passive, so the hero you pick matters. */
 export const FAMILY_TRAITS: Readonly<Record<string, { name: string; text: string; mods: Mods }>> = {
-  Skeleton: { name: "Hollow Bones", text: "+6 armor", mods: { armor: 6 } },
+  Skeleton: { name: "Hollow Bones", text: "+5 armor", mods: { armor: 5 } },
   Mask: { name: "Many Faces", text: "+5% critical chance", mods: { critChance: 5 } },
   Family: { name: "Kinship", text: "+1 potion capacity", mods: { potionMax: 1 } },
   Cellular: { name: "Mitosis", text: "Heal 2 HP on kill, +10 max HP", mods: { healOnKill: 2, hpFlat: 10 } },
@@ -36,27 +36,30 @@ export type BoonId =
   | "ironSkin" | "fortune" | "bloodthirst" | "emberTouch" | "evasion" | "lastLight" | "potionBelt" | "siphon";
 
 export const BOONS: Readonly<Record<BoonId, { name: string; text: string; mods: Mods; max?: number }>> = {
-  vitality: { name: "Vitality", text: "+20 max HP", mods: { hpFlat: 20 } },
-  might: { name: "Might", text: "+10% attack", mods: { atkPct: 10 } },
+  vitality: { name: "Vitality", text: "+15 max HP", mods: { hpFlat: 15 } },
+  might: { name: "Might", text: "+8% attack", mods: { atkPct: 8 } },
   keenEye: { name: "Keen Eye", text: "+4% critical chance", mods: { critChance: 4 } },
   cruelty: { name: "Cruelty", text: "+25% critical damage", mods: { critDmg: 25 } },
   swiftness: { name: "Swiftness", text: "+8% movement speed", mods: { moveSpeed: 8 }, max: 4 },
   voidAffinity: { name: "Void Affinity", text: "Void Bolt +25% damage, +15% energy regen", mods: { boltPower: 25, energyRegen: 15 } },
   twinCast: { name: "Twin Cast", text: "Void Bolt fires +1 projectile", mods: { extraProjectile: 1 }, max: 2 },
   resonance: { name: "Resonance", text: "Nova +25% damage and radius", mods: { novaPower: 25 }, max: 4 },
-  ironSkin: { name: "Iron Skin", text: "+6 armor", mods: { armor: 6 } },
+  ironSkin: { name: "Iron Skin", text: "+4 armor", mods: { armor: 4 } },
   fortune: { name: "Fortune", text: "+8% loot chance, +10% RF find", mods: { luck: 8, rfFind: 10 } },
-  bloodthirst: { name: "Bloodthirst", text: "Heal 4 HP on kill", mods: { healOnKill: 4 } },
+  bloodthirst: { name: "Bloodthirst", text: "Heal 3 HP on kill", mods: { healOnKill: 3 } },
   emberTouch: { name: "Ember Touch", text: "12% chance to burn enemies", mods: { burnChance: 12 } },
-  evasion: { name: "Evasion", text: "+15% dodge", mods: { dodge: 15 }, max: 3 },
+  evasion: { name: "Evasion", text: "+12% dodge", mods: { dodge: 12 }, max: 3 },
   lastLight: { name: "Last Light", text: "+30% damage while below 35% HP", mods: { lowHpDmg: 30 } },
   potionBelt: { name: "Potion Belt", text: "+1 potion capacity and a free potion", mods: { potionMax: 1 }, max: 3 },
-  siphon: { name: "Siphon", text: "+2% life steal", mods: { lifesteal: 2 }, max: 4 },
+  siphon: { name: "Siphon", text: "+2% life steal", mods: { lifesteal: 2 }, max: 3 },
 };
 
 export function addMods(total: Mods, mods: Mods, times = 1) {
   for (const [key, value] of Object.entries(mods) as [ModKey, number][]) total[key] = (total[key] ?? 0) + value * times;
 }
+
+/** Base Friend stats and per-level growth. Kept modest: the dungeon should stay dangerous. */
+export const BASE_HP = 100, HP_PER_LEVEL = 6, BASE_ATK = 18, ATK_PER_LEVEL = 1.2;
 
 export function computeStats(level: number, trait: Mods, boons: ReadonlyMap<BoonId, number>, items: readonly Item[], buffs: readonly Buff[]): Stats {
   const m: Mods = {};
@@ -78,22 +81,22 @@ export function computeStats(level: number, trait: Mods, boons: ReadonlyMap<Boon
   const healOnKill = v("healOnKill") + (powers.has("vampireCrown") ? 3 : 0);
   const dodge = v("dodge");
   return {
-    maxHp: Math.max(20, Math.round((110 + 8 * (level - 1) + v("hpFlat")) * (1 + hpPct / 100) * crown)),
-    atk: Math.max(1, Math.round((20 + 1.6 * (level - 1) + v("atkFlat")) * (1 + v("atkPct") / 100) * crown)),
-    armor: Math.max(0, Math.round((5 + (level - 1) + v("armor")) * crown)),
-    critChance: Math.min(75, 5 + v("critChance")),
+    maxHp: Math.max(20, Math.round((BASE_HP + HP_PER_LEVEL * (level - 1) + v("hpFlat")) * (1 + hpPct / 100) * crown)),
+    atk: Math.max(1, Math.round((BASE_ATK + ATK_PER_LEVEL * (level - 1) + v("atkFlat")) * (1 + v("atkPct") / 100) * crown)),
+    armor: Math.max(0, Math.round((3 + 0.6 * (level - 1) + v("armor")) * crown)),
+    critChance: Math.min(60, 5 + v("critChance")),
     critDmg: 150 + v("critDmg"),
-    moveSpeed: 200 * Math.min(1.6, Math.max(0.6, 1 + v("moveSpeed") / 100)) * (crown > 1 ? 1.05 : 1),
+    moveSpeed: 205 * Math.min(1.45, Math.max(0.6, 1 + v("moveSpeed") / 100)) * (crown > 1 ? 1.05 : 1),
     energyMax: 100,
-    energyRegen: 18 * (1 + v("energyRegen") / 100),
+    energyRegen: 15 * (1 + v("energyRegen") / 100),
     luck: Math.max(0, v("luck") * crown + (crown > 1 ? 5 : 0)),
-    dodgeCd: 1.1 / (1 + Math.max(0, dodge) / 100) * (powers.has("phaseWalker") ? 0.6 : 1),
-    evasion: Math.min(30, Math.max(0, dodge * 0.5)),
+    dodgeCd: 1.25 / (1 + Math.max(0, dodge) / 100) * (powers.has("phaseWalker") ? 0.6 : 1),
+    evasion: Math.min(20, Math.max(0, dodge * 0.4)),
     healOnKill,
     burnChance: powers.has("burningSoul") ? 100 : Math.min(100, v("burnChance")),
     projectiles: 1 + v("extraProjectile") + (powers.has("twinBolt") ? 2 : 0),
     lowHpDmg,
-    lifesteal: Math.min(25, lifesteal),
+    lifesteal: Math.min(12, lifesteal),
     rfFind: v("rfFind") + (powers.has("coinEater") ? 50 : 0),
     dmgMult: Math.max(0.2, 1 + dmgPct / 100),
     damageTaken: Math.max(0.3, 1 + v("damageTakenPct") / 100),

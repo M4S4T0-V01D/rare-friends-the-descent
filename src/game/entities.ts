@@ -14,11 +14,15 @@ export type Player = {
   combo: number; comboTimer: number; swing: { t: number; dur: number; angle: number; arc: number; range: number; heavy: boolean } | null;
   strikes: number; hitFlash: number; chill: number; weakened: number; orbit: number;
   dead: boolean; deathTime: number;
+  /** Seconds since the last cosmetic trail particle. */
+  trailT: number;
 };
 
 export type EnemyKind = "cursed" | "crawler" | "goblin" | "corrupted" | "warden" | "beast" | "unminted"
-  | "wisp" | "gunner" | "drone" | "turret" | "mite" | "spitter" | "eyestalk" | "bloodling" | "shade";
-export type Modifier = "vampiric" | "explosive" | "frozen" | "swarm" | "frenzied" | "armored" | "teleporting" | "cursed";
+  | "wisp" | "gunner" | "drone" | "turret" | "mite" | "spitter" | "eyestalk" | "bloodling" | "shade"
+  | "bomber" | "lancer" | "hexer" | "sniper" | "brute" | "hive" | "wraith" | "prism";
+export type Modifier = "vampiric" | "explosive" | "frozen" | "swarm" | "frenzied" | "armored" | "teleporting" | "cursed"
+  | "shielded" | "splitting" | "storming";
 
 export type Enemy = {
   id: number; kind: EnemyKind; name: string; pos: Vec; vel: Vec; radius: number;
@@ -34,6 +38,10 @@ export type Enemy = {
   bounty?: "voidHunt";
   target?: Vec; minionCd: number; teleportCd: number; stunT: number; invulnT: number;
   dropsMinRarity?: Rarity;
+  /** Shielded modifier: hits the bubble can still absorb, and time until it reforms. */
+  shield: number; shieldCd: number;
+  /** Storming modifier: time until the next bullet ring. */
+  stormCd: number;
 };
 
 export type Projectile = {
@@ -69,7 +77,7 @@ export type Interactable = {
   chest?: { kind: ChestKind; minRarity: Rarity; boost: number; options?: Item[]; rerolls: number; rfPaid: boolean };
   stock?: Record<string, number>; label: string; t: number;
   /** Camp only: what using this spot opens, or a decorative prop. */
-  station?: "descend" | "friend" | "stash" | "codex" | "hall" | "rf"; prop?: "statue" | "tent" | "fire" | "lantern" | "pillar" | "crates" | "bedroll";
+  station?: "descend" | "friend" | "wardrobe" | "stash" | "codex" | "hall" | "rf"; prop?: "statue" | "tent" | "fire" | "lantern" | "pillar" | "crates" | "bedroll";
 };
 
 export type Particle = {

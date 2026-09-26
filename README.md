@@ -2,7 +2,7 @@
 
 **Your Rare Friend descends into a dungeon where $RAREFRIENDS is the currency of risk.**
 
-A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Your own Generations NFT is the playable hero. It fights through procedurally generated floors of cursed crypts, finds randomized loot, and at every turn faces the same question: *spend 5 RF now, save for 10, or risk everything for 25?*
+A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Your own Generations NFT is the playable hero. It fights through procedurally generated floors of cursed crypts, finds randomized loot, and at every turn faces the same question: *spend 5 RF now, save for 10, or risk everything for 25?* Every run ends with a **score**, and RF can also dress your Friend in **cosmetic glows, skins and trails** at the camp.
 
 | | |
 |---|---|
@@ -21,7 +21,7 @@ A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Yo
 The SDK verifies that you own the Friend, and the game then reads that Friend's canonical 16×16 on-chain artwork. The same pixels appear everywhere: walking and fighting through the dungeon with its real idle and walk animations, as the canonical black-on-white portrait in the HUD, on the title screen, at the camp, in boss introductions ("Hoverer #7730 vs Dungeon Warden"), in the character sheet and on the end-of-run summary. The elite enemy, the **Corrupted Friend**, is a crimson reflection of *your own* Friend. The secret boss, **The Unminted**, wears your Friend's silhouette as living void. Each Generations family also grants a unique passive (Skeleton, Mask, Family, Cellular, Asymmetry, Hoverer, Colossus, Sparkling, Hollow). On top of that, **every Friend gets its own combat kit** (see [Every Friend plays differently](#every-friend-plays-differently)).
 
 **Token Activity: RF is spent and earned constantly.**
-Every floor presents about **7–8 paid RF decisions**, measured across 900 generated floors: 1.5 shrines, 1 RF gate, about 1 paid event, a merchant on 58% of floors, and roughly 3.7 loot chests, each with an escalating 5 → 10 → 25 RF reroll. Revives cost 10 or 25 RF. Kills, elites, treasure, events and bosses pay RF back. Every movement shows up in a live **RF ACTIVITY** feed in the HUD, in a full ledger (Tab), and in the end-of-run summary.
+Every floor presents about **7–8 paid RF decisions**, measured across 900 generated floors: 1.5 shrines, 1 RF gate, about 1 paid event, a merchant on 58% of floors, and roughly 3.7 loot chests, each with an escalating 5 → 10 → 25 RF reroll. Revives cost 10 or 25 RF. Between runs, the camp's **Dye Altar** sells 20 cosmetics for 5, 10 or 25 RF. Kills, elites, treasure, events and bosses pay RF back, and RF earned counts toward your score. Every movement shows up in a live **RF ACTIVITY** feed in the HUD, in a full ledger (Tab), and in the end-of-run summary.
 
 **Economy Potential: a small-number risk economy built for real RF later.**
 Every price lives in one file ([`src/economy/terms.ts`](src/economy/terms.ts)), uses only **5, 10 and 25 RF**, and is pinned by tests. Gameplay spends through a single [`TokenEconomy`](src/economy/TokenEconomy.ts) interface and grants an outcome only after the spend's receipt resolves. The shipped `SimulatedTokenEconomy` already uses the SDK's 18-decimal bigint RF units. A live adapter can replace it without touching combat, loot or UI code (see [Future real-token integration](#future-real-token-integration)).
@@ -31,9 +31,11 @@ Every price lives in one file ([`src/economy/terms.ts`](src/economy/terms.ts)), 
 ## How to play
 
 1. Connect your wallet and choose your Friend from a picker that shows each Friend's own on-chain artwork and family. The FriendSDK verifies ownership at a fresh block, and once you enter, that Friend is locked in for the session (reload the page to pick another).
-2. **Begin** at the title and arrive at **the camp**: a ruined sanctuary of the ancient Rare Friends. Walk around with your Friend among tents, a campfire, lanterns and broken columns. Use the stations (your stash, the Rune Tablet codex, the Obelisk of Descents, the RF Ledger, and the Still Pool that shows your Friend's kit), then walk down **the great stairs**, flanked by two stone statues of your own Friend, to descend.
+2. **Begin** at the title and arrive at **the camp**: a ruined sanctuary of the ancient Rare Friends. Walk around with your Friend among tents, a campfire, lanterns and broken columns. Use the stations (your stash, the Rune Tablet codex, the Obelisk of Descents with your scores, the RF Ledger, the Still Pool that shows your Friend's kit, and the **Dye Altar** wardrobe), then walk down **the great stairs**, flanked by two stone statues of your own Friend, to descend.
 3. Clear rooms, loot, make RF decisions, go deeper. Bosses wait at depths 3, 6 and 9.
-4. Escape at a Waystone with your loot, or die and decide whether RF can buy you another chance.
+4. Escape at a Waystone with your loot, or die and decide whether RF can buy you another chance. Either way, the run is scored.
+
+**The dungeon is dangerous.** Your Friend starts with 100 HP, 2 potions, and grows slowly (+6 HP, +1.2 attack per level). Enemies hit hard from the first room and scale with depth. Dodge-rolling through bullets, not trading hits, is how you survive.
 
 ### Sound
 
@@ -48,7 +50,21 @@ Every place has its own little creepy dungeon tune, composed as a looping song a
 | The Endless Void | Glassy whole-tone bells, dreamy and wrong |
 | Boss fights | Driving D-minor bass, harpsichord and drums |
 
-Each tune loops in sections (the melody rests, then returns an octave up) so it does not wear thin. `node scripts/render-music.mjs` renders every tune to `artifacts/music/*.wav` for listening. **Each Generations family has its own voice** (Skeleton bone-clacks, Mask hollow toks, Family chirps, Cellular bubbles, Asymmetry detuned zaps, Hoverer airy whooshes, Colossus deep thuds, Sparkling chimes, Hollow echoing pings), heard when you dodge, get hit, cast your signature, land a heavy blow or level up. Each Friend's on-chain seed tunes its voice slightly, so no two sound quite alike. Mute with M; music has its own toggle.
+**Special rooms have their own music.** Walk into one and its tune fades in over about 1.5 s while the floor's tune ducks away underneath; walk out and it fades back. Changing floors crossfades too, so music never cuts.
+
+| Special room | Tune |
+|---|---|
+| Shrine of Greed / Shrine of Fate | A hushed, holy-but-wrong choir with harp arpeggios and a bell (D minor) |
+| Shrine of the Void, The Black Door | A dissonant whole-tone choir over a slow heartbeat, with glitches |
+| The Corpse | A funeral dirge: tolling bell, low organ and a mourning voice (C minor) |
+| A Lost Friend | A warm music-box lullaby with harp, the only kind tune in the dungeon (F major) |
+| The Well, The Stranger, The Mirror | Tense pizzicato bass and a tritone harp line (A minor) |
+| Moth, the Peddler | A crooked bazaar tune over a hand-drum groove (D phrygian dominant) |
+| The Gambler | A sly walking-bass chiptune (C minor) |
+| Treasure rooms, The Golden Door | Glittering music-box arpeggios and bells (E major) |
+| Secret rooms | Whole-tone harp glissandi and a far-off bell |
+
+Each tune loops in sections (the melody rests, then returns an octave up) so it does not wear thin. `node scripts/render-music.mjs` renders every tune, including the special-room songs, to `artifacts/music/*.wav` for listening. **Each Generations family has its own voice** (Skeleton bone-clacks, Mask hollow toks, Family chirps, Cellular bubbles, Asymmetry detuned zaps, Hoverer airy whooshes, Colossus deep thuds, Sparkling chimes, Hollow echoing pings), heard when you dodge, get hit, cast your signature, land a heavy blow or level up. Each Friend's on-chain seed tunes its voice slightly, so no two sound quite alike. Mute with M; music has its own toggle.
 
 ### Every Friend plays differently
 
@@ -73,7 +89,7 @@ The kit is shown on the title screen, in the camp's **Friend** tab, in the pause
 | Bolt (your kit's style) | Q, L or right click | Bolt button |
 | Signature ability (your family's) | R or N | Signature button |
 | Dodge (brief invulnerability) | Space, Shift or K | DODGE |
-| Potion (heals 35%) | F or H | ♥ |
+| Potion (heals 30%) | F or H | ♥ |
 | Interact / confirm | E or Enter | USE |
 | Character sheet · RF ledger · pause | C · Tab · Esc | ☰ |
 | Mute | M | Pause menu |
@@ -101,6 +117,7 @@ Title → wallet → Friend → camp → **Depth 1**. The first room holds three
 | **Revive** (on death) | | Revive: 40% HP | Full Revival: 100% HP, curses cleansed, damaging burst |
 | **Merchant: Moth, the Peddler** | Health Potion (×2) · Cursed Mystery Box | Random Relic · Rare Item | Legendary Gamble |
 | **Events** | The Well · The Gambler | The Stranger · The Golden Door | The Black Door |
+| **Dye Altar cosmetics** (camp) | Common glows, Statue Stone skin, Embers trail | Rare glows, Corrupted / Lost Light / Frostbitten / Cinder / Shadow skins, Sparkles and Void Motes trails | Prismatic and Null Halo glows, Gilded and Unminted Void skins, Rune Steps trail |
 
 ### What RF pays back
 
@@ -144,6 +161,34 @@ Odds are shown in every shrine and event dialog. All tables sum to 100% (pinned 
 
 Merchant gambles: **Legendary Gamble** Epic 30% · Legendary 58% · Mythic 12%. **Cursed Mystery Box** cursed item 55% · 2 potions 20% · curse 15% · Epic item 10%.
 
+### The Dye Altar: cosmetics for RF
+
+At the bottom of the camp stands **the Dye Altar**, a tall mirror that shows your Friend as it is dressed. Its **Wardrobe** tab (also in the camp menu) sells cosmetics for simulated RF through the same `TokenEconomy` as every other spend, recorded in the ledger as `Dye Altar: <name>`. Owned looks can be swapped for free.
+
+| Slot | Options |
+|---|---|
+| **Glows** (the light around your Friend) | Signal Lime (free) · Blood Moon, Relay Cyan, Crypt Violet (5 RF) · Hoard Gold, Void Rose, Frostlight (10 RF) · **Prismatic** (cycles every color) and **Null Halo** (a pocket of darkness with a burning rim) (25 RF) |
+| **Skins** (your Friend's pixel color) | Canonical (free) · Statue Stone (5 RF) · **Corrupted** (the crimson of the Corrupted Friends), Lost Light, Frostbitten, Cinder, Shadow (10 RF) · Gilded, Unminted Void (25 RF) |
+| **Trails** (what your steps leave behind) | None (free) · Embers (5 RF) · Sparkles, Void Motes (10 RF) · Rune Steps (25 RF) |
+
+Cosmetics only **recolor** your Friend's canonical on-chain pixels and add light: the artwork's shape is never altered, and cosmetics give no power. The HUD portrait always shows the canonical black-on-white art. Worn looks appear in the dungeon, at the camp, on the title and summary screens, and in the Dye Altar's mirror. Like the stash, cosmetics last for the session (see [Known issues](#known-issues-and-limitations)).
+
+### Scoring
+
+Every run ends with a score, shown line by line on the summary screen (counting up to the total), added to your **lifetime score**, and ranked in the Obelisk of Descents (the Hall). A live **SCORE** panel under the minimap shows the run so far, and the death and Waystone dialogs preview what ending now would be worth.
+
+| Line | Points |
+|---|---|
+| Depth reached | 500 × depth + 50 × depth² |
+| Enemies slain | 10 each |
+| Elites slain | 60 each |
+| Bosses | 1,000 per Warden · 3,000 for The Rare Beast · 2,500 for The Unminted |
+| Friend level | 120 per level above 1 |
+| **Loot on your Friend** (everything equipped or in the bag when the run ends) | Common 10 · Uncommon 30 · Rare 75 · Epic 180 · Legendary 450 · Mythic 1,200 (cursed items ×1.25) |
+| RF earned | 15 per RF |
+
+**How the run ends multiplies the total:** conquered (escaped after The Rare Beast) **×2**, escaped at a Waystone **×1.5**, fell in the dark **×0.75**, abandoned **×0.5**. Dying with a bag full of Legendaries still scores them, but escaping with them is worth twice as much. The formula lives in [`src/game/score.ts`](src/game/score.ts) and is pinned by unit tests.
+
 ### Death, revival and extraction
 
 - **Death:** choose **Revive (10 RF)**, **Full Revival (25 RF)** or **End Run**.
@@ -163,25 +208,59 @@ Merchant gambles: **Legendary Gamble** Epic 30% · Legendary 58% · Mythic 12%. 
 **Legendary powers:** Cinderheart, The Split Signal, Crown of Red Thirst, Glass Heart, Echo Engine, Ghoststep Sigil, Orrery of Runes, Last Light, Coin-Eater's Maw, Headsman's Grin.
 **Mythic powers:** VOID HEART, THE RARE EDGE, CROWN OF THE FIRST FRIEND, NULL SIGNAL.
 
-**Progression:** XP from kills and clears. Each level adds +8 HP, +1.6 attack and +1 armor, plus a choice of 3 of 16 boons, offered once the room is safe.
+**Progression:** XP from kills and clears. Each level adds +6 HP, +1.2 attack and +0.6 armor (and heals only 6%), plus a choice of 3 of 16 boons, offered once the room is safe. Clearing a room heals just 2%, potions heal 30%, and life steal, evasion and crit chance are capped (12%, 20%, 60%), so no build turns the Friend into a tank.
 
-**Enemies (bullet-hell patterns, every attack telegraphed):** Cursed Friend (fast melee) · Void Crawler (aimed orbs) · Choir Wisp (bullet rings) · Bone Gunner (shotgun spreads) · Static Drone (strafing 3-round bursts) · Relay Turret (rotating spiral) · Signal Mite (lunging swarm packs) · Maw Spitter (lobbed globs that burst into rings) · Eye Stalk (a gaze line, then a needle stream) · Bloodling (splits in two) · Null Shade (blinks in with a bullet ring) · Loot Goblin (flees, drops coins, escapes after 14 s) · Corrupted Friend (elite: charge, slam) · Dungeon Warden (mini-boss, depths 3 and 6) · The Rare Beast (3-phase final boss, depth 9) · The Unminted (secret boss). Dodge-rolling through bullets is the core skill, and leftover enemy bullets vanish when a room is cleared.
-**Modifiers:** Vampiric, Explosive, Frozen, Swarm, Frenzied, Armored, Teleporting and Cursed, applied to elites and to some normal "champions" on deeper floors. Every enemy attack is telegraphed.
+**Enemies (bullet-hell patterns, every attack telegraphed).** Enemy damage starts at 1.2× and grows 36% per depth; health grows faster than before too, and rooms field about 20% more enemies.
+
+| Enemy | Pattern |
+|---|---|
+| Cursed Friend | Fast melee |
+| Void Crawler | Aimed orbs |
+| Choir Wisp | Bullet rings |
+| Bone Gunner | Shotgun spreads |
+| Static Drone | Strafing 3-round bursts |
+| Relay Turret | Rotating spiral |
+| Signal Mite | Lunging swarm packs |
+| Maw Spitter | Lobbed globs that burst into rings |
+| Eye Stalk | A gaze line, then a needle stream |
+| Bloodling | Splits in two |
+| Null Shade | Blinks in with a bullet ring |
+| **Grave Bomber** (new) | Sprints at you, lights its fuse and explodes; it also bursts when killed, so kill it at range |
+| **Bone Lancer** (new) | Marks a line with its spear, then skewers straight down it |
+| **Hex Priest** (new) | Brands the floor under you with curse circles, and every third cast mends its most wounded ally |
+| **Relay Sniper** (new) | Tracks you with a laser sight, locks on, then fires one very fast round |
+| **Flesh Brute** (new) | A slow, heavy hitter that pounds the ground and throws out a ring of gore; resists knockback |
+| **Hive Mother** (new) | Rooted in place; births Signal Mites (up to 8) and pulses slow spores |
+| **Grave Wraith** (new) | Nearly invisible (a faint shimmer) until it reveals itself and lunges |
+| **Void Prism** (new) | Spits rotating crosses of bullets and sweeps a long laser across the room |
+| Loot Goblin | Flees, drops coins, escapes after 14 s |
+| Corrupted Friend | Elite: charge, slam |
+
+Dodge-rolling through bullets is the core skill, and leftover enemy bullets vanish when a room is cleared.
+**Modifiers:** Vampiric, Explosive, Frozen, Swarm, Frenzied, Armored, Teleporting, Cursed, and three new ones: **Shielded** (a bubble that blocks two hits, then reforms after 5 s), **Splitting** (splits into two smaller copies on death) and **Storming** (fires a bullet ring every few seconds). They apply to elites and to "champions", which are now more common deeper down.
+
+**Bosses, redrawn and rearmed.** Every boss has new pixel art and a cinematic entrance: letterbox bars, a name card, and a moment of immunity while it rises.
+
+- **Dungeon Warden** (depth 3) / **Warden of the Deep** (depth 6): a horned, armored jailer with a burning core, stepping legs and swinging chains; crimson and ember in the crypts, steel and ice-blue in the Signal Vaults. Its armor cracks and bleeds light in phase 2. New attacks: **Chains** (three whirling arms of bullets) and **Quake** (a fissure of slams marching toward you), alongside its slam, sweep, charge, summons, rings and blink.
+- **The Rare Beast** (depth 9): a crowned maw with eyes that open with each phase and follow your Friend, and writhing tendrils. New attacks: **Eyes** (every eye fires a needle in turn) and **Curtain** (a wall of bullets sweeps the arena with a single gap), alongside claws, spirals, stomps, charges, pools and the sweeping beam.
+- **The Unminted** (secret): your Friend's silhouette as living void. New attack: **Starfall**, a spiral of void stars raining around you.
 
 **Every floor is its own place**, with its own palette, tile style, props and enemy roster:
 
 | Depth | Floor | Look | New enemies |
 |---|---|---|---|
-| 1 | The Upper Crypts · Ossuary | Bone-strewn crypt slabs, gravestones, coffins | Cursed Friends, Choir Wisps |
-| 2 | The Upper Crypts · Candle Nave | Candlelit amber crypt | Bone Gunners |
-| 3 | The Upper Crypts · Warden's Vault | Chained vault, crimson accents | (Dungeon Warden) |
-| 4 | The Signal Vaults · Relay Halls | Bolted cyan tech plates, terminals, cables | Static Drones, Signal Mites |
-| 5 | The Signal Vaults · Server Tombs | Green-lit server racks | Relay Turrets |
+| 1 | The Upper Crypts · Ossuary | Bone-strewn crypt slabs, gravestones, coffins | Cursed Friends, Choir Wisps, Grave Bombers |
+| 2 | The Upper Crypts · Candle Nave | Candlelit amber crypt | Bone Gunners, Bone Lancers |
+| 3 | The Upper Crypts · Warden's Vault | Chained vault, crimson accents | Grave Wraiths, Hex Priests (Dungeon Warden) |
+| 4 | The Signal Vaults · Relay Halls | Bolted cyan tech plates, terminals, cables | Static Drones, Signal Mites, Relay Snipers |
+| 5 | The Signal Vaults · Server Tombs | Green-lit server racks | Relay Turrets, Hive Mothers |
 | 6 | The Signal Vaults · Signal Core | Pipes and screens in signal green | (Warden of the Deep) |
-| 7 | The Hollow Deep · Red Gullet | Veined flesh, tendrils, blood pools | Bloodlings, Maw Spitters |
+| 7 | The Hollow Deep · Red Gullet | Veined flesh, tendrils, blood pools | Bloodlings, Maw Spitters, Flesh Brutes |
 | 8 | The Hollow Deep · Vein Galleries | Eyes in the floor | Eye Stalks |
 | 9 | The Hollow Deep · The Beast's Heart | Ribcages and tendrils | (The Rare Beast) |
-| 10+ | The Endless Void · Stratum N | Star-flecked void, shards, glitches | Null Shades, and everything else |
+| 10+ | The Endless Void · Stratum N | Star-flecked void, shards, glitches | Null Shades, Void Prisms, and everything else |
+
+**Look and feel:** each floor has drifting ambient motes (crypt dust, tech sparks, flesh spores, void stars). Enemies breathe, squash when hit and stretch while winding up, then flash and dissolve when they die; damage numbers pop in and settle; dodges leave afterimages in your glow's color; movement eases in and out instead of snapping. Under the hood, crowded fights are cheaper to draw: enemy bullets no longer spawn trail particles, sprite palettes are cached by a cheap key, and the particle pool trims in batches.
 
 **The dungeon:** each floor is generated from a seed, and floors **grow larger and more complex as you descend**. The layout grid grows from 7×7 to 9×9 cells, and over 20 generated floors per depth, rooms go from about 9 to 22 and floor area almost quadruples. Deeper floors add loops (multiple routes), optional side-combat wings, branches off branches, and interior architecture: colonnades, dividing walls, inner rings and crosses. Every room tile is verified reachable. A main path of combat rooms leads to the stairs or the boss arena, with side rooms branching off it: treasure, shrines, the merchant, events, gated bonus rooms, and a hidden secret room behind a cracked wall (strike it three times). Floors run through The Upper Crypts, The Signal Vaults, The Hollow Deep and The Endless Void. After depth 9 you can keep descending for as long as you survive.
 
@@ -202,6 +281,8 @@ The FriendSDK v0.1.2 package archive is vendored at `vendor/rarefriends-friendsd
 
 **How the site is built:** `npm run build` runs `scripts/site.mjs`. The FriendSDK CLI's `buildGame` builds the sandboxed game exactly as `friendsdk build` does. Then The Descent's trusted host page (`host/`) replaces the default runtime bundle. The host uses the SDK's own wallet session (`createFriendWalletSession`), owner-filtered discovery (`readOwnedFriends`) and `ConnectedGameHost`, which performs the fresh ownership and generation check before every session. Only the Friend picker is custom: it adds artwork thumbnails and locks the chosen Friend for the session. `npm run dev` builds and serves at http://127.0.0.1:4173 (re-run it after edits).
 
+If your Playwright version has no matching browser download (for example in a sandbox with a preinstalled Chromium), point the browser checks at it with `CHROMIUM_PATH=/path/to/chromium npm run test:browser`.
+
 **Build a static preview:** `npm run build` writes `site/`. Serve that folder from any HTTPS static host, keeping its relative paths and the child document's CSP. The included GitHub Actions workflow (`.github/workflows/pages.yml`) runs the checks, builds and deploys to GitHub Pages on every push to `main`. In the repository settings, set **Pages → Source** to **GitHub Actions**.
 
 ### Project layout
@@ -211,10 +292,10 @@ The FriendSDK v0.1.2 package archive is vendored at `vendor/rarefriends-friendsd
 | `index.tsx`, `game.json`, `host.css`, `style.css` | FriendSDK game entry, required SDK definition, trusted runtime theme, game UI styles |
 | `host/` | Trusted host page: SDK wallet session, discovery and `ConnectedGameHost`, plus the Friend picker with thumbnails and the session lock |
 | `src/economy/` | `terms.ts` (every price and reward), `TokenEconomy.ts` (the interface), `SimulatedTokenEconomy.ts` |
-| `src/game/` | Engine: `Game.ts` (run loop, combat, rooms, RF actions), `dungeon.ts`, `enemies.ts` and `bestiary.ts` (bullet patterns), `kit.ts` (per-Friend kits), `items.ts`, `stats.ts`, `content.ts` |
-| `src/render/` | Canvas renderer, dungeon art, sprites (canonical Friend artwork plus original enemy art) |
+| `src/game/` | Engine: `Game.ts` (run loop, combat, rooms, RF actions, room music, wardrobe), `dungeon.ts`, `enemies.ts` and `bestiary.ts` (bullet patterns), `kit.ts` (per-Friend kits), `items.ts`, `stats.ts`, `score.ts` (run scoring), `content.ts` (shrines, events, rosters, cosmetics) |
+| `src/render/` | Canvas renderer, dungeon art, sprites (canonical Friend artwork plus original enemy art), `bossArt.ts` (mirrored pixel-art boss bodies) |
 | `src/ui/` | React overlays: title, camp, HUD, dialogs, summary, touch controls |
-| `src/audio/` | Procedural sound effects and music, plus the FriendSDK sound kit |
+| `src/audio/` | Procedural sound effects and music (place tunes, special-room tunes, crossfading layers), plus the FriendSDK sound kit |
 | `tests/unit/`, `scripts/` | Unit tests; browser, live-gate and balance-playtest scripts |
 
 `game.json` exists because the SDK runtime requires a chance-game definition. Its terms are **unused reference values**, not a mechanic of this game (the same approach as the SDK's scrolling-world example).
@@ -227,18 +308,19 @@ The FriendSDK v0.1.2 package archive is vendored at `vendor/rarefriends-friendsd
 |---|---|---|
 | `npm run typecheck` | TypeScript, strict | Pass |
 | `npm run lint` | ESLint (typescript-eslint, react-hooks) | Pass |
-| `npm run test:unit` | 16 tests: per-floor themes and rosters, floor growth with depth plus full-tile reachability, economy ledger, bigint RF units, insufficient funds, all prices in the 5/10/25 family, small rewards, every odds table sums to 100%, prices come from the economy terms, generation determinism, reachability of every room (300 floors), floor-1 script, depth-2 Void shrine, loot and stats | 16/16 pass |
+| `npm run test:unit` | 20 tests: per-floor themes and rosters (including all 8 new enemies), floor growth with depth plus full-tile reachability, economy ledger, bigint RF units, insufficient funds, all prices (cosmetics included) in the 5/10/25 family, small rewards, every odds table sums to 100%, prices come from the economy terms, generation determinism, reachability of every room (300 floors), floor-1 script, depth-2 Void shrine, loot and stats, player/enemy balance caps, run scoring and outcome multipliers, cosmetic catalogue, every sprite mask is a clean rectangle | 20/20 pass |
 | `npm run check` | FriendSDK game validation (imports, sandbox boundary, definition) | Pass |
 | `npm run build` | Static preview build | Pass |
-| `npm run test:browser` | 25 end-to-end checks in headless Chromium against **the site as shipped** (The Descent host plus the SDK runtime pieces) with the SDK's own mock wallet and RPC fixture: picker thumbnails, Friend locked in during play, walking the camp and descending the great stairs, every floor mood and family voice, title and verified Friend, keyboard movement, locked-room combat with real key presses, first loot, level-up, **5 RF** shrine, +3 RF treasure, **5 → 10 → 25** rerolls with no 4th, **5 RF** gate, events, **10 RF** revive, **25 RF** full revival, **25 RF** Void shrine (including the secret-boss path and +25 RF), merchant **5 RF** and **10 RF** buys, potion, pause, mute, reduced motion, depth-3 boss with +5 RF, Waystone, escape summary, restart, death and End Run, artwork-load error with retry, wrong-network unmount and recheck, browser refresh, touch joystick and buttons, zero console errors | 25/25 pass |
+| `npm run test:browser` | 26 end-to-end checks in headless Chromium against **the site as shipped** (The Descent host plus the SDK runtime pieces) with the SDK's own mock wallet and RPC fixture: picker thumbnails, Friend locked in during play, walking the camp and descending the great stairs, every floor mood, every special-room tune and family voice, title and verified Friend, keyboard movement, locked-room combat with real key presses, first loot, level-up, **5 RF** shrine (and its tune fading in inside the shrine room and out after leaving), +3 RF treasure, **5 → 10 → 25** rerolls with no 4th, **5 RF** gate, events, **10 RF** revive, **25 RF** full revival, **25 RF** Void shrine (including the secret-boss path and +25 RF), merchant **5 RF** and **10 RF** buys, potion, pause, mute, reduced motion, depth-3 boss with +5 RF, Waystone, escape summary with its score breakdown, restart, death and End Run, **10 RF + 5 RF** Dye Altar buys (Corrupted skin, Blood Moon glow) and free swaps, artwork-load error with retry, wrong-network unmount and recheck, browser refresh, touch joystick and buttons, zero console errors | 26/26 pass |
 | `npm run test:real` (or `TARGET_URL=<preview> node scripts/test-real-gate.mjs`) | **Live Robinhood mainnet**, read-only, also run against the published GitHub Pages preview: a stand-in wallet that refuses every signing method reports a real holder's public address. The real SDK picker discovered the holder's 5 hardwired Friends, freshly verified ownership, and the game loaded that Friend's on-chain artwork. An address with only a generation-0 Friend was refused, and a wrong-network wallet was stopped before play. | 3/3 pass |
-| `npm run playtest` | A bot plays the real engine at about 60× speed using only player controls, reporting depth, deaths, damage by source and RF flow | Used for balance: a bot that dodges bullets clears all 9 floors in about 15 minutes; a bot that never dodges falls around depths 5–8. RF earned per full run is about 40–100. |
+| `npm run playtest` | A bot plays the real engine at accelerated speed using only player controls, reporting depth, deaths, damage by source and RF flow | Used for balance. After the difficulty pass, a bot that never dodges usually falls at depths 2–4 (often to the Dungeon Warden) and takes about 3× the damage per floor it used to; a bot that sidesteps bullets reaches about depth 5–6 instead of clearing all 9 floors. Deep runs earn about 40–110 RF. |
 
 ---
 
 ## Known issues and limitations
 
-- **Session-only progress.** The FriendSDK sandbox has no storage and the bridge has no save API, so the stash, codex, hall and RF ledger reset on reload. The global leaderboard is a placeholder for the same reason.
+- **Session-only progress.** The FriendSDK sandbox has no storage and the bridge has no save API, so the stash, codex, hall, scores, bought cosmetics and RF ledger reset on reload. The global leaderboard is a placeholder for the same reason.
+- **Cosmetics and the stipend.** Because the preview tops your purse back up to 25 RF at each descent, cosmetics are easy to afford here. With a real economy (no stipend), they become a genuine RF sink.
 - **Two RF numbers are visible.** The SDK runtime's own "Friend wallet" panel shows its reference chance-game preview balance (20 RF). The Descent does not use that ledger; the in-game **$RAREFRIENDS** panel is this game's simulated purse. The pause menu explains this.
 - **The public Robinhood RPC can reject bursts.** Friend discovery occasionally fails on the first try; the SDK picker's **Retry loading Friends** button resolves it.
 - **Phones:** the game is landscape 3:2. On a portrait phone the frame is small, and the SDK's wallet toolbar takes proportionally more space. Touch controls work; landscape is recommended.

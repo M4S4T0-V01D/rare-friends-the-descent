@@ -134,7 +134,7 @@ export const GOLDEN_DOOR_RARITIES = [
 ] as const;
 
 export const MERCHANT: Readonly<Record<MerchantOffer, { name: string; cost: number; text: string; stock: number }>> = {
-  potion: { name: "HEALTH POTION", cost: RF_COSTS.merchant.potion, text: "Restores 35% HP. Carried in your belt.", stock: 2 },
+  potion: { name: "HEALTH POTION", cost: RF_COSTS.merchant.potion, text: "Restores 30% HP. Carried in your belt.", stock: 2 },
   relic: { name: "RANDOM RELIC", cost: RF_COSTS.merchant.relic, text: "An Uncommon to Epic relic.", stock: 1 },
   rareItem: { name: "RARE ITEM", cost: RF_COSTS.merchant.rareItem, text: "A guaranteed Rare item.", stock: 1 },
   legendaryGamble: { name: "LEGENDARY GAMBLE", cost: RF_COSTS.merchant.legendaryGamble, text: "Epic 30% · Legendary 58% · Mythic 12%.", stock: 1 },
@@ -150,7 +150,8 @@ export const CURSED_BOX = [
 
 /** Every floor has its own scenery, palette and enemy roster. Depths 10+ are the endless void. */
 export type FloorStyle = "crypt" | "tech" | "flesh" | "void";
-export type RosterKind = "cursed" | "crawler" | "wisp" | "gunner" | "drone" | "turret" | "mite" | "spitter" | "eyestalk" | "bloodling" | "shade";
+export type RosterKind = "cursed" | "crawler" | "wisp" | "gunner" | "drone" | "turret" | "mite" | "spitter" | "eyestalk" | "bloodling" | "shade"
+  | "bomber" | "lancer" | "hexer" | "sniper" | "brute" | "hive" | "wraith" | "prism";
 export type FloorTheme = Readonly<{
   name: string; area: string; style: FloorStyle;
   floor: string; floorAlt: string; wall: string; wallTop: string; accent: string; torch: string; bullet: string;
@@ -165,28 +166,29 @@ const VOID_DECOR = [["voidShard", 3], ["glitch", 3], ["runeCircle", 2], ["crysta
 
 export const FLOOR_THEMES: readonly FloorTheme[] = [
   { name: "THE UPPER CRYPTS", area: "Ossuary", style: "crypt", floor: "#1a1622", floorAlt: "#1f1a29", wall: "#2c2440", wallTop: "#3d3357", accent: "#8f6fd8", torch: "#ff9a3c", bullet: "#c9b8ff",
-    decor: CRYPT_DECOR, roster: [["cursed", 5], ["crawler", 1.2], ["wisp", 1.5]] },
+    decor: CRYPT_DECOR, roster: [["cursed", 5], ["crawler", 1.2], ["wisp", 1.5], ["bomber", 1.2]] },
   { name: "THE UPPER CRYPTS", area: "Candle Nave", style: "crypt", floor: "#1d1719", floorAlt: "#231b1f", wall: "#382a2c", wallTop: "#4d3a3a", accent: "#ffb347", torch: "#ffb347", bullet: "#ffd9a0",
-    decor: [["candles", 6], ...CRYPT_DECOR], roster: [["cursed", 4], ["crawler", 1.5], ["wisp", 2], ["gunner", 2]] },
+    decor: [["candles", 6], ...CRYPT_DECOR], roster: [["cursed", 3.5], ["crawler", 1.5], ["wisp", 2], ["gunner", 2], ["lancer", 2], ["bomber", 1]] },
   { name: "THE UPPER CRYPTS", area: "Warden's Vault", style: "crypt", floor: "#171520", floorAlt: "#1c1928", wall: "#262036", wallTop: "#352d4d", accent: "#c2283f", torch: "#ff5a3c", bullet: "#ff8fa3",
-    decor: [["chains", 5], ["coffin", 4], ...CRYPT_DECOR], roster: [["cursed", 3], ["crawler", 2], ["wisp", 2], ["gunner", 3]] },
+    decor: [["chains", 5], ["coffin", 4], ...CRYPT_DECOR], roster: [["cursed", 2.5], ["crawler", 1.5], ["wisp", 1.5], ["gunner", 2.5], ["lancer", 2], ["wraith", 2], ["hexer", 1.5]] },
   { name: "THE SIGNAL VAULTS", area: "Relay Halls", style: "tech", floor: "#121a1f", floorAlt: "#152028", wall: "#1f3340", wallTop: "#2b4a5c", accent: "#3ef0ff", torch: "#3ef0ff", bullet: "#3ef0ff",
-    decor: TECH_DECOR, roster: [["drone", 3], ["mite", 2.5], ["cursed", 1.5], ["crawler", 1]] },
+    decor: TECH_DECOR, roster: [["drone", 3], ["mite", 2.5], ["cursed", 1.5], ["crawler", 1], ["sniper", 2], ["bomber", 1.5]] },
   { name: "THE SIGNAL VAULTS", area: "Server Tombs", style: "tech", floor: "#101818", floorAlt: "#132020", wall: "#1c3434", wallTop: "#274848", accent: "#6ee07a", torch: "#6ee07a", bullet: "#b9ff6b",
-    decor: [["serverRack", 6], ...TECH_DECOR], roster: [["drone", 3], ["turret", 2], ["mite", 2], ["gunner", 1]] },
+    decor: [["serverRack", 6], ...TECH_DECOR], roster: [["drone", 3], ["turret", 2], ["mite", 2], ["gunner", 1], ["sniper", 2], ["hive", 1.5]] },
   { name: "THE SIGNAL VAULTS", area: "Signal Core", style: "tech", floor: "#14131f", floorAlt: "#191828", wall: "#252340", wallTop: "#343157", accent: "#ccff00", torch: "#ccff00", bullet: "#ccff00",
-    decor: [["screen", 4], ["pipe", 4], ...TECH_DECOR], roster: [["drone", 3], ["turret", 2.5], ["mite", 2], ["wisp", 1]] },
+    decor: [["screen", 4], ["pipe", 4], ...TECH_DECOR], roster: [["drone", 2.5], ["turret", 2], ["mite", 2], ["wisp", 1], ["sniper", 2], ["hive", 1.5], ["hexer", 1.5]] },
   { name: "THE HOLLOW DEEP", area: "Red Gullet", style: "flesh", floor: "#1d1215", floorAlt: "#24161a", wall: "#3d1c26", wallTop: "#562636", accent: "#ff3d5a", torch: "#ff5a3c", bullet: "#ff4d6d",
-    decor: FLESH_DECOR, roster: [["bloodling", 3.5], ["spitter", 2.5], ["cursed", 1], ["crawler", 1]] },
+    decor: FLESH_DECOR, roster: [["bloodling", 3.5], ["spitter", 2.5], ["cursed", 1], ["crawler", 1], ["brute", 2]] },
   { name: "THE HOLLOW DEEP", area: "Vein Galleries", style: "flesh", floor: "#1a1016", floorAlt: "#21131c", wall: "#3a1830", wallTop: "#522243", accent: "#ff8fb3", torch: "#ff3d7f", bullet: "#ff8fb3",
-    decor: [["eyeball", 5], ...FLESH_DECOR], roster: [["bloodling", 3], ["spitter", 2], ["eyestalk", 2.5], ["gunner", 1]] },
+    decor: [["eyeball", 5], ...FLESH_DECOR], roster: [["bloodling", 3], ["spitter", 2], ["eyestalk", 2], ["gunner", 1], ["brute", 2], ["hive", 1.5], ["wraith", 1.5]] },
   { name: "THE HOLLOW DEEP", area: "The Beast's Heart", style: "flesh", floor: "#1f0f10", floorAlt: "#271315", wall: "#451a1c", wallTop: "#62262a", accent: "#ccff00", torch: "#ff5a3c", bullet: "#ff9a3c",
-    decor: [["tendril", 6], ["ribcage", 4], ...FLESH_DECOR], roster: [["bloodling", 3], ["spitter", 2.5], ["eyestalk", 2.5], ["drone", 1]] },
+    decor: [["tendril", 6], ["ribcage", 4], ...FLESH_DECOR], roster: [["bloodling", 3], ["spitter", 2.5], ["eyestalk", 2], ["drone", 1], ["brute", 2.5], ["hexer", 1.5], ["bomber", 1.5]] },
 ];
 
 export const VOID_THEME: FloorTheme = {
   name: "THE ENDLESS VOID", area: "Stratum", style: "void", floor: "#0f0d17", floorAlt: "#141021", wall: "#261b3b", wallTop: "#35264f", accent: "#ccff00", torch: "#ff3d7f", bullet: "#ff3d7f",
-  decor: VOID_DECOR, roster: [["shade", 3], ["drone", 1.5], ["turret", 1.5], ["spitter", 1.5], ["eyestalk", 1.5], ["bloodling", 1.5], ["wisp", 1.5], ["gunner", 1.5], ["mite", 1]],
+  decor: VOID_DECOR, roster: [["shade", 3], ["prism", 2.5], ["drone", 1.5], ["turret", 1.2], ["spitter", 1.5], ["eyestalk", 1.2], ["bloodling", 1.5], ["wisp", 1.5],
+    ["gunner", 1.5], ["mite", 1], ["bomber", 1.2], ["lancer", 1.2], ["hexer", 1.2], ["sniper", 1.2], ["brute", 1.5], ["hive", 1], ["wraith", 1.5]],
 };
 
 export function bandForFloor(depth: number): FloorTheme {
@@ -196,3 +198,41 @@ export function bandForFloor(depth: number): FloorTheme {
 
 export const BOSS_FLOORS = (floor: number) => floor % 3 === 0;
 export const FINAL_FLOOR = 9;
+
+/**
+ * Wardrobe cosmetics, bought with (simulated) RF at the camp's Dye Altar. They only recolor your
+ * Friend's canonical pixels and add light: the on-chain artwork's shape is never altered.
+ */
+export type CosmeticSlot = "glow" | "skin" | "trail";
+export type Cosmetic = Readonly<{ id: string; slot: CosmeticSlot; name: string; text: string; cost: number; color: string; look?: FriendLookId }>;
+/** Mirrors FriendLook in the renderer, kept here so game code does not import rendering. */
+export type FriendLookId = "hero" | "corrupted" | "void" | "ghost" | "stone" | "gold" | "frost" | "shadow" | "ember";
+
+const C = RF_COSTS.cosmetic;
+export const COSMETICS: readonly Cosmetic[] = [
+  { id: "glow-lime", slot: "glow", name: "Signal Lime", text: "The glow every Friend is born with.", cost: 0, color: "#ccff00" },
+  { id: "glow-crimson", slot: "glow", name: "Blood Moon", text: "A deep crimson halo.", cost: C.common, color: "#ff2e4d" },
+  { id: "glow-cyan", slot: "glow", name: "Relay Cyan", text: "Cold light from the Signal Vaults.", cost: C.common, color: "#3ef0ff" },
+  { id: "glow-violet", slot: "glow", name: "Crypt Violet", text: "The color of old rune-light.", cost: C.common, color: "#bb66ff" },
+  { id: "glow-gold", slot: "glow", name: "Hoard Gold", text: "Shines like a Legendary drop.", cost: C.rare, color: "#ffb02e" },
+  { id: "glow-rose", slot: "glow", name: "Void Rose", text: "The Shrine of the Void's own pink.", cost: C.rare, color: "#ff3d7f" },
+  { id: "glow-frost", slot: "glow", name: "Frostlight", text: "A pale, frozen shimmer.", cost: C.rare, color: "#8fe3ff" },
+  { id: "glow-prism", slot: "glow", name: "Prismatic", text: "Cycles through every color. Very rare, very loud.", cost: C.legendary, color: "prism" },
+  { id: "glow-null", slot: "glow", name: "Null Halo", text: "A halo of darkness with a burning rim.", cost: C.legendary, color: "null" },
+  { id: "skin-hero", slot: "skin", name: "Canonical", text: "Your Friend as it was minted, lit for the dark.", cost: 0, color: "#f3eeff", look: "hero" },
+  { id: "skin-stone", slot: "skin", name: "Statue Stone", text: "Carved like the camp's guardians.", cost: C.common, color: "#8d8577", look: "stone" },
+  { id: "skin-corrupted", slot: "skin", name: "Corrupted", text: "Wear the crimson of the Corrupted Friends.", cost: C.rare, color: "#ff2e4d", look: "corrupted" },
+  { id: "skin-ghost", slot: "skin", name: "Lost Light", text: "The lime ghost-glow of a Lost Friend.", cost: C.rare, color: "#ccff00", look: "ghost" },
+  { id: "skin-frost", slot: "skin", name: "Frostbitten", text: "Pale ice-blue pixels.", cost: C.rare, color: "#8fe3ff", look: "frost" },
+  { id: "skin-ember", slot: "skin", name: "Cinder", text: "Burning orange, like Cinderheart.", cost: C.rare, color: "#ff9a3c", look: "ember" },
+  { id: "skin-shadow", slot: "skin", name: "Shadow", text: "A violet shade of yourself.", cost: C.rare, color: "#6b4fa0", look: "shadow" },
+  { id: "skin-gold", slot: "skin", name: "Gilded", text: "Solid gold. Every Friend should be so lucky.", cost: C.legendary, color: "#ffd23c", look: "gold" },
+  { id: "skin-void", slot: "skin", name: "Unminted Void", text: "Black as The Unminted, outlined in pink.", cost: C.legendary, color: "#ff3d7f", look: "void" },
+  { id: "trail-none", slot: "trail", name: "No Trail", text: "Walk quietly.", cost: 0, color: "#6d6780" },
+  { id: "trail-embers", slot: "trail", name: "Embers", text: "Sparks drift from your steps.", cost: C.common, color: "#ff9a3c" },
+  { id: "trail-sparkles", slot: "trail", name: "Sparkles", text: "Glittering motes in your glow's color.", cost: C.rare, color: "#ffffff" },
+  { id: "trail-void", slot: "trail", name: "Void Motes", text: "Tiny black holes, pink at the edges.", cost: C.rare, color: "#ff3d7f" },
+  { id: "trail-runes", slot: "trail", name: "Rune Steps", text: "Every step leaves a glowing rune.", cost: C.legendary, color: "#ccff00" },
+];
+export const cosmetic = (id: string) => COSMETICS.find(c => c.id === id);
+export const DEFAULT_COSMETICS: Readonly<Record<CosmeticSlot, string>> = { glow: "glow-lime", skin: "skin-hero", trail: "trail-none" };
