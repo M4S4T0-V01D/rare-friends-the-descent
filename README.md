@@ -329,7 +329,7 @@ How it works: the game runs in the FriendSDK's scripts-only sandbox, which canno
 
 Progress saves automatically, **per Friend, under the Friend's own wallet**: its canonical Generations wallet (the token-bound account the SDK reads during discovery), since the SDK treats inventory and rewards as belonging to the Friend. The title screen shows where it saves, e.g. *"Progress saves automatically to Hoverer #7730's wallet 0x1234…abcd in this browser."*
 
-- **What is saved:** the simulated RF balance and ledger, the stash and chosen heirloom, the codex, the Obelisk of Descents (top 5 runs, lifetime and best score), the bestiary, bought and worn cosmetics, and settings.
+- **What is saved:** the simulated RF balance and ledger, the stash and chosen heirloom, the codex, the Obelisk of Descents (top 5 runs, lifetime and best score), the bestiary, bought, earned and worn cosmetics, your pending blessing, the camp's restoration tier, and settings.
 - **When:** within a second of any RF movement, at the end of every run, whenever anything changes (checked every 5 s), and when the tab is hidden or closed.
 - **Closing mid-run counts as End Run:** secured loot (Waystone or heirloom) goes to the stash and everything else is lost, so closing the tab can never duplicate items. RF already earned or spent stays that way.
 - **The 25 RF start is granted once per Friend, ever.** Reloading resumes your balance; it never tops it up.

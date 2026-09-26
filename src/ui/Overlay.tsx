@@ -187,13 +187,13 @@ function Sanctuary({ game, ui }: { game: Game; ui: UiState }) {
   </div>;
 }
 
-/** The Dye Altar: spend RF on cosmetics that recolor (never reshape) your Friend. */
+/** The Dye Altar: spend RF on cosmetics in six categories. Skins recolor (never reshape) your Friend. */
 function Wardrobe({ game, ui }: { game: Game; ui: UiState }) {
   return <div className="dx-wardrobe">
     <div className="dx-wardrobe-head">
       <FriendPortrait art={game.art} look={game.skinLook as FriendLook} scale={5} className="dx-wardrobe-preview" />
       <div>
-        <p>Spend RF at the Dye Altar on looks for your Friend. Cosmetics only recolor your Friend's canonical pixels and add light: the on-chain shape never changes, and they give no power.</p>
+        <p>Spend RF at the Dye Altar on looks for your Friend. Skins recolor your Friend's canonical pixels (the on-chain shape never changes), glows and trails add light, pets follow you, hats sit on your Friend's own head, and finishers change how foes fall. None of them give power; every boss gives you its own pet the first time it falls.</p>
         <p className="dx-dim">{game.saveInfo.available ? "Bought cosmetics are saved with your Friend." : "Bought cosmetics last for this session."} You carry <Rf amount={ui.balance} /> <SimulatedTag /></p>
       </div>
     </div>
