@@ -1,3 +1,5 @@
+<!-- DRAFT: not submitted. Before opening the vibeathon PR: publish the repository and the GitHub Pages preview,
+     confirm every link below works, and complete a playthrough with a real wallet extension. -->
 # Rare Friends: The Descent
 
 Your Rare Friend descends into a dark action-RPG dungeon where **$RAREFRIENDS is the currency of risk**. Fight, loot, and at every shrine, gate, reroll and revive decide: *spend 5 RF now, save for 10, or risk everything for 25?*
