@@ -2,7 +2,7 @@
 // The SDK harness supplies a mock wallet, mock Robinhood RPC and sample artwork for Friend #7730.
 // Game state is read through window.__descent, which exists only in automated browsers (navigator.webdriver).
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { cleanup, testSite } from "./harness.mjs";
 
 const OUT = "artifacts/test";
@@ -434,13 +434,41 @@ await testSite({
       await page.waitForTimeout(1600);
       await shot("22-summary");
       assert(s.stash > 0, "escaped loot reaches the stash");
+      // Share: the trusted host copies the scoreboard image and opens X's composer for the sandboxed game.
+      await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.context().route("https://x.com/**", route => route.fulfill({ status: 200, contentType: "text/html", body: "<title>X</title>" }));
+      await game.getByRole("button", { name: "Copy image" }).click();
+      await game.getByText("Scoreboard image copied. Paste it anywhere!").waitFor();
+      const copied = await page.evaluate(async () => {
+        const items = await navigator.clipboard.read();
+        const blob = await items[0].getType("image/png");
+        const bitmap = await createImageBitmap(blob);
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        let binary = ""; for (const b of bytes) binary += String.fromCharCode(b);
+        return { types: items[0].types, w: bitmap.width, h: bitmap.height, png: btoa(binary) };
+      });
+      await writeFile(`${OUT}/22b-scoreboard-card.png`, Buffer.from(copied.png, "base64"));
+      assert.deepEqual([copied.types.includes("image/png"), copied.w, copied.h], [true, 1200, 675], "a 1200×675 PNG scoreboard is on the clipboard");
+      const popup = page.waitForEvent("popup");
+      await game.getByRole("button", { name: /Post on X/ }).click();
+      const x = await popup;
+      await x.waitForLoadState();
+      const intent = new URL(x.url());
+      assert.equal(`${intent.origin}${intent.pathname}`, "https://x.com/intent/post");
+      assert.match(intent.searchParams.get("text"), /^My Rare Friend .+ escaped The Descent from depth 3: [\d,]+ points/);
+      assert.ok(intent.searchParams.get("url").startsWith("http://127.0.0.1:"), "links back to the game page");
+      await x.close();
+      await game.getByText(/The image is on your clipboard/).waitFor();
+      await page.context().unroute("https://x.com/**");
       assert(s.lifetimeScore > 0, "the run's score is added to the lifetime total");
     });
 
     await step("descend again restarts; death and End Run keep secured loot only", async () => {
+      const before = (await st()).balance;
       await game.getByRole("button", { name: "Descend Again" }).click();
       const s = await waitFor(s => s.screen === "run" && s.depth === 1, "new run");
-      assert(s.balance >= 25, "stipend tops the balance back up to 25 RF");
+      assert.equal(s.balance, before, "no free RF: you descend with exactly what you had");
+      assert(!s.history.some(t => t.reason.includes("stipend")), "no stipend in the ledger");
       await call("g.debugDamagePlayer(99999)");
       await waitFor(s => s.modal === "death", "death");
       await press("3", 800);

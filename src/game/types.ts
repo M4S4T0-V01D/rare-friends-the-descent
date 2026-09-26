@@ -30,7 +30,7 @@ export type Modal =
 
 export type Settings = {
   sound: boolean; music: boolean; reducedMotion: boolean; screenShake: boolean; damageNumbers: boolean; crt: boolean;
-  /** The Rare Friends look: near-black and white, faded color, dithered light. */
+  /** The Rare Friends look: near-black and white with faded color. */
   faded: boolean;
 };
 
@@ -44,6 +44,7 @@ export type RunSummary = Readonly<{
   timeMs: number; level: number; secured: number; lost: number; seed: number; transactions: readonly RfTransaction[];
   /** The run's score breakdown, and the session's running total after this run. */
   score: RunScore; lifetimeScore: number; best: boolean;
+  guardians: number;
 }>;
 
 export type CodexEntry = { name: string; rarity: Item["rarity"]; slot: Item["slot"]; count: number };

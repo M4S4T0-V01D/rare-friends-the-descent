@@ -6,6 +6,7 @@ import { SHORT } from "../game/kit";
 import { RARITIES, RARITY_STYLE } from "../game/items";
 import { COSMETICS, type Cosmetic, type CosmeticSlot } from "../game/content";
 import { formatScore, OUTCOME_LABEL } from "../game/score";
+import { relayShare, renderScoreCard, shareText, type ShareAction } from "./share";
 import { BASE_ATK, BASE_HP, ATK_PER_LEVEL, HP_PER_LEVEL } from "../game/stats";
 import type { FriendLook } from "../render/sprites";
 import type { CampTab, UiState } from "../game/types";
@@ -77,7 +78,7 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
       </nav>
       <div className="dx-camp-body" role="tabpanel">
         {tab === "descend" && <>
-          <p>Each descent starts with at least <Rf amount={RF_STARTING_BALANCE} />. RF is scarce: every coin is a decision.</p>
+          <p>Your Friend descends with exactly the RF it carries: <Rf amount={balance} />. There are no free top-ups, so every coin is a decision. (Every Friend's first session starts with <Rf amount={RF_STARTING_BALANCE} />.)</p>
           <table className="dx-denoms">
             <tbody>
               <tr><th><Rf amount={5} /></th><td>Shrine of Greed · Blood Gate · first reroll · potion · Cursed Box · The Well · common dyes</td></tr>
@@ -190,14 +191,14 @@ function SummaryScreen({ game, ui }: { game: Game; ui: UiState }) {
       <p className="dx-kicker">RUN COMPLETE</p>
       <h1 id="dx-summary-heading">{heading}</h1>
       <dl className="dx-summary-stats">
-        <div><dt>Rare Friend</dt><dd>{s.friendLabel}</dd></div>
+        <div><dt>Friend</dt><dd>{s.friendLabel}</dd></div>
         <div><dt>Depth</dt><dd>{s.depth}</dd></div>
-        <div><dt>Enemies defeated</dt><dd>{s.kills}{s.elites ? ` (${s.elites} elite)` : ""}</dd></div>
         <div><dt>Level</dt><dd>{s.level}</dd></div>
-        <div><dt>Bosses</dt><dd>{s.bosses.length ? s.bosses.join(", ") : "none"}</dd></div>
-        <div><dt>Rarest loot</dt><dd style={{ color: s.rarest ? RARITY_STYLE[s.rarest.rarity].color : undefined }}>{s.rarest ? `${RARITY_STYLE[s.rarest.rarity].label} ${s.rarest.name}` : "none"}</dd></div>
+        <div><dt>Kills</dt><dd>{s.kills}{s.elites ? ` (${s.elites} elite)` : ""}</dd></div>
+        <div><dt>Bosses</dt><dd title={s.bosses.join(", ")}>{s.bosses.length ? s.bosses.length : "none"}</dd></div>
         <div><dt>Time</dt><dd>{formatTime(s.timeMs)}</dd></div>
-        <div><dt>Loot to stash</dt><dd>{s.secured} kept{s.lost ? ` · ${s.lost} lost` : ""}</dd></div>
+        <div><dt>Stash</dt><dd>{s.secured} kept{s.lost ? ` · ${s.lost} lost` : ""}</dd></div>
+        <div className="dx-summary-wide dx-summary-loot"><dt>Rarest loot</dt><dd style={{ color: s.rarest ? RARITY_STYLE[s.rarest.rarity].color : undefined }}>{s.rarest ? `${RARITY_STYLE[s.rarest.rarity].label} ${s.rarest.name}` : "none"}</dd></div>
       </dl>
       <ScoreBreakdown summary={s} />
       <div className="dx-summary-rf">
@@ -207,6 +208,7 @@ function SummaryScreen({ game, ui }: { game: Game; ui: UiState }) {
         <div><span>RF remaining</span><strong>{s.rfRemaining}</strong></div>
       </div>
       <details className="dx-summary-log"><summary>RF activity this run ({s.transactions.length}) <SimulatedTag /></summary><TxList transactions={[...s.transactions].reverse()} /></details>
+      <ShareBar game={game} summary={s} />
       <div className="dx-summary-actions">
         <button ref={primary} type="button" className="dx-btn dx-btn-primary dx-btn-big" onClick={() => void game.descend()}>Descend Again</button>
         <button type="button" className="dx-btn" onClick={() => game.returnToCamp()}>Return to Camp</button>
@@ -214,6 +216,45 @@ function SummaryScreen({ game, ui }: { game: Game; ui: UiState }) {
       <p className="dx-dim dx-seed">Descent seed {s.seed.toString(16).toUpperCase()}</p>
     </div>
   </section>;
+}
+
+/**
+ * Share the run: copy an image of the scoreboard, or post it on X. The trusted host page does the
+ * copying and opens X; if no host answers, the card is shown so it can be copied or saved by hand.
+ */
+function ShareBar({ game, summary }: { game: Game; summary: NonNullable<UiState["summary"]> }) {
+  const [status, setStatus] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  const [fallback, setFallback] = useState<{ url: string; text: string; action: ShareAction } | null>(null);
+  useEffect(() => () => { if (fallback) URL.revokeObjectURL(fallback.url); }, [fallback]);
+  const share = async (action: ShareAction) => {
+    if (busy) return;
+    setBusy(true);
+    setStatus(action === "copy" ? "Drawing your scoreboard…" : "Opening X…");
+    try {
+      const png = await renderScoreCard(game, summary), text = shareText(summary);
+      const result = await relayShare(action, png, text);
+      game.sfx("ui");
+      if (result.ok && action === "copy") setStatus("Scoreboard image copied. Paste it anywhere!");
+      else if (result.ok) setStatus(result.error ? "X opened in a new tab. Copy the image below to attach it." : "X opened in a new tab. The image is on your clipboard: paste it into your post.");
+      else setStatus(action === "copy" ? "Your browser blocked the clipboard. Right-click the image to copy or save it." : "Couldn't open X from here. Copy the text and image below.");
+      if (!result.ok || result.error) setFallback({ url: URL.createObjectURL(png), text, action });
+    } catch {
+      setStatus("Could not draw the scoreboard image.");
+    } finally { setBusy(false); }
+  };
+  return <div className="dx-share">
+    <div className="dx-share-buttons">
+      <button type="button" className="dx-btn dx-share-x" disabled={busy} onClick={() => void share("post")}><span aria-hidden="true">𝕏</span> Post on X</button>
+      <button type="button" className="dx-btn" disabled={busy} onClick={() => void share("copy")}>Copy image</button>
+    </div>
+    <p className="dx-share-status" role="status" aria-live="polite">{status}</p>
+    {fallback && <div className="dx-share-fallback">
+      <img src={fallback.url} alt={`Scoreboard for ${summary.friendLabel}: ${formatScore(summary.score.total)} points`} />
+      {fallback.action === "post" && <textarea readOnly value={fallback.text} aria-label="Post text" onFocus={event => event.currentTarget.select()} />}
+      <button type="button" className="dx-btn" onClick={() => setFallback(null)}>Hide</button>
+    </div>}
+  </div>;
 }
 
 /** The run's score, line by line, counting up to the total. */

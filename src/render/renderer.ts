@@ -13,10 +13,8 @@ import { BEAST_BODY, BEAST_EYES, beastPalette, WARDEN_BODY, WARDEN_LEG, wardenPa
 import { formatScore } from "../game/score";
 
 const W = 960, H = 640;
-/** The lighting mask is drawn at a quarter resolution; in the Rare Friends look it is dithered into chunky bands. */
+/** The lighting mask is drawn at a quarter resolution and upscaled smoothly: soft falloff, a fraction of the fill cost. */
 const LIGHT_SCALE = 4, LW = W / LIGHT_SCALE, LH = H / LIGHT_SCALE;
-/** 4×4 ordered-dither (Bayer) thresholds. */
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
 /** The grade that turns the world near-monochrome: faded color, deep blacks, glow still reads. */
 const FADED_FILTER = "saturate(0.26) contrast(1.12) brightness(0.97)";
 const FONT_UI = "VT323, ui-monospace, monospace";
@@ -52,7 +50,7 @@ export class Renderer {
     this.world.width = W; this.world.height = H;
     this.wctx = this.world.getContext("2d", { alpha: false })!;
     this.light.width = LW; this.light.height = LH;
-    this.lctx = this.light.getContext("2d", { willReadFrequently: true })!;
+    this.lctx = this.light.getContext("2d")!;
     this.setScale(1);
   }
 
@@ -1046,7 +1044,7 @@ export class Renderer {
     }
     l.globalAlpha = 1;
     const w = this.wctx;
-    this.presentLight(faded);
+    this.presentLight();
     // Colored light pools tint the stone.
     w.save();
     w.globalCompositeOperation = "lighter";
@@ -1060,22 +1058,10 @@ export class Renderer {
     w.restore();
   }
 
-  /**
-   * Lay the darkness mask over the world. In the Rare Friends look its alpha is quantized to a few
-   * levels through a 4×4 Bayer matrix, so light falls off in chunky, dithered pixel bands.
-   */
-  private presentLight(faded: boolean) {
+  /** Lay the quarter-resolution darkness mask over the world, smoothly upscaled. */
+  private presentLight() {
     const w = this.wctx;
-    if (faded) {
-      const image = this.lctx.getImageData(0, 0, LW, LH), d = image.data, levels = 5;
-      for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) {
-        const i = (y * LW + x) * 4 + 3;
-        const q = Math.min(levels, Math.floor((d[i] / 255) * levels + BAYER[(y & 3) * 4 + (x & 3)]));
-        d[i] = Math.round((q / levels) * 255);
-      }
-      this.lctx.putImageData(image, 0, 0);
-      w.imageSmoothingEnabled = false;
-    } else w.imageSmoothingEnabled = true;
+    w.imageSmoothingEnabled = true;
     w.drawImage(this.light, 0, 0, W, H);
     w.imageSmoothingEnabled = false;
   }
@@ -1414,7 +1400,7 @@ export class Renderer {
     const flick = g.reducedMotion ? 1 : 0.9 + Math.sin(this.t * 11) * 0.05;
     l.drawImage(this.glow, fx - 300 * flick, fy - 300 * flick, 600 * flick, 600 * flick);
     l.drawImage(this.glow, gx - 180, gy - 230, 360, 360);
-    this.presentLight(g.settings.faded);
+    this.presentLight();
     this.glowAtScreen(fx, fy - 20, 200, "#ff9a3c", 0.25);
   }
 
