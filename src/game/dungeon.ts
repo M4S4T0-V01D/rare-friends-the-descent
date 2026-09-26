@@ -7,7 +7,7 @@ export const TILE = 32;
 export const T = { Void: 0, Floor: 1, Wall: 2, Door: 3, Corridor: 4 } as const;
 export type T = typeof T[keyof typeof T];
 
-export type RoomType = "start" | "combat" | "elite" | "treasure" | "shrine" | "merchant" | "event" | "bonus" | "secret" | "boss" | "exit" | "arena";
+export type RoomType = "start" | "combat" | "elite" | "guardian" | "treasure" | "shrine" | "merchant" | "event" | "bonus" | "secret" | "boss" | "exit" | "arena";
 export type Rect = { x: number; y: number; w: number; h: number };
 export type DecorKind = "bones" | "skull" | "candles" | "chains" | "terminal" | "cables" | "runeCircle" | "rubble" | "banner" | "crystal"
   | "coffin" | "gravestone" | "serverRack" | "pipe" | "screen" | "tendril" | "fleshPool" | "ribcage" | "eyeball" | "voidShard" | "glitch";
@@ -60,6 +60,7 @@ function roomSize(rng: Rng, plan: Plan): [number, number] {
     case "start": return [16, 12];
     case "combat": return [Math.min(36, rng.int(22, 32) + Math.min(4, Math.floor(plan.depth / 2))), Math.min(24, rng.int(15, 20) + Math.min(4, Math.floor(plan.depth / 3)))];
     case "elite": return [Math.min(34, 24 + Math.min(8, plan.depth)), Math.min(24, 18 + Math.floor(plan.depth / 2))];
+    case "guardian": return [30, 21];
     case "boss": return [34, 24];
     case "exit": return [14, 11];
     case "secret": return [13, 10];
@@ -80,6 +81,7 @@ function eventKind(rng: Rng, depth: number): EventKind {
   return rng.weighted<EventKind>([
     ["well", 18], ["stranger", 14], ["blackDoor", depth >= 2 ? 9 : 0], ["mirror", 10], ["gambler", 14],
     ["corpse", 16], ["goldenDoor", 11], ["lostFriend", 5],
+    ["gallery", 13], ["shells", 13], ["coinDash", depth >= 2 ? 12 : 0],
   ]);
 }
 
@@ -95,7 +97,7 @@ function planFloor(rng: Rng, depth: number): { main: PlanIn[]; branches: PlanIn[
       branches: [
         { type: "treasure", main: false },
         { type: "bonus", main: false, bonus: "blood", gate: "blood" },
-        { type: "event", main: false, event: rng.pick<EventKind>(["corpse", "well", "gambler"]) },
+        { type: "event", main: false, event: rng.pick<EventKind>(["corpse", "well", "gambler", "gallery", "shells"]) },
       ],
     };
   }
@@ -104,7 +106,8 @@ function planFloor(rng: Rng, depth: number): { main: PlanIn[]; branches: PlanIn[
   const main: PlanIn[] = [{ type: "start", main: true }];
   for (let i = 0; i < combatCount; i++) {
     const last = i === combatCount - 1, middle = i === Math.floor(combatCount / 2);
-    main.push({ type: (last && !boss && rng.chance(0.45)) || (middle && depth >= 5 && rng.chance(0.5)) ? "elite" : "combat", main: true });
+    // Every floor without a boss ends its main path at a guardian: a mini-boss standing before the stairs.
+    main.push({ type: last && !boss ? "guardian" : middle && depth >= 5 && rng.chance(0.5) ? "elite" : "combat", main: true });
   }
   main.push(boss ? { type: "boss", main: true } : { type: "exit", main: true });
   const branches: PlanIn[] = [];

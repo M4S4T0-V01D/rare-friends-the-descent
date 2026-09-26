@@ -1,4 +1,4 @@
-import { RF_COSTS, type GateTier, type MerchantOffer, type ShrineTier } from "../economy/terms";
+import { COIN_DASH, GALLERY_PAYOUTS, GALLERY_SECONDS, RF_COSTS, SHELL_GAME, type GateTier, type MerchantOffer, type ShrineTier } from "../economy/terms";
 
 /** An outcome row. Weights are basis points and every table sums to 10,000 (pinned by tests). */
 export type OutcomeRow<Id extends string> = Readonly<{ id: Id; label: string; chanceBps: number }>;
@@ -54,7 +54,8 @@ export const GATES: Readonly<Record<GateTier, { name: string; cost: number; text
   abyssal: { name: "ABYSSAL GATE", cost: RF_COSTS.gate.abyssal, color: "#ff3d7f", text: "Opens a dangerous bonus vault of powerful enemies. Mythic loot is possible." },
 };
 
-export type EventKind = "well" | "stranger" | "blackDoor" | "mirror" | "gambler" | "corpse" | "goldenDoor" | "lostFriend";
+export type EventKind = "well" | "stranger" | "blackDoor" | "mirror" | "gambler" | "corpse" | "goldenDoor" | "lostFriend"
+  | "gallery" | "shells" | "coinDash";
 export type EventOutcome =
   | "heal" | "blessing" | "curse" | "smallLoot" | "nothing"
   | "revealSecret" | "disappear" | "relic" | "summonElite"
@@ -65,6 +66,8 @@ export type EventOutcome =
 
 export const EVENTS: Readonly<Record<EventKind, {
   name: string; cost: number; prompt: string; action: string; rare?: boolean; outcomes: readonly OutcomeRow<EventOutcome>[];
+  /** Mini-games explain their rules instead of an odds table. */
+  rules?: readonly string[];
 }>> = {
   well: {
     name: "THE WELL", cost: RF_COSTS.event.well, prompt: "Throw 5 RF into the well.", action: "Throw 5 RF",
@@ -121,6 +124,24 @@ export const EVENTS: Readonly<Record<EventKind, {
       { id: "epicPlus", label: "Legendary item", chanceBps: 2800 },
       { id: "epicPlus", label: "Mythic item", chanceBps: 700 },
     ],
+  },
+  gallery: {
+    name: "THE RUNE GALLERY", cost: RF_COSTS.event.gallery, prompt: "A carnival of floating runes. Shatter as many as you can.", action: "Play for 5 RF",
+    outcomes: [],
+    rules: [
+      `Runes appear one after another for ${GALLERY_SECONDS} seconds. Hit them with any attack before they fade.`,
+      ...GALLERY_PAYOUTS.map(row => `${row.hits}+ runes: win ${row.payout} RF`), "Fewer than 7: the gallery keeps your 5 RF.",
+    ],
+  },
+  shells: {
+    name: "THE SHELL GAME", cost: RF_COSTS.event.shells, prompt: "“Watch the rune. Keep your eyes on the cup.” A grinning Friend shuffles three bone cups.", action: "Play for 5 RF",
+    outcomes: [],
+    rules: [`A rune hides under one of ${SHELL_GAME.cups} cups. The cups shuffle, faster on deeper floors.`, `Pick the right cup: win ${SHELL_GAME.payout} RF.`, "Pick wrong: lose your 5 RF."],
+  },
+  coinDash: {
+    name: "THE COIN DASH", cost: RF_COSTS.event.coinDash, prompt: "The floor fills with spilled RF, and something up above starts dropping rocks.", action: "Play for 10 RF",
+    outcomes: [],
+    rules: [`For ${COIN_DASH.seconds} seconds, coins scatter across the room while rocks rain down.`, `Every coin you grab pays ${COIN_DASH.perCoin} RF (up to ${COIN_DASH.coins}).`, "Rocks hurt. Grab 11+ to come out ahead."],
   },
   lostFriend: {
     name: "A LOST FRIEND", cost: 0, rare: true, prompt: "A faint Friend-shaped light flickers, lost in the dark.", action: "Guide it home",
