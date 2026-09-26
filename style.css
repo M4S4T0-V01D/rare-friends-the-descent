@@ -109,7 +109,7 @@ kbd { font: 15px var(--dx-ui); border: 1px solid currentColor; border-radius: 2p
 .dx-summary h1 { font: 40px/1 var(--dx-display); color: #f2f2f2; margin: 2px 0 6px; }
 .dx-summary-fallen h1, .dx-summary-abandoned h1 { color: var(--dx-red); }
 .dx-summary-conquered h1 { color: var(--dx-rf); }
-.dx-summary-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; margin: 0 0 8px; font-size: 17px; }
+.dx-summary-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 14px; margin: 0 0 8px; font-size: 17px; }
 .dx-summary-stats div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid #222222; padding: 1px 0; }
 .dx-summary-stats dd { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dx-summary-stats dt { color: var(--dx-dim); }
@@ -429,3 +429,18 @@ button.dx-item:hover { transform: translateY(-2px); background: #1d1628; }
 .dx-cup-win .dx-cup-body { background: linear-gradient(90deg, #6b8a00, #ccff00 45%, #6b8a00); }
 .dx-cup-lose .dx-cup-body { background: linear-gradient(90deg, #5c1422, #ff4d6d 45%, #5c1422); }
 .dx-faded .dx-creature { filter: saturate(0.3) contrast(1.1); }
+
+/* ─── Share the run ─────────────────────────────────────────────────────── */
+.dx-share { margin: 0 0 8px; }
+.dx-share-buttons { display: flex; gap: 8px; }
+.dx-share-buttons .dx-btn { flex: 1; min-height: 34px; padding: 6px 10px; font-size: 18px; }
+.dx-share-x { background: #f2f2f2; border-color: #f2f2f2; color: #0b0b0b; }
+.dx-share-x:hover:not(:disabled) { background: #fff; color: #000; }
+.dx-share-x span { font-size: 20px; margin-right: 6px; }
+.dx-share-status:empty { display: none; }
+.dx-share-status { margin: 4px 0 0; font-size: 16px; color: var(--dx-rf); }
+.dx-share-fallback { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.dx-share-fallback img { width: 100%; border: 2px solid var(--dx-border); user-select: auto; -webkit-user-select: auto; -webkit-touch-callout: default; }
+.dx-share-fallback textarea { font: 16px var(--dx-ui); background: var(--dx-panel-2); color: var(--dx-text); border: 1px solid var(--dx-border); height: 60px; resize: none; user-select: text; }
+.dx-summary-actions .dx-btn-big { min-height: 44px; padding: 8px 18px; font-size: 22px; }
+.dx-summary-stats .dx-summary-wide { grid-column: span 2; }

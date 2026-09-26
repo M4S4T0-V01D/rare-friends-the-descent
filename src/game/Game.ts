@@ -1,7 +1,7 @@
 import { AudioEngine, type MusicMode, type RoomSong, type SfxName } from "../audio/audio";
 import { InsufficientRfError, rf, wholeRf, type RfCategory, type RfTransaction, type TokenEconomy } from "../economy/TokenEconomy";
 import {
-  COIN_DASH, GALLERY_PAYOUTS, GALLERY_SECONDS, SHELL_GAME, GAMBLER_PAYOUTS, RF_COSTS, RF_GOBLIN_MAX_COINS, RF_NORMAL_ENEMY_CHANCE, RF_REWARDS, RF_STARTING_BALANCE,
+  COIN_DASH, GALLERY_PAYOUTS, GALLERY_SECONDS, SHELL_GAME, GAMBLER_PAYOUTS, RF_COSTS, RF_GOBLIN_MAX_COINS, RF_NORMAL_ENEMY_CHANCE, RF_REWARDS,
   type GateTier, type MerchantOffer, type ReviveKind,
 } from "../economy/terms";
 import type { FriendArt } from "../render/sprites";
@@ -383,17 +383,13 @@ export class Game implements World {
     this.patch({});
   }
 
-  /** Start a new descent from the camp or the summary screen. */
+  /**
+   * Start a new descent from the camp or the summary screen. There is no top-up: your Friend
+   * carries exactly the RF it left the camp with. Only the very first session starts with 25 RF.
+   */
   async descend() {
     if (this.busy) return;
     void this.audio.unlock();
-    this.busy = true;
-    try {
-      const balance = wholeRf(this.economy.getBalance());
-      if (balance < RF_STARTING_BALANCE) {
-        await this.economy.reward(rf(RF_STARTING_BALANCE - balance), "Descent stipend (simulated preview)", "stipend");
-      }
-    } finally { this.busy = false; }
     this.startRun();
   }
 
@@ -2357,7 +2353,7 @@ export class Game implements World {
       rfRemaining: wholeRf(this.economy.getBalance()), timeMs: performance.now() - run.started, level: this.level,
       secured: toStash.length, lost: carried.length - kept.length, seed: run.seed,
       transactions: history.slice(run.firstTx).filter(tx => tx.category !== "stipend"),
-      score, lifetimeScore: this.lifetimeScore, best,
+      score, lifetimeScore: this.lifetimeScore, best, guardians: run.guardians,
     };
     this.hall.push(summary);
     this.hall.sort((a, b) => b.score.total - a.score.total || b.depth - a.depth);
