@@ -1,0 +1,414 @@
+// End-to-end checks against the real FriendSDK runtime in headless Chromium.
+// The SDK harness supplies a mock wallet, mock Robinhood RPC and sample artwork for Friend #7730.
+// Game state is read through window.__descent, which exists only in automated browsers (navigator.webdriver).
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { testGame } from "@rarefriends/friendsdk/testing";
+
+const OUT = "artifacts/test";
+await mkdir(OUT, { recursive: true });
+const results = [];
+const step = async (name, fn) => {
+  const started = Date.now();
+  try { await fn(); results.push(`PASS ${name} (${Date.now() - started}ms)`); console.log(`PASS ${name}`); }
+  catch (error) { results.push(`FAIL ${name}: ${error.message}`); console.log(`FAIL ${name}: ${error.stack}`); throw error; }
+};
+
+async function harness({ page }) {
+  const consoleErrors = [];
+  page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
+  page.on("pageerror", error => consoleErrors.push(error.message));
+  const child = () => {
+    const frame = page.frames().find(f => f.url().includes("game.html"));
+    if (!frame) throw new Error("Game frame is not mounted");
+    return frame;
+  };
+  const st = () => child().evaluate(() => window.__descent.debugState());
+  const call = (source, arg) => child().evaluate(({ source, arg }) => new Function("g", "arg", source)(window.__descent, arg), { source, arg });
+  const shot = name => page.screenshot({ path: `${OUT}/${name}.png` });
+  const press = async (key, wait = 250) => { await page.keyboard.press(key); await page.waitForTimeout(wait); };
+  const waitFor = async (predicate, label, timeout = 8000) => {
+    const end = Date.now() + timeout;
+    let last;
+    while (Date.now() < end) { last = await st(); if (predicate(last)) return last; await page.waitForTimeout(100); }
+    throw new Error(`Timed out waiting for ${label}; last state ${JSON.stringify({ screen: last?.screen, modal: last?.modal, balance: last?.balance, room: last?.room })}`);
+  };
+  const teleport = (x, y) => call("g.debugTeleport(arg[0], arg[1])", [x, y]);
+  const lastTx = async () => (await st()).history.at(-1);
+  const focusGame = () => page.locator("iframe").click({ position: { x: 480, y: 420 } });
+  const clearRoom = async () => {
+    for (let i = 0; i < 160; i++) {
+      const s = await st();
+      if (s.modal === "levelUp") { await press("1"); continue; }
+      if (!s.foes.length && s.locked === null) return s;
+      const foe = s.foes.find(f => !f.spawning);
+      if (foe) await teleport(foe.x - 28, foe.y);
+      await press("j", 130);
+    }
+    throw new Error("Could not clear the room");
+  };
+  return { consoleErrors, child, st, call, shot, press, waitFor, teleport, lastTx, focusGame, clearRoom };
+}
+
+await testGame(".", {
+  width: 1100, height: 780, timeout: 30000, screenshot: `${OUT}/final.png`,
+  check: async ({ page, game }) => {
+    const h = await harness({ page, game });
+    const { st, call, shot, press, waitFor, teleport, lastTx, focusGame, clearRoom } = h;
+
+    await step("title shows the verified Friend and the simulated label", async () => {
+      await game.getByRole("heading", { name: "The Descent" }).waitFor();
+      await game.getByText(/verified hardwired Generations NFT/).waitFor();
+      await game.getByText(/All RF in this game is simulated/).waitFor();
+      await shot("01-title");
+    });
+
+    await step("camp opens and the descent starts on keyboard input", async () => {
+      await page.keyboard.press("Enter");
+      await game.getByRole("button", { name: /Descend/ }).waitFor();
+      await shot("02-camp");
+      await game.getByRole("tab", { name: "Friend" }).click();
+      await game.getByText(/Family trait/).waitFor();
+      await game.getByRole("tab", { name: "Descend" }).click();
+      await game.getByRole("button", { name: /Descend/ }).click();
+      const s = await waitFor(s => s.screen === "run" && s.depth === 1, "run start");
+      assert.equal(s.balance, 25, "starts with 25 RF");
+      assert.equal(s.history[0].reason, "Starting balance (simulated)");
+    });
+
+    await step("WASD and arrow keys move the Friend", async () => {
+      await focusGame();
+      const a = (await st()).pos;
+      await page.keyboard.down("d"); await page.waitForTimeout(500); await page.keyboard.up("d");
+      await page.keyboard.down("ArrowDown"); await page.waitForTimeout(300); await page.keyboard.up("ArrowDown");
+      const b = (await st()).pos;
+      assert(b.x > a.x + 40, `moved right (${a.x} -> ${b.x})`);
+      assert(b.y > a.y + 20, `moved down (${a.y} -> ${b.y})`);
+    });
+
+    await step("first combat room locks, fights with J, clears and drops loot", async () => {
+      const room = (await st()).rooms.find(r => r.type === "combat");
+      await teleport(room.x, room.y);
+      const s = await waitFor(s => s.locked !== null && s.foes.length === 3, "room lock and 3 Cursed Friends");
+      assert(s.foes.every(f => f.kind === "cursed"));
+      await page.waitForTimeout(700);
+      await shot("03-combat");
+      const cleared = await clearRoom();
+      assert.equal(cleared.locked, null, "doors unlock");
+      assert((await st()).drops.some(d => d.kind === "item"), "the first fight drops loot");
+      await page.waitForTimeout(700);
+      const loot = (await st()).drops.find(d => d.kind === "item");
+      await teleport(loot.x, loot.y);
+      await waitFor(s => s.equipment[0] !== "Rune Claw", "loot equipped");
+      await shot("04-loot");
+    });
+
+    await step("level up offers three boons and applies one", async () => {
+      await call("g.debugXp(60)");
+      const s = await waitFor(s => s.modal === "levelUp", "level-up modal");
+      await shot("05-levelup");
+      await press("2", 400);
+      const after = await waitFor(s => s.modal === "none", "boon chosen");
+      assert(after.level >= 2 && s.level >= 2);
+    });
+
+    await step("5 RF: the Shrine of Greed spends through the economy", async () => {
+      const shrine = (await st()).interactables.find(it => it.kind === "shrine");
+      await teleport(shrine.x, shrine.y + 50);
+      await press("e", 400);
+      assert.equal((await st()).modal, "shrine");
+      await shot("06-shrine-greed");
+      const b0 = (await st()).balance;
+      await press("Enter", 1500);
+      const s = await waitFor(s => s.modal === "reveal", "shrine reveal");
+      assert.equal(s.balance, b0 - 5);
+      const tx = await lastTx();
+      assert.deepEqual([tx.kind, tx.amount, tx.reason, tx.category], ["spend", 5, "Shrine of Greed", "shrine"]);
+      await press("Enter", 300);
+      await press("e", 300);
+      assert.notEqual((await st()).modal, "shrine", "a used shrine cannot be paid twice");
+    });
+
+    await step("treasure room pays +3 RF; rerolls escalate 5 → 10 → 25 and stop", async () => {
+      const chest = (await st()).interactables.find(it => it.kind === "chest" && it.label === "TREASURE CHEST");
+      const before = (await st()).balance;
+      await teleport(chest.x, chest.y + 40);
+      await press("e", 500);
+      let s = await waitFor(s => s.modal === "loot", "loot choice");
+      assert.equal(s.balance, before + 3, "+3 RF treasure reward");
+      assert.equal((await st()).history.at(-1).reason, "Treasure room");
+      await shot("07-loot-choice");
+      if (s.balance < 40) await call("return g.debugGrant(40)");
+      const b0 = (await st()).balance;
+      await press("r", 400);
+      assert.equal((await st()).balance, b0 - 5, "first reroll costs 5");
+      await press("r", 400);
+      assert.equal((await st()).balance, b0 - 15, "second reroll costs 10");
+      await press("r", 400);
+      assert.equal((await st()).balance, b0 - 40, "third reroll costs 25");
+      await press("r", 400);
+      assert.equal((await st()).balance, b0 - 40, "no fourth reroll");
+      const reasons = (await st()).history.slice(-3).map(t => `${t.reason}:${t.amount}`);
+      assert.deepEqual(reasons, ["Loot reroll #1:5", "Loot reroll #2:10", "Loot reroll #3:25"]);
+      await shot("08-rerolled");
+      await press("1", 400);
+      s = await st();
+      assert.equal(s.modal, "none");
+      assert(s.interactables.find(it => it.id === chest.id).used, "chest is spent");
+    });
+
+    await step("5 RF: the Blood Gate opens an optional room", async () => {
+      const gate = (await st()).interactables.find(it => it.kind === "gate");
+      if ((await st()).balance < 5) await call("return g.debugGrant(10)");
+      await teleport(gate.x, gate.y);
+      await press("e", 400);
+      assert.equal((await st()).modal, "gate");
+      await shot("09-gate");
+      await press("Enter", 500);
+      const tx = await lastTx();
+      assert.deepEqual([tx.amount, tx.reason, tx.category], [5, "Blood Gate", "gate"]);
+      assert((await st()).interactables.find(it => it.id === gate.id).used);
+    });
+
+    await step("event room resolves with displayed odds", async () => {
+      const event = (await st()).interactables.find(it => it.kind === "event");
+      if ((await st()).balance < 25) await call("return g.debugGrant(25)");
+      await teleport(event.x, event.y + 50);
+      await press("e", 400);
+      assert.equal((await st()).modal, "event");
+      await shot("10-event");
+      await press("Enter", 1500);
+      const s = await waitFor(s => s.modal === "reveal" || s.modal === "none" || s.locked !== null, "event outcome");
+      if (s.modal === "reveal") { await shot("11-event-reveal"); await press("Enter", 400); }
+      if ((await st()).locked !== null) await clearRoom();
+    });
+
+    await step("10 RF: death offers Revive and restores 40% HP", async () => {
+      if ((await st()).balance < 10) await call("return g.debugGrant(10)");
+      const b0 = (await st()).balance;
+      await call("g.debugDamagePlayer(99999)");
+      await waitFor(s => s.modal === "death", "death modal", 5000);
+      await shot("12-death");
+      await press("1", 500);
+      const s = await waitFor(s => s.modal === "none" && !s.dead, "revived");
+      // Coins still flying from the last fight may land at any moment, so check the ledger entry itself.
+      const spend = s.history.filter(t => t.kind === "spend").at(-1);
+      assert.deepEqual([spend.reason, spend.amount, spend.category], ["Revive", 10, "revive"]);
+      assert(s.balance <= b0 - 10 + 3, "balance dropped by the revive");
+      assert(Math.abs(s.hp - Math.round(s.maxHp * 0.4)) <= 1, `hp ${s.hp} ~ 40% of ${s.maxHp}`);
+    });
+
+    await step("25 RF: Full Revival restores full HP", async () => {
+      if ((await st()).balance < 25) await call("return g.debugGrant(25)");
+      const b0 = (await st()).balance;
+      await page.waitForTimeout(2200);
+      await call("g.debugDamagePlayer(99999)");
+      await waitFor(s => s.modal === "death", "death modal", 5000);
+      await press("2", 500);
+      const s = await waitFor(s => s.modal === "none" && !s.dead, "fully revived");
+      const spend = s.history.filter(t => t.kind === "spend").at(-1);
+      assert.deepEqual([spend.reason, spend.amount, spend.category], ["Full revival", 25, "revive"]);
+      assert(s.balance <= b0 - 25 + 3, "balance dropped by the full revival");
+      assert.equal(s.hp, s.maxHp);
+    });
+
+    await step("25 RF: depth 2 always holds the Shrine of the Void", async () => {
+      await call("g.debugNextFloor()");
+      let s = await waitFor(s => s.depth === 2, "depth 2");
+      const shrine = s.interactables.find(it => it.kind === "shrine" && it.label === "SHRINE OF THE VOID");
+      assert(shrine, "void shrine present");
+      if (s.balance < 25) await call("return g.debugGrant(25 - arg)", s.balance);
+      await teleport(shrine.x, shrine.y + 60);
+      await page.waitForTimeout(500);
+      await shot("13-void-room");
+      await press("e", 500);
+      assert.equal((await st()).modal, "shrine");
+      await shot("14-void-modal");
+      const b0 = (await st()).balance;
+      await press("Enter", 600);
+      await shot("15-void-suspense");
+      s = await waitFor(s => s.modal === "reveal", "void reveal", 6000);
+      await page.waitForTimeout(2600);
+      await shot("16-void-reveal");
+      assert.equal(s.balance, b0 - 25);
+      assert.deepEqual([s.history.at(-1).reason, s.history.at(-1).amount], ["Shrine of the Void", 25]);
+      await press("Enter", 800);
+      s = await st();
+      if (s.boss) {
+        await page.waitForTimeout(800);
+        await shot("17-secret-boss");
+        await call("g.debugKillRoom()");
+        s = await waitFor(s => !s.boss, "secret boss defeated");
+        assert(s.history.some(t => t.reason === "Secret boss: The Unminted" && t.amount === 25), "+25 RF secret boss");
+        const rift = s.interactables.find(it => it.label === "RETURN THROUGH THE RIFT");
+        await teleport(rift.x, rift.y + 30);
+        await press("e", 600);
+      }
+      if ((await st()).locked !== null) await clearRoom();
+    });
+
+    await step("merchant sells a 5 RF potion and a 10 RF relic", async () => {
+      const merchant = (await st()).interactables.find(it => it.kind === "merchant");
+      assert(merchant, "depth 2 always has a merchant");
+      await call("return g.debugGrant(20)");
+      await call("g.player.potions = 0");
+      await teleport(merchant.x, merchant.y + 60);
+      await press("e", 400);
+      assert.equal((await st()).modal, "merchant");
+      await shot("18-merchant");
+      const b0 = (await st()).balance;
+      await press("1", 400);
+      let s = await st();
+      assert.equal(s.balance, b0 - 5);
+      assert.equal(s.potions, 1);
+      await press("2", 600);
+      s = await waitFor(s => s.modal === "reveal", "relic reveal");
+      assert.equal(s.balance, b0 - 15);
+      assert.equal(s.history.at(-1).reason, "Merchant: Random Relic");
+      await press("Enter", 400);
+      assert.equal((await st()).modal, "merchant", "returns to the merchant");
+      await press("Escape", 300);
+    });
+
+    await step("potion heals with F", async () => {
+      await call("g.player.hp = 30");
+      await focusGame();
+      await press("f", 300);
+      const s = await st();
+      assert(s.hp > 30 && s.potions === 0);
+    });
+
+    await step("pause menu toggles reduced motion; M mutes", async () => {
+      await press("Escape", 400);
+      assert.equal((await st()).modal, "pause");
+      await shot("19-pause");
+      const before = (await st()).settings.reducedMotion;
+      await h.child().getByLabel("Reduced motion").click();
+      assert.equal((await st()).settings.reducedMotion, !before);
+      await h.child().getByLabel("Reduced motion").click();
+      await press("Escape", 300);
+      assert.equal((await st()).modal, "none");
+      await focusGame();
+      await press("m", 200);
+      assert.equal((await st()).settings.sound, false, "muted");
+      await press("m", 200);
+      assert.equal((await st()).settings.sound, true, "unmuted");
+    });
+
+    await step("depth 3 boss fight: +5 RF, waystone secures loot, escape shows the summary", async () => {
+      await call("g.debugNextFloor()");
+      let s = await waitFor(s => s.depth === 3, "depth 3");
+      const room = s.rooms.find(r => r.type === "boss");
+      await teleport(room.x, room.y + 120);
+      s = await waitFor(s => s.boss, "boss spawned");
+      assert.equal(s.boss.name, "DUNGEON WARDEN");
+      await page.waitForTimeout(2600);
+      await shot("20-boss");
+      await call("g.debugKillRoom()");
+      s = await waitFor(s => !s.boss && s.locked === null, "boss defeated");
+      assert(s.history.some(t => t.reason === "Mini-boss: Dungeon Warden" && t.amount === 5), "+5 RF mini-boss");
+      while ((await st()).modal === "levelUp") await press("1", 400);
+      const waystone = s.interactables.find(it => it.kind === "waystone");
+      await teleport(waystone.x, waystone.y + 40);
+      await press("e", 400);
+      assert.equal((await st()).modal, "waystone");
+      await shot("21-waystone");
+      await press("x", 800);
+      s = await waitFor(s => s.screen === "summary", "summary");
+      await game.getByText("RF started").waitFor();
+      await game.getByText("RF remaining").waitFor();
+      await shot("22-summary");
+      assert(s.stash > 0, "escaped loot reaches the stash");
+    });
+
+    await step("descend again restarts; death and End Run keep secured loot only", async () => {
+      await game.getByRole("button", { name: "Descend Again" }).click();
+      const s = await waitFor(s => s.screen === "run" && s.depth === 1, "new run");
+      assert(s.balance >= 25, "stipend tops the balance back up to 25 RF");
+      await call("g.debugDamagePlayer(99999)");
+      await waitFor(s => s.modal === "death", "death");
+      await press("3", 800);
+      await waitFor(s => s.screen === "summary", "fallen summary");
+      await game.getByRole("heading", { name: "Your Friend Has Fallen" }).waitFor();
+      await game.getByRole("button", { name: "Return to Camp" }).click();
+      await waitFor(s => s.screen === "camp", "camp");
+      await game.getByRole("tab", { name: /Stash/ }).click();
+      await shot("23-stash");
+    });
+
+    await step("no console errors during play", async () => {
+      assert.deepEqual(h.consoleErrors, []);
+    });
+
+    await step("artwork failure shows an error with retry", async () => {
+      await page.route("https://rpc.mainnet.chain.robinhood.com/**", route => route.abort("failed"));
+      await h.child().evaluate(() => location.reload());
+      await page.waitForTimeout(500);
+      const frame = page.frameLocator("iframe");
+      await frame.getByRole("button", { name: "Retry" }).waitFor({ timeout: 20000 });
+      await frame.getByText(/could not be read from Robinhood Chain/).waitFor();
+      await shot("24-error");
+      await page.unroute("https://rpc.mainnet.chain.robinhood.com/**");
+      await frame.getByRole("button", { name: "Retry" }).click();
+      await frame.getByRole("button", { name: /Begin/ }).waitFor({ timeout: 20000 });
+      h.consoleErrors.length = 0;
+    });
+
+    await step("switching the wallet off Robinhood unmounts the game; switching back rechecks", async () => {
+      await page.evaluate(() => window.__friendWalletTest.chain("0x1"));
+      await page.getByRole("button", { name: /Switch to Robinhood/ }).waitFor({ timeout: 10000 });
+      await shot("25-wrong-network");
+      assert.equal(await page.locator("iframe").count(), 0, "game unmounted on the wrong network");
+      await page.getByRole("button", { name: /Switch to Robinhood/ }).click();
+      await page.waitForTimeout(1500);
+      await shot("25b-after-switch");
+      const friend = page.getByRole("button", { name: /^Friend #7730\b/ });
+      await Promise.race([friend.waitFor({ timeout: 10000 }), page.locator("iframe").waitFor({ timeout: 10000 })]);
+      if (await page.locator("iframe").count() === 0) await friend.click();
+      await page.locator("iframe").waitFor({ timeout: 10000 });
+    });
+
+    await step("browser refresh starts a fresh session behind the ownership gate", async () => {
+      await page.reload();
+      await page.getByRole("button", { name: /^Connect (wallet|Browser wallet)$/ }).click();
+      await page.getByRole("button", { name: /^Friend #7730\b/ }).click();
+      const frame = page.frameLocator("iframe");
+      await frame.getByRole("button", { name: /Begin/ }).waitFor({ timeout: 20000 });
+      const s = await st();
+      assert.equal(s.balance, 25);
+      assert.equal(s.stash, 0, "session state resets on reload (SDK sandbox has no storage)");
+    });
+  },
+});
+
+// A phone-sized pass exercises the touch controls.
+await testGame(".", {
+  width: 480, height: 700, timeout: 30000,
+  check: async ({ page, game }) => {
+    const h = await harness({ page, game });
+    await step("touch: joystick moves and the attack button swings", async () => {
+      await game.getByRole("button", { name: /Begin/ }).click();
+      await game.getByRole("button", { name: /Descend/ }).click();
+      await h.waitFor(s => s.screen === "run", "run");
+      await h.call("g.setTouch(true)");
+      await game.getByRole("button", { name: "ATTACK" }).waitFor();
+      const zone = game.locator(".dx-stick-zone");
+      const box = await zone.boundingBox();
+      const a = (await h.st()).pos;
+      await zone.dispatchEvent("pointerdown", { pointerId: 7, pointerType: "touch", clientX: box.x + 60, clientY: box.y + 80, isPrimary: true });
+      await zone.dispatchEvent("pointermove", { pointerId: 7, pointerType: "touch", clientX: box.x + 110, clientY: box.y + 80, isPrimary: true });
+      await page.waitForTimeout(500);
+      await zone.dispatchEvent("pointerup", { pointerId: 7, pointerType: "touch", clientX: box.x + 110, clientY: box.y + 80, isPrimary: true });
+      const b = (await h.st()).pos;
+      assert(b.x > a.x + 30, `touch joystick moved right (${a.x} -> ${b.x})`);
+      await game.getByRole("button", { name: "ATTACK" }).dispatchEvent("pointerdown", { pointerType: "touch" });
+      await page.waitForTimeout(100);
+      await game.getByRole("button", { name: "ATTACK" }).dispatchEvent("pointerup", { pointerType: "touch" });
+      assert(await h.call("return g.player.swing !== null || g.player.attackCd > 0"), "attack triggered");
+      await h.shot("26-touch");
+      assert.deepEqual(h.consoleErrors, []);
+    });
+  },
+});
+
+console.log(`\n${results.join("\n")}\n${results.filter(r => r.startsWith("PASS")).length}/${results.length} passed`);

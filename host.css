@@ -1,0 +1,76 @@
+/* Trusted runtime styling for the FriendSDK host page (loaded by the CLI as host.css).
+   It themes the SDK's own wallet, Friend picker and confirmation UI to match the game, and sizes
+   the 3:2 frame to fill the browser window. It never hides or replaces the trusted controls. */
+@font-face { font-family: "Jacquard 24"; src: url("./assets/fonts/Jacquard24-latin.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "VT323"; src: url("./assets/fonts/VT323-latin.woff2") format("woff2"); font-display: swap; }
+
+:root {
+  --rf-game-max-width: min(1440px, calc((100vh - 16px) * 1.5), 100vw);
+  --rf-game-aspect-ratio: 3 / 2;
+}
+
+html body {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at 50% 40%, #1a1030 0%, #07050b 70%) fixed, #07050b;
+}
+html body #root { width: 100%; }
+
+.rf-game-frame {
+  color: #ece7ff;
+  background: #07050b;
+  border: 1px solid #3d3357;
+  box-shadow: 0 0 0 1px #000, 0 20px 80px rgba(0, 0, 0, 0.8), 0 0 60px rgba(143, 111, 216, 0.18);
+  font: 15px/1.4 VT323, ui-monospace, monospace;
+}
+.rf-frame-viewport {
+  background:
+    radial-gradient(ellipse at 50% 78%, rgba(204, 255, 0, 0.14), transparent 45%),
+    repeating-radial-gradient(ellipse at 50% 78%, transparent 0 34px, rgba(143, 111, 216, 0.12) 35px 37px),
+    #07050b;
+}
+/* Keep the game above the decorative title shown behind the Friend picker. */
+.rf-frame-viewport > iframe { position: relative; z-index: 1; background: #07050b; }
+.rf-frame-viewport::before {
+  content: "The Descent";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 7%;
+  text-align: center;
+  font: clamp(32px, 9cqi, 96px)/1 "Jacquard 24", serif;
+  color: #f3eeff;
+  text-shadow: 0 0 24px rgba(143, 111, 216, 0.7), 3px 3px 0 #2a0a12;
+  pointer-events: none;
+}
+.rf-frame-viewport::after {
+  content: "RARE FRIENDS";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3%;
+  text-align: center;
+  font: clamp(11px, 1.8cqi, 18px) VT323, monospace;
+  letter-spacing: 0.5em;
+  color: #ccff00;
+  pointer-events: none;
+}
+
+.rf-frame-toolbar > * { background: rgba(12, 9, 18, 0.92); color: #ece7ff; border-color: #3d3357; }
+.rf-frame-mode { color: #ffb02e; }
+.rf-game-frame button, .rf-frame-scrim button { background: #15101d; color: #ece7ff; border-color: #3d3357; font-family: VT323, ui-monospace, monospace; }
+.rf-frame-scrim button { font-size: 16px; }
+.rf-game-frame button:hover:not(:disabled), .rf-frame-scrim button:hover:not(:disabled) { background: #221a30; border-color: #ccff00; }
+.rf-game-frame button:focus-visible, .rf-frame-scrim button:focus-visible { outline: 3px solid #ccff00; }
+.rf-game-frame .rf-frame-primary, .rf-frame-scrim .rf-frame-primary { background: #ccff00; color: #0b0710; border-color: #ccff00; }
+.rf-game-frame .rf-frame-primary:hover:not(:disabled), .rf-frame-scrim .rf-frame-primary:hover:not(:disabled) { background: #e2ff5c; color: #0b0710; }
+.rf-frame-scrim { background: rgba(5, 3, 8, 0.55); color: #ece7ff; font-family: VT323, ui-monospace, monospace; font-size: 17px; }
+.rf-frame-menu { background: rgba(12, 9, 18, 0.97); color: #ece7ff; border: 2px solid #ccff00; box-shadow: 0 0 40px rgba(204, 255, 0, 0.12); }
+.rf-frame-menu-heading { border-color: #3d3357; }
+.rf-frame-menu-heading h2 { font: 26px "Jacquard 24", serif; color: #f3eeff; }
+.rf-frame-menu-footer { border-color: #3d3357; }
+.rf-frame-friends button[aria-pressed="true"] { background: #221a30; border-color: #ccff00; }
+.rf-frame-friends small, .rf-frame-note { color: #a39cb8; }
+.rf-frame-wallet-balance { color: #ccff00; }
+.rf-runtime-status { background: #07050b; color: #ece7ff; font-family: VT323, ui-monospace, monospace; font-size: 18px; }
