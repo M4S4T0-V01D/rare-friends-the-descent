@@ -1,10 +1,11 @@
 import { GATES, SHRINES } from "../game/content";
-import { TILE, type Rect } from "../game/dungeon";
+import { CELL_H, CELL_W, TILE, type Rect } from "../game/dungeon";
 import { MODIFIER_INFO } from "../game/enemies";
 import type { Enemy, Hazard, Interactable, Pickup } from "../game/entities";
 import { titleCase, type Game } from "../game/Game";
 import { RARITY_STYLE, rarityRank } from "../game/items";
 import { angleTo, clamp, TAU } from "../game/math";
+import { SHORT } from "../game/kit";
 import { xpForLevel } from "../game/stats";
 import { CHUNK, makeGlow, paintChunk, shade, tintedGlow } from "./world";
 import { drawSprite, flashSprite, MASKS, maskSprite, type Sprite } from "./sprites";
@@ -384,6 +385,13 @@ export class Renderer {
   private drawHazard(h: Hazard) {
     const w = this.wctx;
     if (h.owner === "player") {
+      if (!h.fired && h.delay > 0) {
+        w.save(); w.globalAlpha = 0.45; w.strokeStyle = h.color; w.lineWidth = 2; w.beginPath();
+        if (h.shape === "line") { const dx = Math.cos(h.angle), dy = Math.sin(h.angle); w.moveTo(h.pos.x, h.pos.y); w.lineTo(h.pos.x + dx * h.length, h.pos.y + dy * h.length); w.lineWidth = h.width * 0.5; }
+        else w.arc(h.pos.x, h.pos.y, h.radius, 0, TAU);
+        w.stroke(); w.restore();
+        return;
+      }
       if (h.linger > 0) { w.save(); w.globalAlpha = 0.2; w.fillStyle = h.color; w.beginPath(); w.arc(h.pos.x, h.pos.y, h.radius, 0, TAU); w.fill(); w.restore(); }
       return;
     }
@@ -829,30 +837,39 @@ export class Renderer {
   }
 
   private drawAbilityBar() {
-    const g = this.game, ctx = this.ctx, p = g.player, s = g.stats;
-    const slots: { key: string; label: string; cd: number; max: number; ok: boolean; icon: string; count?: number; color: string }[] = [
-      { key: "J", label: "ATTACK", cd: p.attackCd, max: 0.36, ok: true, icon: "slash", color: "#e9e4ff" },
-      { key: "Q", label: "BOLT", cd: p.boltCd, max: 0.3, ok: p.energy >= 16, icon: "bolt", color: "#3ef0ff" },
-      { key: "R", label: "NOVA", cd: p.novaCd, max: 3.5, ok: p.energy >= 40, icon: "nova", color: "#ccff00" },
-      { key: "SPC", label: "DODGE", cd: p.dodgeCd, max: s.dodgeCd, ok: true, icon: "dodge", color: "#8fe3ff" },
-      { key: "F", label: "POTION", cd: p.potionCd, max: 0.8, ok: p.potions > 0, icon: "potion", count: p.potions, color: "#ff4d6d" },
+    const g = this.game, ctx = this.ctx, p = g.player, s = g.stats, kit = g.kit;
+    const slots: { key: string; id: string; cd: number; max: number; ok: boolean; count?: number; pips?: [number, number]; color: string }[] = [
+      { key: "J", id: kit.attack.id, cd: p.attackCd, max: kit.attack.cd, ok: true, color: "#e9e4ff" },
+      { key: "Q", id: kit.bolt.id, cd: p.boltCd, max: kit.bolt.cd, ok: p.energy >= kit.bolt.energy, color: kit.bolt.color },
+      { key: "R", id: kit.signature.id, cd: p.novaCd, max: kit.signature.cd, ok: p.energy >= kit.signature.energy, color: kit.signature.color },
+      { key: "SPC", id: kit.dodge.id, cd: p.dodgeCharges > 0 ? 0 : p.dodgeCd, max: s.dodgeCd, ok: p.dodgeCharges > 0, color: "#8fe3ff",
+        pips: kit.dodge.charges > 1 ? [p.dodgeCharges, kit.dodge.charges] : undefined },
+      { key: "F", id: "potion", cd: p.potionCd, max: 0.8, ok: p.potions > 0, count: p.potions, color: "#ff4d6d" },
     ];
     const size = 56, gap = 8, x0 = 430, y0 = 568;
     slots.forEach((slot, i) => {
       const x = x0 + i * (size + gap), y = y0;
-      ctx.fillStyle = "rgba(7,5,11,0.88)"; ctx.fillRect(x, y, size, size);
-      ctx.strokeStyle = slot.ok ? slot.color : "#4a4452"; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
-      drawAbilityIcon(ctx, slot.icon, x + size / 2, y + size / 2 - 4, slot.ok ? slot.color : "#4a4452");
+      const color = slot.ok ? slot.color : "#4a4452";
+      ctx.save();
+      slotPath(ctx, kit.frame, x, y, size);
+      ctx.fillStyle = "rgba(7,5,11,0.9)"; ctx.fill();
+      ctx.clip();
+      ctx.fillStyle = kit.accent; ctx.globalAlpha = 0.12; ctx.fillRect(x, y + size - 16, size, 16); ctx.globalAlpha = 1;
+      drawAbilityIcon(ctx, slot.id, x + size / 2, y + size / 2 - 2, color);
       if (slot.cd > 0) {
-        ctx.save();
-        ctx.beginPath(); ctx.rect(x + 2, y + 2, size - 4, size - 4); ctx.clip();
         ctx.globalAlpha = 0.6; ctx.fillStyle = "#000";
         ctx.beginPath(); ctx.moveTo(x + size / 2, y + size / 2);
         ctx.arc(x + size / 2, y + size / 2, size, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(slot.cd / slot.max, 0, 1)); ctx.closePath(); ctx.fill();
-        ctx.restore();
+        ctx.globalAlpha = 1;
       }
-      ctx.font = `14px ${FONT_UI}`; ctx.fillStyle = "#9a93ad"; ctx.textAlign = "left"; ctx.fillText(slot.key, x + 4, y + size - 4);
-      if (slot.count !== undefined) { ctx.textAlign = "right"; ctx.fillStyle = "#fff"; ctx.font = `18px ${FONT_UI}`; ctx.fillText(`${slot.count}`, x + size - 4, y + size - 4); }
+      ctx.restore();
+      slotPath(ctx, kit.frame, x, y, size);
+      ctx.strokeStyle = slot.ok ? kit.accent : "#4a4452"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.font = `13px ${FONT_UI}`; ctx.textAlign = "center"; ctx.fillStyle = slot.ok ? kit.accent : "#6d6780";
+      ctx.fillText(SHORT[slot.id] ?? "POTION", x + size / 2, y - 3);
+      ctx.textAlign = "left"; ctx.fillStyle = "#9a93ad"; ctx.fillText(slot.key, x + 5, y + size - 5);
+      if (slot.count !== undefined) { ctx.textAlign = "right"; ctx.fillStyle = "#fff"; ctx.font = `18px ${FONT_UI}`; ctx.fillText(`${slot.count}`, x + size - 5, y + size - 5); }
+      if (slot.pips) for (let k = 0; k < slot.pips[1]; k++) { ctx.fillStyle = k < slot.pips[0] ? "#8fe3ff" : "#2a2335"; ctx.fillRect(x + size - 10 - k * 8, y + size - 10, 6, 6); }
       ctx.textAlign = "left";
     });
   }
@@ -878,7 +895,7 @@ export class Renderer {
       ctx.fillText("THE RIFT", x0 + mw / 2, y0 + mh / 2 + 6); ctx.textAlign = "left";
       return;
     }
-    const cells = 7, cw = (mw - 12) / cells, ch = (mh - 12) / cells;
+    const cw = (mw - 12) / floor.gridW, ch = (mh - 12) / floor.gridH;
     const center = (r: { cell: { x: number; y: number } }) => ({ x: x0 + 6 + (r.cell.x + 0.5) * cw, y: y0 + 6 + (r.cell.y + 0.5) * ch });
     ctx.lineWidth = 2;
     for (const c of floor.connections) {
@@ -901,7 +918,7 @@ export class Renderer {
         ctx.fillText(icon.glyph, c.x, c.y + 4); ctx.textAlign = "left";
       }
     }
-    const cellPx = { w: 42 * TILE, h: 30 * TILE };
+    const cellPx = { w: CELL_W * TILE, h: CELL_H * TILE };
     const px = x0 + 6 + (g.player.pos.x / cellPx.w) * cw, py = y0 + 6 + (g.player.pos.y / cellPx.h) * ch;
     ctx.fillStyle = "#ffffff"; ctx.fillRect(px - 2, py - 2, 4, 4);
   }
@@ -1081,14 +1098,38 @@ export function drawItemIcon(ctx: CanvasRenderingContext2D, slot: string, x: num
   ctx.restore();
 }
 
+function slotPath(ctx: CanvasRenderingContext2D, frame: string, x: number, y: number, size: number) {
+  const c = size / 2, cx = x + c, cy = y + c;
+  ctx.beginPath();
+  if (frame === "round") ctx.arc(cx, cy, c - 1, 0, TAU);
+  else if (frame === "diamond") { const r = c + 4; ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.closePath(); }
+  else if (frame === "notched") { const n = 10; ctx.moveTo(x + n, y + 1); ctx.lineTo(x + size - n, y + 1); ctx.lineTo(x + size - 1, y + n); ctx.lineTo(x + size - 1, y + size - n); ctx.lineTo(x + size - n, y + size - 1); ctx.lineTo(x + n, y + size - 1); ctx.lineTo(x + 1, y + size - n); ctx.lineTo(x + 1, y + n); ctx.closePath(); }
+  else ctx.rect(x + 1, y + 1, size - 2, size - 2);
+}
+
 function drawAbilityIcon(ctx: CanvasRenderingContext2D, icon: string, x: number, y: number, color: string) {
   ctx.save();
   ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 3; ctx.lineCap = "round";
+  const line = (a: number, b: number, c: number, d: number) => { ctx.beginPath(); ctx.moveTo(x + a, y + b); ctx.lineTo(x + c, y + d); ctx.stroke(); };
   switch (icon) {
     case "slash": ctx.beginPath(); ctx.arc(x - 6, y + 8, 18, -1.3, 0.1); ctx.stroke(); ctx.fillRect(x + 6, y - 12, 3, 3); break;
-    case "bolt": ctx.beginPath(); ctx.moveTo(x - 12, y + 8); ctx.lineTo(x + 10, y - 8); ctx.stroke(); ctx.beginPath(); ctx.arc(x + 10, y - 8, 5, 0, TAU); ctx.fill(); break;
+    case "lunge": line(-13, 10, 11, -10); ctx.beginPath(); ctx.moveTo(x + 13, y - 13); ctx.lineTo(x + 3, y - 10); ctx.lineTo(x + 10, y - 3); ctx.fill(); break;
+    case "whirl": ctx.beginPath(); ctx.arc(x, y, 12, 0.3, 5.4); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x + 12, y - 8); ctx.lineTo(x + 14, y + 2); ctx.lineTo(x + 5, y - 1); ctx.fill(); break;
+    case "bolt": line(-12, 8, 10, -8); ctx.beginPath(); ctx.arc(x + 10, y - 8, 5, 0, TAU); ctx.fill(); break;
+    case "shards": line(-12, 10, 8, -12); line(-12, 10, 12, -4); line(-12, 10, 13, 6); break;
+    case "lance": ctx.lineWidth = 4; line(-14, 12, 12, -12); ctx.lineWidth = 2; line(-6, 12, -14, 4); break;
     case "nova": ctx.beginPath(); ctx.arc(x, y, 12, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.fill(); break;
-    case "dodge": ctx.beginPath(); ctx.moveTo(x - 12, y); ctx.lineTo(x + 10, y); ctx.moveTo(x + 3, y - 7); ctx.lineTo(x + 10, y); ctx.lineTo(x + 3, y + 7); ctx.stroke(); ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(x - 14, y - 7); ctx.lineTo(x - 4, y - 7); ctx.stroke(); break;
+    case "boneSpikes": for (const dx of [-10, 0, 10]) { ctx.beginPath(); ctx.moveTo(x + dx - 5, y + 11); ctx.lineTo(x + dx, y - 12 + Math.abs(dx) * 0.6); ctx.lineTo(x + dx + 5, y + 11); ctx.fill(); } break;
+    case "masquerade": ctx.beginPath(); ctx.ellipse(x, y, 13, 9, 0, 0, TAU); ctx.fill(); ctx.fillStyle = "#07050b"; ctx.fillRect(x - 8, y - 3, 5, 4); ctx.fillRect(x + 3, y - 3, 5, 4); break;
+    case "rally": ctx.fillRect(x - 3, y - 12, 6, 24); ctx.fillRect(x - 12, y - 3, 24, 6); break;
+    case "mitosis": for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; ctx.beginPath(); ctx.arc(x + Math.cos(a) * 11, y + Math.sin(a) * 11, 3, 0, TAU); ctx.fill(); } ctx.beginPath(); ctx.arc(x, y, 4, 0, TAU); ctx.fill(); break;
+    case "chaosRift": ctx.beginPath(); ctx.moveTo(x - 12, y - 10); ctx.lineTo(x - 2, y - 2); ctx.lineTo(x - 8, y + 2); ctx.lineTo(x + 4, y + 12); ctx.moveTo(x + 2, y - 12); ctx.lineTo(x + 12, y - 4); ctx.stroke(); break;
+    case "phaseBlink": ctx.setLineDash([4, 4]); line(-14, 0, 4, 0); ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(x + 14, y); ctx.lineTo(x + 4, y - 8); ctx.lineTo(x + 4, y + 8); ctx.fill(); break;
+    case "earthshatter": ctx.fillRect(x - 14, y + 6, 28, 4); line(0, 6, -6, -4); line(0, 6, 7, -2); line(-6, -4, -2, -12); break;
+    case "prismBurst": for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; line(Math.cos(a) * 4, Math.sin(a) * 4, Math.cos(a) * 13, Math.sin(a) * 13); } break;
+    case "voidPull": ctx.beginPath(); for (let i = 0; i < 40; i++) { const a = i * 0.35, r = 13 - i * 0.3; ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } ctx.stroke(); break;
+    case "dash": line(-12, 0, 10, 0); line(3, -7, 10, 0); line(3, 7, 10, 0); ctx.globalAlpha = 0.5; line(-14, -7, -4, -7); break;
+    case "double": line(-14, -4, 0, -4); line(-6, -10, 0, -4); line(-6, 2, 0, -4); line(-4, 6, 12, 6); line(6, 0, 12, 6); line(6, 12, 12, 6); break;
     case "potion": ctx.fillRect(x - 3, y - 12, 6, 5); ctx.beginPath(); ctx.arc(x, y + 3, 9, 0, TAU); ctx.fill(); ctx.fillStyle = "#fff"; ctx.fillRect(x - 4, y, 3, 3); break;
   }
   ctx.restore();

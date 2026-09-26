@@ -52,6 +52,37 @@ test("floor 1 is authored for the first minute: fight, then the 5 RF Shrine of G
   }
 });
 
+test("deeper floors are larger and more complex, with every tile still reachable", () => {
+  const measure = (depth: number) => {
+    let rooms = 0, area = 0, loops = 0, walls = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const floor = generateFloor(depth, seed * 104729 + depth);
+      rooms += floor.rooms.length; area += floor.rooms.reduce((a, r) => a + r.w * r.h, 0); loops += floor.connections.length - (floor.rooms.length - 1);
+      const w = floor.width, seen = new Uint8Array(floor.tiles.length);
+      const start = Math.floor(floor.start.y / TILE) * w + Math.floor(floor.start.x / TILE);
+      const queue = [start]; seen[start] = 1;
+      while (queue.length) {
+        const i = queue.pop()!, x = i % w, y = (i - x) / w;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const j = (y + dy) * w + x + dx, tile = floor.tiles[j];
+          if (!seen[j] && (tile === T.Floor || tile === T.Door || tile === T.Corridor)) { seen[j] = 1; queue.push(j); }
+        }
+      }
+      for (const r of floor.rooms) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+        if (floor.tiles[y * w + x] === T.Wall) walls++;
+        else assert.ok(seen[y * w + x], `depth ${depth} seed ${seed}: sealed tile in ${r.type}`);
+      }
+    }
+    return { rooms, area, loops, walls };
+  };
+  const shallow = measure(1), mid = measure(5), deep = measure(9);
+  assert.ok(deep.rooms > mid.rooms && mid.rooms > shallow.rooms, "more rooms deeper down");
+  assert.ok(deep.area > shallow.area * 2.5, "floors grow much larger");
+  assert.ok(deep.loops > mid.loops && shallow.loops === 0, "deep floors loop; the first floor is linear");
+  assert.ok(deep.walls > shallow.walls * 5, "deep rooms have interior architecture");
+  assert.equal(generateFloor(9, 1).gridW, 9);
+});
+
 test("arenas are single closed rooms", () => {
   const arena = generateArena(5, 99);
   assert.equal(arena.rooms.length, 1);

@@ -18,7 +18,7 @@ A dark action-RPG dungeon crawler for the Rare Friends Vibeathon. Your own Gener
 ## The three categories, at a glance
 
 **Character Spotlight: your Rare Friend is the dungeon hero.**
-The SDK verifies that you own the Friend, and the game then reads that Friend's canonical 16×16 on-chain artwork. The same pixels appear everywhere: walking and fighting through the dungeon with its real idle and walk animations, as the canonical black-on-white portrait in the HUD, on the title screen, at the camp, in boss introductions ("Hoverer #7730 vs Dungeon Warden"), in the character sheet and on the end-of-run summary. The elite enemy, the **Corrupted Friend**, is a crimson reflection of *your own* Friend. The secret boss, **The Unminted**, wears your Friend's silhouette as living void. Each Generations family also grants a unique passive (Skeleton, Mask, Family, Cellular, Asymmetry, Hoverer, Colossus, Sparkling, Hollow), so the Friend you choose changes how you play.
+The SDK verifies that you own the Friend, and the game then reads that Friend's canonical 16×16 on-chain artwork. The same pixels appear everywhere: walking and fighting through the dungeon with its real idle and walk animations, as the canonical black-on-white portrait in the HUD, on the title screen, at the camp, in boss introductions ("Hoverer #7730 vs Dungeon Warden"), in the character sheet and on the end-of-run summary. The elite enemy, the **Corrupted Friend**, is a crimson reflection of *your own* Friend. The secret boss, **The Unminted**, wears your Friend's silhouette as living void. Each Generations family also grants a unique passive (Skeleton, Mask, Family, Cellular, Asymmetry, Hoverer, Colossus, Sparkling, Hollow). On top of that, **every Friend gets its own combat kit** (see [Every Friend plays differently](#every-friend-plays-differently)).
 
 **Token Activity: RF is spent and earned constantly.**
 Every floor presents about **7–8 paid RF decisions**, measured across 900 generated floors: 1.5 shrines, 1 RF gate, about 1 paid event, a merchant on 58% of floors, and roughly 3.7 loot chests, each with an escalating 5 → 10 → 25 RF reroll. Revives cost 10 or 25 RF. Kills, elites, treasure, events and bosses pay RF back. Every movement shows up in a live **RF ACTIVITY** feed in the HUD, in a full ledger (Tab), and in the end-of-run summary.
@@ -35,14 +35,28 @@ Every price lives in one file ([`src/economy/terms.ts`](src/economy/terms.ts)), 
 3. Clear rooms, loot, make RF decisions, go deeper. Bosses wait at depths 3, 6 and 9.
 4. Escape at a Waystone with your loot, or die and decide whether RF can buy you another chance.
 
+### Every Friend plays differently
+
+Each Friend's kit is derived from its Generations family and its own on-chain art seed. The same Friend always gets the same kit, and there are 5,184 possible combinations, each reachable and evenly distributed.
+
+| Slot | What varies | Options |
+|---|---|---|
+| **R · Signature** (by family) | A unique ability | Skeleton **Bone Spikes** · Mask **Masquerade** · Family **Rally** · Cellular **Mitosis** · Asymmetry **Chaos Rift** · Hoverer **Phase Blink** · Colossus **Earthshatter** · Sparkling **Prism Burst** · Hollow **Void Pull** |
+| **J · Attack** (by seed) | Reach, arc and speed | Rune Slash (wide combo) · Piercing Lunge (long thrust that steps in) · Whirl (hits all around) |
+| **Q · Bolt** (by seed) | Spread, range and piercing | Void Bolt · Scatter Shards (3-shard fan) · Piercing Lance (pierces 3) |
+| **Space · Dodge** (by seed) | Charges | Dash (1 long) · Double Step (2 short charges) |
+| **Action bar** (by seed) | Look | 4 frame shapes (square, round, diamond, notched) × 8 accent colors |
+
+The kit is shown on the title screen, in the camp's **Friend** tab, in the pause menu and on the action bar.
+
 ### Controls
 
 | Action | Keyboard / mouse | Touch |
 |---|---|---|
 | Move | WASD or arrow keys | Drag on the left side |
 | Attack (3-hit combo, hold to repeat) | J or left click | ATTACK |
-| Void Bolt (16 energy) | Q, L or right click | BOLT |
-| Nova (40 energy, area burst) | R or N | NOVA |
+| Bolt (your kit's style) | Q, L or right click | Bolt button |
+| Signature ability (your family's) | R or N | Signature button |
 | Dodge (brief invulnerability) | Space, Shift or K | DODGE |
 | Potion (heals 35%) | F or H | ♥ |
 | Interact / confirm | E or Enter | USE |
@@ -128,7 +142,7 @@ Merchant gambles: **Legendary Gamble** Epic 30% · Legendary 58% · Mythic 12%. 
 
 **Rarities:** Common · Uncommon · Rare · Epic · **Legendary** · **MYTHIC**. Higher tiers roll more and stronger affixes. Legendary and Mythic drops get a light beam, a banner, sound and a particle burst.
 
-**Slots:** Weapon · Relic · Charm · Ring · Mask. Better items auto-equip, and the rest go to a 10-slot bag (C) where you can swap or destroy them. **Cursed** items pair a large upside with a real downside and never auto-equip.
+**Slots:** Weapon · Relic · Charm · Ring · Mask. Better items auto-equip, and the rest go to a 10-slot bag. The character screen (C) shows your gear on a paper doll around your Friend, the bag grouped by item type with ▲/▼ upgrade markers, and a side-by-side comparison before you equip or destroy anything. **Cursed** items pair a large upside with a real downside and never auto-equip.
 
 **Affixes** include +attack %, +movement speed, +critical chance and damage, heal on kill, burn, extra projectiles, loot chance, dodge, bonus damage below 35% HP, life steal, energy regeneration and RF find.
 **Legendary powers:** Cinderheart, The Split Signal, Crown of Red Thirst, Glass Heart, Echo Engine, Ghoststep Sigil, Orrery of Runes, Last Light, Coin-Eater's Maw, Headsman's Grin.
@@ -139,7 +153,7 @@ Merchant gambles: **Legendary Gamble** Epic 30% · Legendary 58% · Mythic 12%. 
 **Enemies:** Cursed Friend (fast melee) · Void Crawler (ranged orbs) · Loot Goblin (flees, drops coins, escapes after 14 s) · Corrupted Friend (elite: charge, slam) · Dungeon Warden (mini-boss, depths 3 and 6) · The Rare Beast (3-phase final boss, depth 9) · The Unminted (secret boss).
 **Modifiers:** Vampiric, Explosive, Frozen, Swarm, Frenzied, Armored, Teleporting and Cursed, applied to elites and to some normal "champions" on deeper floors. Every enemy attack is telegraphed.
 
-**The dungeon:** each floor is generated from a seed. A main path of combat rooms leads to the stairs or the boss arena, with side rooms branching off it: treasure, shrines, the merchant, events, gated bonus rooms, and a hidden secret room behind a cracked wall (strike it three times). Floors run through The Upper Crypts, The Signal Vaults, The Hollow Deep and The Endless Void. After depth 9 you can keep descending for as long as you survive.
+**The dungeon:** each floor is generated from a seed, and floors **grow larger and more complex as you descend**. The layout grid grows from 7×7 to 9×9 cells, and over 20 generated floors per depth, rooms go from about 9 to 22 and floor area almost quadruples. Deeper floors add loops (multiple routes), optional side-combat wings, branches off branches, and interior architecture: colonnades, dividing walls, inner rings and crosses. Every room tile is verified reachable. A main path of combat rooms leads to the stairs or the boss arena, with side rooms branching off it: treasure, shrines, the merchant, events, gated bonus rooms, and a hidden secret room behind a cracked wall (strike it three times). Floors run through The Upper Crypts, The Signal Vaults, The Hollow Deep and The Endless Void. After depth 9 you can keep descending for as long as you survive.
 
 ---
 
@@ -180,12 +194,12 @@ The FriendSDK v0.1.2 package archive is vendored at `vendor/rarefriends-friendsd
 |---|---|---|
 | `npm run typecheck` | TypeScript, strict | Pass |
 | `npm run lint` | ESLint (typescript-eslint, react-hooks) | Pass |
-| `npm run test:unit` | 14 tests: economy ledger, bigint RF units, insufficient funds, all prices in the 5/10/25 family, small rewards, every odds table sums to 100%, prices come from the economy terms, generation determinism, reachability of every room (300 floors), floor-1 script, depth-2 Void shrine, loot and stats | 14/14 pass |
+| `npm run test:unit` | 15 tests: floor growth with depth plus full-tile reachability, economy ledger, bigint RF units, insufficient funds, all prices in the 5/10/25 family, small rewards, every odds table sums to 100%, prices come from the economy terms, generation determinism, reachability of every room (300 floors), floor-1 script, depth-2 Void shrine, loot and stats | 15/15 pass |
 | `npm run check` | FriendSDK game validation (imports, sandbox boundary, definition) | Pass |
 | `npm run build` | Static preview build | Pass |
 | `npm run test:browser` | 22 end-to-end checks in headless Chromium against the **real SDK runtime** with the SDK's mock wallet and RPC: title and verified Friend, keyboard movement, locked-room combat with real key presses, first loot, level-up, **5 RF** shrine, +3 RF treasure, **5 → 10 → 25** rerolls with no 4th, **5 RF** gate, events, **10 RF** revive, **25 RF** full revival, **25 RF** Void shrine (including the secret-boss path and +25 RF), merchant **5 RF** and **10 RF** buys, potion, pause, mute, reduced motion, depth-3 boss with +5 RF, Waystone, escape summary, restart, death and End Run, artwork-load error with retry, wrong-network unmount and recheck, browser refresh, touch joystick and buttons, zero console errors | 22/22 pass |
 | `npm run test:real` (or `TARGET_URL=<preview> node scripts/test-real-gate.mjs`) | **Live Robinhood mainnet**, read-only, also run against the published GitHub Pages preview: a stand-in wallet that refuses every signing method reports a real holder's public address. The real SDK picker discovered the holder's 5 hardwired Friends, freshly verified ownership, and the game loaded that Friend's on-chain artwork. An address with only a generation-0 Friend was refused, and a wrong-network wallet was stopped before play. | 3/3 pass |
-| `npm run playtest` | A bot plays the real engine at about 60× speed using only player controls, reporting depth, deaths, damage by source and RF flow | Used for balance: a competent bot takes about 10 minutes for 9 floors and ends some runs at low HP. RF earned per full run is about 50–100. |
+| `npm run playtest` | A bot plays the real engine at about 60× speed using only player controls, reporting depth, deaths, damage by source and RF flow | Used for balance: a competent bot takes about 14 minutes for 9 floors (floors lengthen from ~35 s to ~2–3 min) and ends some runs at low HP. RF earned per full run is about 80–120. |
 
 ---
 

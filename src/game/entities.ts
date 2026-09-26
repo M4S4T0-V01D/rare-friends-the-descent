@@ -9,7 +9,7 @@ export type Player = {
   pos: Vec; vel: Vec; radius: number;
   hp: number; energy: number; level: number; xp: number; potions: number;
   aim: number; facing: SpriteFacing; side: "left" | "right"; moving: boolean; walkTime: number;
-  attackCd: number; boltCd: number; novaCd: number; dodgeCd: number; potionCd: number;
+  attackCd: number; boltCd: number; novaCd: number; dodgeCd: number; dodgeCharges: number; critT: number; potionCd: number;
   dashTime: number; dashDir: Vec; iframes: number;
   combo: number; comboTimer: number; swing: { t: number; dur: number; angle: number; arc: number; range: number; heavy: boolean } | null;
   strikes: number; hitFlash: number; chill: number; weakened: number; orbit: number;

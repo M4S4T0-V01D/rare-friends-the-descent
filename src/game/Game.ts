@@ -14,6 +14,7 @@ import type {
   ChestKind, Enemy, EnemyKind, Floater, Hazard, Interactable, Particle, Pickup, Player, Projectile,
 } from "./entities";
 import { Input } from "./input";
+import { friendKit, type FriendKit } from "./kit";
 import {
   generateItem, itemScore, newItemId, rarityRank, RARITIES, RARITY_STYLE, rollRarity, SLOTS, type Item, type Rarity, type Slot,
 } from "./items";
@@ -80,6 +81,8 @@ export class Game implements World {
   buffs: Buff[] = [];
   secured = new Set<number>();
   readonly trait: { name: string; text: string; mods: Buff["mods"] };
+  /** This Friend's own attack, bolt, dodge and signature ability, derived from its family and art seed. */
+  readonly kit: FriendKit;
 
   // Session (camp) state. The sandbox has no storage, so this lasts until reload.
   stash: Item[] = [];
@@ -104,6 +107,7 @@ export class Game implements World {
 
   constructor(readonly friend: FriendIdentity, readonly art: FriendArt, readonly economy: TokenEconomy, settings: Settings) {
     this.trait = FAMILY_TRAITS[friend.family] ?? DEFAULT_TRAIT;
+    this.kit = friendKit(friend.family, art.sprites?.seed ?? Number(friend.id % 4294967296n));
     this.stats = computeStats(1, this.trait.mods, this.boons, [], []);
     this.store = new Store<UiState>({
       screen: "title", modal: { kind: "none" }, busy: false,
@@ -280,6 +284,7 @@ export class Game implements World {
     this.player.hp = this.stats.maxHp;
     this.player.energy = this.stats.energyMax;
     this.player.potions = 3;
+    this.player.dodgeCharges = this.kit.dodge.charges;
     this.patch({ screen: "run", modal: { kind: "none" }, summary: null, pendingLevels: 0, toasts: [] });
     this.enterFloor(1);
   }
@@ -591,7 +596,12 @@ export class Game implements World {
     if (this.input.mouseAiming()) p.aim = angleTo(p.pos, { x: input.mouse.x + this.camera.x, y: input.mouse.y + this.camera.y });
     else if (move.x || move.y) p.aim = Math.atan2(move.y, move.x);
 
-    if (input.consume("dodge") && p.dodgeCd <= 0) this.dodge(move);
+    if (p.dodgeCharges < this.kit.dodge.charges && p.dodgeCd <= 0) {
+      p.dodgeCharges++;
+      if (p.dodgeCharges < this.kit.dodge.charges) p.dodgeCd = s.dodgeCd;
+    }
+    p.critT -= dt;
+    if (input.consume("dodge") && p.dodgeCharges > 0) this.dodge(move);
     if (p.dashTime > 0) {
       p.dashTime -= dt;
       this.moveCircle(p.pos, p.radius, p.dashDir.x * 1150 * dt, p.dashDir.y * 1150 * dt);
@@ -614,7 +624,7 @@ export class Game implements World {
 
     if ((input.consume("attack") || input.attackHeld()) && p.attackCd <= 0 && p.dashTime <= 0) this.attack();
     if ((input.consume("bolt") || input.boltHeld()) && p.boltCd <= 0) this.castBolt();
-    if (input.consume("nova") && p.novaCd <= 0) this.castNova();
+    if (input.consume("nova") && p.novaCd <= 0) this.castSignature();
     if (input.consume("potion")) this.drinkPotion();
     if (input.consume("interact")) this.interact();
     if (input.consume("character")) this.setModal({ kind: "character" });
@@ -640,18 +650,20 @@ export class Game implements World {
     const heavy = p.combo === 0;
     p.strikes++;
     const edge = s.powers.has("rareEdge") && p.strikes % 4 === 0;
-    const angle = this.aimFor(170);
+    const style = this.kit.attack;
+    const angle = this.aimFor(style.range + 90);
     p.aim = angle;
-    const range = heavy ? 88 : 76, arc = heavy ? 2.3 : 1.95;
-    p.swing = { t: 0, dur: 0.16, angle, arc, range, heavy };
-    p.attackCd = 0.36;
+    const range = style.range * (heavy ? 1.15 : 1), arc = Math.min(Math.PI * 2, style.arc * (heavy ? 1.18 : 1));
+    if (style.step) this.moveCircle(p.pos, p.radius, Math.cos(angle) * style.step, Math.sin(angle) * style.step);
+    p.swing = { t: 0, dur: style.id === "whirl" ? 0.22 : 0.16, angle, arc, range, heavy };
+    p.attackCd = style.cd;
     this.sfx(heavy ? "heavySwing" : "swing");
     let hits = 0;
     for (const e of this.enemies) {
       if (e.dead || e.spawnT > 0) continue;
       if (inCone(p.pos, angle, arc, range, e.pos, e.radius)) {
         hits++;
-        this.dealDamage(e, s.atk * (heavy ? 1.5 : 1), { source: "melee", knock: heavy ? 240 : 80, from: p.pos, forceCrit: edge });
+        this.dealDamage(e, s.atk * style.dmg * (heavy ? 1.5 : 1), { source: "melee", knock: heavy ? 240 : style.knock, from: p.pos, forceCrit: edge });
       }
     }
     if (hits) p.energy = Math.min(s.energyMax, p.energy + 4 * Math.min(3, hits));
@@ -663,16 +675,17 @@ export class Game implements World {
 
   private castBolt() {
     const p = this.player, s = this.stats;
-    if (p.energy < 16) { if (this.input.consume("bolt")) this.toast("Not enough energy", "#8f6fd8"); return; }
-    p.energy -= 16;
-    p.boltCd = 0.3;
-    const angle = this.aimFor(520);
+    const bolt = this.kit.bolt;
+    if (p.energy < bolt.energy) { if (this.input.consume("bolt")) this.toast("Not enough energy", "#8f6fd8"); return; }
+    p.energy -= bolt.energy;
+    p.boltCd = bolt.cd;
+    const angle = this.aimFor(bolt.speed * bolt.life * 0.9);
     p.aim = angle;
-    const n = s.projectiles;
+    const n = bolt.count + s.projectiles - 1;
     for (let i = 0; i < n; i++) {
-      const a = angle + (i - (n - 1) / 2) * 0.14;
-      this.fire({ pos: { x: p.pos.x + Math.cos(a) * 16, y: p.pos.y - 12 + Math.sin(a) * 16 }, vel: fromAngle(a, 620), radius: 7,
-        dmg: s.atk * 0.85 * s.boltMult, owner: "player", life: 0.85, color: "#3ef0ff", kind: "bolt" });
+      const a = angle + (i - (n - 1) / 2) * bolt.spread;
+      this.fire({ pos: { x: p.pos.x + Math.cos(a) * 16, y: p.pos.y - 12 + Math.sin(a) * 16 }, vel: fromAngle(a, bolt.speed), radius: bolt.radius,
+        dmg: s.atk * bolt.dmg * s.boltMult, owner: "player", life: bolt.life, color: bolt.color, kind: bolt.id === "shards" ? "shard" : "bolt", pierce: bolt.pierce });
     }
     this.sfx("bolt");
   }
@@ -694,13 +707,76 @@ export class Game implements World {
     this.strikeSecretWalls(null, radius);
   }
 
+  /** The Friend's family signature ability on R. */
+  private castSignature() {
+    const p = this.player, s = this.stats, sig = this.kit.signature;
+    if (sig.id === "nova") { this.castNova(); return; }
+    if (p.energy < sig.energy) { this.toast(`${sig.name} needs ${sig.energy} energy`, "#8f6fd8"); this.sfx("deny"); return; }
+    p.energy -= sig.energy;
+    p.novaCd = sig.cd;
+    const atk = s.atk * s.novaMult, aim = this.aimFor(320), at = (a: number, d: number) => ({ x: p.pos.x + Math.cos(a) * d, y: p.pos.y + Math.sin(a) * d });
+    p.aim = aim;
+    const ring = (x: number, y: number, r: number) => this.particle({ x, y: y - 10, vx: 0, vy: 0, life: 0.45, size: r, color: sig.color, kind: "ring", drag: 0, gravity: 0 });
+    switch (sig.id) {
+      case "boneSpikes":
+        for (const off of [-0.38, 0, 0.38]) {
+          this.hazard({ shape: "line", pos: { ...p.pos }, angle: aim + off, length: 250, width: 36, delay: 0.12, dmg: atk * 1.5, owner: "player", color: sig.color, knock: 160 });
+          for (let d = 30; d < 250; d += 30) { const q = at(aim + off, d); this.particle({ x: q.x, y: q.y, vx: 0, vy: -60, life: 0.4, size: 5, color: sig.color, kind: "pixel", drag: 2, gravity: 0 }); }
+        }
+        this.sfx("slam"); this.shake(5); break;
+      case "masquerade":
+        p.iframes = Math.max(p.iframes, 1.5); p.critT = 4;
+        this.burst(p.pos.x, p.pos.y - 16, sig.color, 30, 220); ring(p.pos.x, p.pos.y, 90); this.sfx("blink");
+        this.toast("MASQUERADE: untouchable, +40% crit", sig.color); break;
+      case "rally":
+        this.heal(s.maxHp * 0.18);
+        this.hazard({ shape: "circle", pos: { ...p.pos }, radius: 200, delay: 0, dmg: atk * 0.5, owner: "player", color: sig.color, knock: 440 });
+        ring(p.pos.x, p.pos.y, 200); this.sfx("potion"); break;
+      case "mitosis":
+        for (let i = 0; i < 8; i++) this.fire({ pos: { ...p.pos }, vel: fromAngle(aim + (i / 8) * TAU, 420), radius: 9, dmg: atk * 0.8, owner: "player", life: 0.9, color: sig.color, kind: "orb", pierce: 2 });
+        this.sfx("summon"); break;
+      case "chaosRift": {
+        const center = at(aim, 170);
+        for (let i = 0; i < 4; i++) {
+          const pos = { x: center.x + (Math.random() - 0.5) * 180, y: center.y + (Math.random() - 0.5) * 180 };
+          this.hazard({ shape: "circle", pos, radius: 80, delay: 0.2 + i * 0.12, dmg: atk * (0.7 + Math.random() * 1), owner: "player", color: sig.color, knock: 220 });
+        }
+        this.sfx("charge"); break;
+      }
+      case "phaseBlink": {
+        const from = { ...p.pos };
+        let dest = { ...p.pos };
+        for (let d = 10; d <= 230; d += 10) { const q = at(aim, d); if (this.circleBlocked(q.x, q.y, p.radius)) break; dest = q; }
+        this.hazard({ shape: "circle", pos: from, radius: 90, delay: 0, dmg: atk * 1.1, owner: "player", color: sig.color, knock: 200 });
+        p.pos = dest; p.iframes = Math.max(p.iframes, 0.35);
+        this.hazard({ shape: "circle", pos: { ...dest }, radius: 100, delay: 0.05, dmg: atk * 1.3, owner: "player", color: sig.color, knock: 260 });
+        this.burst(from.x, from.y - 16, sig.color, 20, 200); ring(dest.x, dest.y, 100); this.sfx("blink"); break;
+      }
+      case "earthshatter":
+        this.hazard({ shape: "circle", pos: { ...p.pos }, radius: 190, delay: 0.15, dmg: atk * 2.6, owner: "player", color: sig.color, knock: 460 });
+        ring(p.pos.x, p.pos.y, 190); this.burst(p.pos.x, p.pos.y, sig.color, 40, 340); this.sfx("slam"); this.shake(12); break;
+      case "prismBurst":
+        for (let i = 0; i < 12; i++) {
+          const a = aim + (i / 12) * TAU, colors = ["#ff3d7f", "#ccff00", "#3ef0ff", "#ffb02e"];
+          this.fire({ pos: { ...p.pos }, vel: fromAngle(a, 560), radius: 7, dmg: atk * 0.7, owner: "player", life: 0.75, color: colors[i % 4], kind: "bolt" });
+        }
+        this.sfx("bolt"); break;
+      case "voidPull":
+        this.hazard({ shape: "circle", pos: { ...p.pos }, radius: 280, delay: 0, dmg: 0, owner: "player", color: sig.color, knock: -520 });
+        this.hazard({ shape: "circle", pos: { ...p.pos }, radius: 130, delay: 0.45, dmg: atk * 1.9, owner: "player", color: sig.color, knock: 300 });
+        ring(p.pos.x, p.pos.y, 280); this.sfx("summon"); this.shake(4); break;
+    }
+    this.strikeSecretWalls(null, 160);
+  }
+
   private dodge(move: Vec) {
     const p = this.player, s = this.stats;
     const dir = move.x || move.y ? move : fromAngle(p.aim);
     p.dashDir = dir;
-    p.dashTime = 0.18;
+    p.dashTime = 0.18 * this.kit.dodge.distance;
+    if (p.dodgeCharges === this.kit.dodge.charges) p.dodgeCd = s.dodgeCd;
+    p.dodgeCharges--;
     p.iframes = Math.max(p.iframes, 0.3 + (s.powers.has("nullSignal") ? 0.3 : 0));
-    p.dodgeCd = s.dodgeCd;
     this.sfx("dodge");
     if (s.powers.has("nullSignal")) this.castNova(true);
   }
@@ -729,7 +805,7 @@ export class Game implements World {
     if (e.dead || e.spawnT > 0) return;
     if (e.invulnT > 0) { this.floater(e.pos.x, e.pos.y - e.radius - 20, "IMMUNE", "#9aa3b8", 12); return; }
     const s = this.stats, p = this.player;
-    const crit = o.source !== "burn" && (o.forceCrit || Math.random() * 100 < s.critChance);
+    const crit = o.source !== "burn" && (o.forceCrit || Math.random() * 100 < s.critChance + (p.critT > 0 ? 40 : 0));
     let mult = s.dmgMult;
     if (p.hp / s.maxHp < 0.35) mult *= 1 + s.lowHpDmg / 100;
     if (p.weakened > 0) mult *= 0.8;
@@ -1147,6 +1223,10 @@ export class Game implements World {
         if (h.delay > 0) continue;
         h.fired = true;
         this.applyHazard(h);
+        if (h.owner === "player" && h.telegraph > 0 && h.dmg > 0) {
+          if (h.shape === "circle") this.particle({ x: h.pos.x, y: h.pos.y - 6, vx: 0, vy: 0, life: 0.4, size: h.radius, color: h.color, kind: "ring", drag: 0, gravity: 0 });
+          this.burst(h.pos.x, h.pos.y, h.color, 14, 220);
+        }
         if (h.owner === "enemy" && h.dmg > 0 && h.linger === 0) {
           this.sfx(h.color === "#ff9a3c" ? "explode" : "slam");
           this.shake(h.radius > 100 ? 7 : 4);
@@ -1954,6 +2034,9 @@ export class Game implements World {
   debugDamagePlayer(amount: number) { this.player.iframes = 0; this.hurtPlayer(amount / Math.max(0.01, (1 - this.stats.armor / (this.stats.armor + 100)) * this.stats.damageTaken), null); }
   debugNextFloor() { if (this.run) this.nextFloor(); }
   debugXp(amount: number) { this.gainXp(amount); }
+  debugGiveItems(count: number) {
+    for (let i = 0; i < count; i++) this.acquireItem(generateItem(this.rng, this.depth + 2, { slot: SLOTS[i % SLOTS.length], rarity: RARITIES[Math.min(5, (i * 7) % 6)], cursed: i === 7 }), "debug", true);
+  }
   debugGrant(amount: number) { return this.economy.reward(rf(amount), "Test grant (automated test)", "stipend"); }
   debugSpawn(kind: EnemyKind) { const room = this.lockedRoom ?? this.currentRoom ?? 0; return this.spawn(kind, this.pointNearPlayer(room, 120, 220), room).id; }
 }
@@ -1962,7 +2045,7 @@ function freshPlayer(pos: Vec): Player {
   return {
     pos: { ...pos }, vel: { x: 0, y: 0 }, radius: PLAYER_RADIUS, hp: 100, energy: 100, level: 1, xp: 0, potions: 2,
     aim: Math.PI / 2, facing: "down", side: "right", moving: false, walkTime: 0,
-    attackCd: 0, boltCd: 0, novaCd: 0, dodgeCd: 0, potionCd: 0, dashTime: 0, dashDir: { x: 0, y: 0 }, iframes: 0,
+    attackCd: 0, boltCd: 0, novaCd: 0, dodgeCd: 0, dodgeCharges: 2, critT: 0, potionCd: 0, dashTime: 0, dashDir: { x: 0, y: 0 }, iframes: 0,
     combo: 0, comboTimer: 0, swing: null, strikes: 0, hitFlash: 0, chill: 0, weakened: 0, orbit: 0, dead: false, deathTime: 0,
   };
 }

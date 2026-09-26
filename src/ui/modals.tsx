@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { GAMBLER_PAYOUTS, RF_COSTS, type MerchantOffer } from "../economy/terms";
 import { EVENTS, GATES, MERCHANT, SHRINES } from "../game/content";
 import type { Game } from "../game/Game";
-import { POWERS, RARITY_STYLE, SLOT_LABEL, SLOTS } from "../game/items";
+import { RARITY_STYLE, SLOT_LABEL } from "../game/items";
 import { BOONS } from "../game/stats";
 import type { Modal, UiState } from "../game/types";
 import { Dialog, ItemCard, OddsTable, Rf, SimulatedTag, TxList } from "./components";
+import { CharacterModal } from "./inventory";
 
 export function Modals({ game, ui }: { game: Game; ui: UiState }) {
   const m = ui.modal;
@@ -219,50 +220,6 @@ function DeathModal({ game, ui }: { game: Game; ui: UiState }) {
   </Dialog>;
 }
 
-function CharacterModal({ game }: { game: Game }) {
-  const s = game.stats;
-  const [, force] = useState(0);
-  const refresh = () => force(n => n + 1);
-  return <Dialog className="dx-character" title={game.friend.label} subtitle={`LEVEL ${game.level} · ${game.trait.name.toUpperCase()}`} labelColor="#ccff00" onClose={() => game.closeModal()}>
-    <div className="dx-char-cols">
-      <div>
-        <h3>Stats</h3>
-        <dl className="dx-stats">
-          <div><dt>HP</dt><dd>{Math.ceil(game.player.hp)} / {s.maxHp}</dd></div>
-          <div><dt>ATK</dt><dd>{s.atk}</dd></div>
-          <div><dt>ARMOR</dt><dd>{s.armor}</dd></div>
-          <div><dt>CRIT</dt><dd>{Math.round(s.critChance)}% · ×{(s.critDmg / 100).toFixed(2)}</dd></div>
-          <div><dt>SPEED</dt><dd>{Math.round(s.moveSpeed)}</dd></div>
-          <div><dt>LUCK</dt><dd>{Math.round(s.luck)}%</dd></div>
-          <div><dt>DAMAGE</dt><dd>×{s.dmgMult.toFixed(2)}</dd></div>
-          <div><dt>BOLTS</dt><dd>{s.projectiles}</dd></div>
-        </dl>
-        <p className="dx-dim">Trait: {game.trait.text}</p>
-        {game.buffs.length > 0 && <><h3>Blessings &amp; curses</h3><ul className="dx-buffs">{game.buffs.map(b => <li key={b.id} style={{ color: b.color }}>{b.icon} {b.name} · {b.run ? "this run" : b.floors !== undefined ? "this floor" : `${b.rooms} room${b.rooms === 1 ? "" : "s"}`}</li>)}</ul></>}
-        {game.boons.size > 0 && <p className="dx-dim">Boons: {[...game.boons].map(([id, n]) => `${BOONS[id].name}${n > 1 ? ` ×${n}` : ""}`).join(", ")}</p>}
-      </div>
-      <div>
-        <h3>Equipped</h3>
-        <div className="dx-equip">{SLOTS.map(slot => {
-          const item = game.equipment[slot];
-          return item ? <ItemCard key={slot} item={item} compact note={game.secured.has(item.id) ? "Secured" : undefined} /> : <div key={slot} className="dx-item dx-empty">{SLOT_LABEL[slot]}: empty</div>;
-        })}</div>
-      </div>
-      <div>
-        <h3>Bag {game.bag.length}/10</h3>
-        {game.bag.length ? <div className="dx-bag">{game.bag.map(item => <div key={item.id} className="dx-bag-row">
-          <ItemCard item={item} compact note={game.secured.has(item.id) ? "Secured" : undefined} />
-          <div className="dx-bag-actions">
-            <button type="button" className="dx-btn" onClick={() => { game.equipFromBag(item.id); refresh(); }}>Equip</button>
-            <button type="button" className="dx-btn dx-btn-danger" onClick={() => { game.destroyBagItem(item.id); refresh(); }}>Destroy</button>
-          </div>
-        </div>)}</div> : <p className="dx-dim">Nothing in your bag.</p>}
-        {game.bag.some(i => i.power) && <p className="dx-dim">{game.bag.filter(i => i.power).map(i => `${POWERS[i.power!].name}: ${POWERS[i.power!].text}`).join(" ")}</p>}
-      </div>
-    </div>
-  </Dialog>;
-}
-
 function LogModal({ game, ui }: { game: Game; ui: UiState }) {
   return <Dialog className="dx-log" title="RF Activity" subtitle="$RAREFRIENDS LEDGER" labelColor="#ccff00" onClose={() => game.closeModal()}>
     <p><b className="dx-big-rf">{ui.balance} RF</b> <SimulatedTag /></p>
@@ -298,10 +255,10 @@ function PauseModal({ game, ui }: { game: Game; ui: UiState }) {
         <h3>Controls</h3>
         <ul className="dx-controls">
           <li><kbd>WASD</kbd>/<kbd>Arrows</kbd> move</li>
-          <li><kbd>J</kbd>/<kbd>Click</kbd> attack (hold)</li>
-          <li><kbd>Q</kbd>/<kbd>Right-click</kbd> Void Bolt · 16 energy</li>
-          <li><kbd>R</kbd> Nova · 40 energy</li>
-          <li><kbd>Space</kbd>/<kbd>Shift</kbd> dodge</li>
+          <li><kbd>J</kbd>/<kbd>Click</kbd> {game.kit.attack.name} (hold)</li>
+          <li><kbd>Q</kbd>/<kbd>Right-click</kbd> {game.kit.bolt.name} · {game.kit.bolt.energy} energy</li>
+          <li><kbd>R</kbd> {game.kit.signature.name} · {game.kit.signature.energy} energy</li>
+          <li><kbd>Space</kbd>/<kbd>Shift</kbd> {game.kit.dodge.name}{game.kit.dodge.charges > 1 ? ` (${game.kit.dodge.charges} charges)` : ""}</li>
           <li><kbd>F</kbd> potion · <kbd>E</kbd> interact</li>
           <li><kbd>C</kbd> character · <kbd>Tab</kbd> RF log · <kbd>Esc</kbd> pause</li>
         </ul>
