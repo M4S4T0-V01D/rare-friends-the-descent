@@ -9,7 +9,7 @@ A dark action-RPG dungeon crawler for the Rare Friends Vibeathon. Your own Gener
 | **Builder** | M4S4T0 · GitHub [@M4S4T0-V01D](https://github.com/M4S4T0-V01D) |
 | **Category** | Game (FriendSDK). Entered for **Character Spotlight**, **Token Activity** and **Economy Potential** |
 | **Stack** | FriendSDK **v0.1.2** runtime · TypeScript · React 19 (UI) · Canvas 2D renderer · Web Audio |
-| **Playable preview** | *Not published yet.* Run it locally (see [Setup](#setup)), or deploy `site/` to GitHub Pages with the included workflow |
+| **Playable preview** | **https://m4s4t0-v01d.github.io/rare-friends-the-descent/** |
 | **Requirements** | A browser wallet on **Robinhood mainnet (chain 4663)** holding a **hardwired Rare Friends Generations NFT (generation ≥ 1)** |
 | **Economy** | **SIMULATED $RAREFRIENDS.** No real money, no token transfers, no purchases, no transactions. |
 
@@ -184,7 +184,7 @@ The FriendSDK v0.1.2 package archive is vendored at `vendor/rarefriends-friendsd
 | `npm run check` | FriendSDK game validation (imports, sandbox boundary, definition) | Pass |
 | `npm run build` | Static preview build | Pass |
 | `npm run test:browser` | 22 end-to-end checks in headless Chromium against the **real SDK runtime** with the SDK's mock wallet and RPC: title and verified Friend, keyboard movement, locked-room combat with real key presses, first loot, level-up, **5 RF** shrine, +3 RF treasure, **5 → 10 → 25** rerolls with no 4th, **5 RF** gate, events, **10 RF** revive, **25 RF** full revival, **25 RF** Void shrine (including the secret-boss path and +25 RF), merchant **5 RF** and **10 RF** buys, potion, pause, mute, reduced motion, depth-3 boss with +5 RF, Waystone, escape summary, restart, death and End Run, artwork-load error with retry, wrong-network unmount and recheck, browser refresh, touch joystick and buttons, zero console errors | 22/22 pass |
-| `npm run test:real` | **Live Robinhood mainnet**, read-only: a stand-in wallet that refuses every signing method reports a real holder's public address. The real SDK picker discovered the holder's 5 hardwired Friends, freshly verified ownership, and the game loaded that Friend's on-chain artwork. An address with only a generation-0 Friend was refused, and a wrong-network wallet was stopped before play. | 3/3 pass |
+| `npm run test:real` (or `TARGET_URL=<preview> node scripts/test-real-gate.mjs`) | **Live Robinhood mainnet**, read-only, also run against the published GitHub Pages preview: a stand-in wallet that refuses every signing method reports a real holder's public address. The real SDK picker discovered the holder's 5 hardwired Friends, freshly verified ownership, and the game loaded that Friend's on-chain artwork. An address with only a generation-0 Friend was refused, and a wrong-network wallet was stopped before play. | 3/3 pass |
 | `npm run playtest` | A bot plays the real engine at about 60× speed using only player controls, reporting depth, deaths, damage by source and RF flow | Used for balance: a competent bot takes about 10 minutes for 9 floors and ends some runs at low HP. RF earned per full run is about 50–100. |
 
 ---
