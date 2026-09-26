@@ -20,11 +20,13 @@ export const OUTCOME_LABEL: Readonly<Record<ScoreOutcome, string>> = {
 };
 
 export const SCORE_POINTS = {
-  depth: 500, depthSquared: 50, kill: 10, elite: 60, miniBoss: 1000, boss: 3000, secretBoss: 2500, level: 120, rfEarned: 15, cursedBonus: 1.25,
+  depth: 500, depthSquared: 50, kill: 10, elite: 60, guardian: 400, miniBoss: 1000, boss: 3000, secretBoss: 2500, level: 120, rfEarned: 15, cursedBonus: 1.25,
 } as const;
 
 export type ScoreInput = Readonly<{
   depth: number; kills: number; elites: number; bosses: readonly string[]; level: number;
+  /** Guardians (mini-bosses) slain. Optional so older callers still score. */
+  guardians?: number;
   items: readonly Item[]; rfEarned: number; outcome: ScoreOutcome;
 }>;
 export type ScoreLine = Readonly<{ id: string; label: string; detail: string; points: number }>;
@@ -43,6 +45,7 @@ export function scoreRun(input: ScoreInput): RunScore {
     { id: "depth", label: "Depth reached", detail: `depth ${input.depth}`, points: input.depth * P.depth + input.depth ** 2 * P.depthSquared },
     { id: "kills", label: "Enemies slain", detail: `${input.kills} × ${P.kill}`, points: input.kills * P.kill },
     { id: "elites", label: "Elites slain", detail: `${input.elites} × ${P.elite}`, points: input.elites * P.elite },
+    { id: "guardians", label: "Guardians slain", detail: `${input.guardians ?? 0} × ${P.guardian}`, points: (input.guardians ?? 0) * P.guardian },
     { id: "bosses", label: "Bosses defeated", detail: input.bosses.length ? `${input.bosses.length} boss${input.bosses.length === 1 ? "" : "es"}` : "none", points: bossPoints },
     { id: "level", label: "Friend level", detail: `level ${input.level}`, points: (input.level - 1) * P.level },
     { id: "loot", label: "Loot on your Friend", detail: input.items.length ? `${input.items.length} item${input.items.length === 1 ? "" : "s"}${best ? `, best ${best.name}` : ""}` : "nothing", points: loot },

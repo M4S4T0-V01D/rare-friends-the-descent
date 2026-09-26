@@ -5,9 +5,10 @@ import { generateArena, generateFloor, T, TILE } from "../../src/game/dungeon.ts
 import { generateItem, itemScore, RARITIES, rollRarity, SLOTS } from "../../src/game/items.ts";
 import { Rng } from "../../src/game/rng.ts";
 import { BASE_ATK, BASE_HP, BOONS, computeStats, FAMILY_TRAITS, HP_PER_LEVEL, xpForLevel } from "../../src/game/stats.ts";
-import { RF_COSTS, RF_DENOMINATIONS } from "../../src/economy/terms.ts";
+import { COIN_DASH, GALLERY_PAYOUTS, RF_COSTS, RF_DENOMINATIONS, SHELL_GAME } from "../../src/economy/terms.ts";
+import { BESTIARY_ORDER, LORE } from "../../src/game/lore.ts";
 import { COSMETICS, DEFAULT_COSMETICS } from "../../src/game/content.ts";
-import { dmgScale } from "../../src/game/enemies.ts";
+import { dmgScale, GUARDIAN_TITLES } from "../../src/game/enemies.ts";
 import { OUTCOME_MULTIPLIER, RARITY_POINTS, scoreRun } from "../../src/game/score.ts";
 
 const sum = (rows: readonly { chanceBps: number }[]) => rows.reduce((total, row) => total + row.chanceBps, 0);
@@ -178,4 +179,29 @@ test("cosmetics are priced in the RF denominations and every slot has a free def
   }
   assert.ok(COSMETICS.some(c => c.look === "corrupted"), "you can wear the Corrupted Friends' crimson");
   assert.equal(new Set(COSMETICS.map(c => c.id)).size, COSMETICS.length);
+});
+
+test("every floor without a boss ends its main path at a guardian, from depth 2", () => {
+  for (let depth = 1; depth <= 12; depth++) for (let seed = 1; seed <= 10; seed++) {
+    const main = generateFloor(depth, seed * 31 + depth).rooms.filter(r => r.main).map(r => r.type);
+    const guardians = main.filter(type => type === "guardian").length;
+    if (depth === 1 || depth % 3 === 0) assert.equal(guardians, 0, `depth ${depth}`);
+    else { assert.equal(guardians, 1, `depth ${depth}`); assert.equal(main[main.length - 2], "guardian", "right before the stairs"); }
+  }
+  for (const kind of Object.keys(GUARDIAN_TITLES)) assert.ok(kind !== "mite");
+});
+
+test("the bestiary has a page, lore and attacks for every creature", () => {
+  const kinds = ["cursed", "crawler", "goblin", "corrupted", "warden", "beast", "unminted", "wisp", "gunner", "drone", "turret", "mite", "spitter", "eyestalk", "bloodling", "shade",
+    "bomber", "lancer", "hexer", "sniper", "brute", "hive", "wraith", "prism"];
+  assert.deepEqual([...BESTIARY_ORDER].sort(), [...kinds].sort());
+  for (const kind of BESTIARY_ORDER) { assert.ok(LORE[kind].lore.length > 20); assert.ok(LORE[kind].attacks.length >= 1); }
+});
+
+test("mini-games cost 5 or 10 RF and a skilled player comes out ahead", () => {
+  assert.deepEqual([EVENTS.gallery.cost, EVENTS.shells.cost, EVENTS.coinDash.cost], [5, 5, 10]);
+  for (const kind of ["gallery", "shells", "coinDash"] as const) assert.ok(EVENTS[kind].rules?.length, `${kind} explains its rules`);
+  assert.ok(GALLERY_PAYOUTS[0].payout > EVENTS.gallery.cost && SHELL_GAME.payout > EVENTS.shells.cost && COIN_DASH.coins * COIN_DASH.perCoin > EVENTS.coinDash.cost);
+  for (let i = 1; i < GALLERY_PAYOUTS.length; i++) assert.ok(GALLERY_PAYOUTS[i].hits < GALLERY_PAYOUTS[i - 1].hits && GALLERY_PAYOUTS[i].payout < GALLERY_PAYOUTS[i - 1].payout);
+  for (const row of GALLERY_PAYOUTS) assert.ok(RF_DENOMINATIONS.includes(row.payout as never) || row.payout === 5, `${row.payout}`);
 });

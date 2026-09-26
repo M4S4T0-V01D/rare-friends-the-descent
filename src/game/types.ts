@@ -6,7 +6,7 @@ import type { RunScore } from "./score";
 import type { BoonId } from "./stats";
 
 export type Screen = "title" | "camp" | "run" | "summary";
-export type CampTab = "descend" | "friend" | "wardrobe" | "stash" | "codex" | "hall" | "rf";
+export type CampTab = "descend" | "friend" | "wardrobe" | "bestiary" | "stash" | "codex" | "hall" | "rf";
 export type RevealTone = "good" | "bad" | "neutral" | "legendary" | "mythic" | "void";
 export type FollowUp = "arena-unminted" | "arena-cursed" | "merchant" | "loot";
 
@@ -24,10 +24,14 @@ export type Modal =
   | { kind: "death" }
   | { kind: "character" }
   | { kind: "log" }
-  | { kind: "pause" };
+  | { kind: "pause" }
+  | { kind: "bestiary" }
+  | { kind: "shells"; id: number };
 
 export type Settings = {
   sound: boolean; music: boolean; reducedMotion: boolean; screenShake: boolean; damageNumbers: boolean; crt: boolean;
+  /** The Rare Friends look: near-black and white, faded color, dithered light. */
+  faded: boolean;
 };
 
 export type Toast = { id: number; text: string; color: string; until: number };

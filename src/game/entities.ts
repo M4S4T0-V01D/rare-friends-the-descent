@@ -20,7 +20,9 @@ export type Player = {
 
 export type EnemyKind = "cursed" | "crawler" | "goblin" | "corrupted" | "warden" | "beast" | "unminted"
   | "wisp" | "gunner" | "drone" | "turret" | "mite" | "spitter" | "eyestalk" | "bloodling" | "shade"
-  | "bomber" | "lancer" | "hexer" | "sniper" | "brute" | "hive" | "wraith" | "prism";
+  | "bomber" | "lancer" | "hexer" | "sniper" | "brute" | "hive" | "wraith" | "prism"
+  /** A floating rune in the Rune Gallery mini-game, not a real foe. */
+  | "target";
 export type Modifier = "vampiric" | "explosive" | "frozen" | "swarm" | "frenzied" | "armored" | "teleporting" | "cursed"
   | "shielded" | "splitting" | "storming";
 
@@ -28,6 +30,8 @@ export type Enemy = {
   id: number; kind: EnemyKind; name: string; pos: Vec; vel: Vec; radius: number;
   hp: number; maxHp: number; dmg: number; speed: number; xp: number;
   elite: boolean; champion: boolean; boss: boolean; minion: boolean; mods: Modifier[];
+  /** A guardian: the oversized mini-boss before a floor's stairs. */
+  guardian: boolean;
   roomId: number; spawnT: number; dead: boolean;
   state: string; stateT: number; cd: number; cd2: number; cd3: number; aim: number;
   hitFlash: number; knock: Vec; burnT: number; burnDps: number; burnTick: number;
@@ -63,7 +67,7 @@ export type Hazard = {
   slow?: boolean; curse?: boolean; source?: Enemy; sweep?: number; knock?: number;
 };
 
-export type PickupKind = "rf" | "potion" | "item";
+export type PickupKind = "rf" | "potion" | "item" | "coin";
 export type Pickup = {
   id: number; kind: PickupKind; pos: Vec; vel: Vec; item?: Item; amount?: number;
   reason?: string; category?: RfCategory; t: number; magnet: boolean; delay: number;
