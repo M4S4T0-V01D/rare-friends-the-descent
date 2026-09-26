@@ -42,18 +42,23 @@ export type Floor = {
   band: ReturnType<typeof bandForFloor>;
   bossRoom?: number; exitRoom?: number; secretRoom?: number;
   isArena: boolean;
+  /** Layout grid in cells; deeper floors use a bigger grid. */
+  gridW: number; gridH: number;
 };
 
-const GRID_W = 7, GRID_H = 7, CELL_W = 42, CELL_H = 30;
+export const CELL_W = 42, CELL_H = 30;
+/** Deeper floors sprawl: 7×7 cells near the surface, up to 9×9 in the deep. */
+export const gridSizeFor = (depth: number) => (depth <= 3 ? 7 : depth <= 6 ? 8 : 9);
 const DIRS: readonly Vec[] = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
 
-type Plan = { type: RoomType; main: boolean; shrine?: ShrineTier; event?: EventKind; bonus?: GateTier; gate?: GateTier; secret?: boolean; parent?: number };
+type PlanIn = Omit<Plan, "depth">;
+type Plan = { depth: number; type: RoomType; main: boolean; shrine?: ShrineTier; event?: EventKind; bonus?: GateTier; gate?: GateTier; secret?: boolean; parent?: number };
 
 function roomSize(rng: Rng, plan: Plan): [number, number] {
   switch (plan.type) {
     case "start": return [16, 12];
-    case "combat": return [rng.int(22, 32), rng.int(15, 20)];
-    case "elite": return [24, 18];
+    case "combat": return [Math.min(36, rng.int(22, 32) + Math.min(4, Math.floor(plan.depth / 2))), Math.min(24, rng.int(15, 20) + Math.min(4, Math.floor(plan.depth / 3)))];
+    case "elite": return [Math.min(34, 24 + Math.min(8, plan.depth)), Math.min(24, 18 + Math.floor(plan.depth / 2))];
     case "boss": return [34, 24];
     case "exit": return [14, 11];
     case "secret": return [13, 10];
@@ -78,7 +83,7 @@ function eventKind(rng: Rng, depth: number): EventKind {
 }
 
 /** Main path and side rooms for a depth. Floor 1 is authored for a strong first minute. */
-function planFloor(rng: Rng, depth: number): { main: Plan[]; branches: Plan[] } {
+function planFloor(rng: Rng, depth: number): { main: PlanIn[]; branches: PlanIn[] } {
   const boss = BOSS_FLOORS(depth);
   if (depth === 1) {
     return {
@@ -93,11 +98,15 @@ function planFloor(rng: Rng, depth: number): { main: Plan[]; branches: Plan[] } 
       ],
     };
   }
-  const combatCount = Math.min(6, 3 + Math.floor(depth / 2));
-  const main: Plan[] = [{ type: "start", main: true }];
-  for (let i = 0; i < combatCount; i++) main.push({ type: i === combatCount - 1 && !boss && rng.chance(0.45) ? "elite" : "combat", main: true });
+  // Main paths lengthen with depth, and deep floors hide elites mid-path.
+  const combatCount = Math.min(10, 3 + Math.floor(depth * 0.75));
+  const main: PlanIn[] = [{ type: "start", main: true }];
+  for (let i = 0; i < combatCount; i++) {
+    const last = i === combatCount - 1, middle = i === Math.floor(combatCount / 2);
+    main.push({ type: (last && !boss && rng.chance(0.45)) || (middle && depth >= 5 && rng.chance(0.5)) ? "elite" : "combat", main: true });
+  }
   main.push(boss ? { type: "boss", main: true } : { type: "exit", main: true });
-  const branches: Plan[] = [];
+  const branches: PlanIn[] = [];
   // Depth 2 always offers the Shrine of the Void: the signature 25 RF decision.
   branches.push({ type: "shrine", main: false, shrine: depth === 2 ? "void" : shrineTier(rng, depth) });
   if (rng.chance(0.55)) branches.push({ type: "shrine", main: false, shrine: rng.chance(0.6) ? "greed" : "fate" });
@@ -108,6 +117,10 @@ function planFloor(rng: Rng, depth: number): { main: Plan[]; branches: Plan[] } 
   const tier = gateTier(rng, depth);
   branches.push({ type: "bonus", main: false, bonus: tier, gate: tier });
   if (rng.chance(0.55)) branches.push({ type: "secret", main: false, secret: true });
+  // Optional side wings: extra fights, and on deep floors extra shrines and events.
+  for (let i = 0; i < Math.min(4, Math.floor((depth - 1) / 2)); i++) branches.push({ type: "combat", main: false });
+  if (depth >= 5 && rng.chance(0.6)) branches.push({ type: "event", main: false, event: eventKind(rng, depth) });
+  if (depth >= 6 && rng.chance(0.5)) branches.push({ type: "shrine", main: false, shrine: shrineTier(rng, depth) });
   return { main, branches };
 }
 
@@ -121,13 +134,15 @@ export function generateFloor(depth: number, seed: number): Floor {
 
 function tryGenerate(depth: number, seed: number): Floor | null {
   const rng = new Rng(seed);
-  const plan = planFloor(rng, depth);
+  const raw = planFloor(rng, depth);
+  const plan = { main: raw.main.map(p => ({ ...p, depth })), branches: raw.branches.map(p => ({ ...p, depth })) };
+  const GRID_W = gridSizeFor(depth), GRID_H = GRID_W;
   const occupied = new Map<string, number>();
   const key = (v: Vec) => `${v.x},${v.y}`;
   const cells: Vec[] = [];
   const plans: Plan[] = [];
   const links: [number, number, Plan][] = [];
-  let cursor: Vec = { x: 3, y: 3 };
+  let cursor: Vec = { x: Math.floor(GRID_W / 2), y: Math.floor(GRID_H / 2) };
   let heading = rng.pick(DIRS);
   for (let i = 0; i < plan.main.length; i++) {
     if (i > 0) {
@@ -146,8 +161,10 @@ function tryGenerate(depth: number, seed: number): Floor | null {
   }
   for (const branch of plan.branches) {
     // Branch from the middle of the main path, never from the start, boss or exit rooms.
+    // Deep floors let wings branch off other wings.
     const parents = rng.shuffle(plans.map((_, index) => index).filter(index => {
       const type = plans[index].type;
+      if (!plans[index].main && depth < 4) return false;
       return type !== "boss" && type !== "exit" && type !== "secret" && type !== "bonus" && (type !== "start" || branch.type === "treasure");
     }));
     let placed = false;
@@ -163,7 +180,18 @@ function tryGenerate(depth: number, seed: number): Floor | null {
       placed = true;
       break;
     }
-    if (!placed && branch.type !== "secret" && branch.type !== "event") return null;
+    if (!placed && branch.type !== "secret" && branch.type !== "event" && branch.type !== "combat" && branch.type !== "shrine") return null;
+  }
+
+  // Loops: deeper floors connect neighbouring rooms, so there is more than one route.
+  const loopable = (i: number) => ["start", "combat", "elite", "event", "shrine", "merchant", "treasure"].includes(plans[i].type);
+  const linked = new Set(links.map(([a, b]) => `${Math.min(a, b)}:${Math.max(a, b)}`));
+  const loopChance = Math.min(0.5, 0.08 * (depth - 1));
+  for (let i = 0; i < cells.length; i++) for (const dir of [DIRS[0], DIRS[2]]) {
+    const j = occupied.get(key({ x: cells[i].x + dir.x, y: cells[i].y + dir.y }));
+    if (j === undefined || !loopable(i) || !loopable(j) || linked.has(`${Math.min(i, j)}:${Math.max(i, j)}`) || !rng.chance(loopChance)) continue;
+    linked.add(`${Math.min(i, j)}:${Math.max(i, j)}`);
+    links.push([i, j, { depth, type: plans[j].type, main: false }]);
   }
 
   const width = GRID_W * CELL_W, height = GRID_H * CELL_H;
@@ -197,9 +225,38 @@ function tryGenerate(depth: number, seed: number): Floor | null {
     b.connections.push(connection.id);
   }
 
+  // Interior architecture: deeper rooms get colonnades, dividing walls, inner rings and crosses.
+  // Every layout keeps the centre 3×3 and the door lanes open, so rooms stay connected.
+  const wall = (x: number, y: number) => set(x, y, T.Wall);
+  const shaped = new Set<number>();
+  for (const room of rooms) {
+    if (!["combat", "elite", "bonus"].includes(room.type) || room.w < 22 || !rng.chance(Math.min(0.85, 0.1 + 0.1 * depth))) continue;
+    const cx = room.x + Math.floor(room.w / 2), cy = room.y + Math.floor(room.h / 2);
+    const nearCentre = (x: number, y: number) => Math.abs(x - cx) <= 2 && Math.abs(y - cy) <= 2;
+    const nearDoorLane = (x: number, y: number) => Math.abs(y - cy) <= 2 && (x <= room.x + 2 || x >= room.x + room.w - 3) || Math.abs(x - cx) <= 2 && (y <= room.y + 2 || y >= room.y + room.h - 3);
+    shaped.add(room.id);
+    const layout = rng.weighted<string>([["colonnade", 3], ["divider", depth >= 3 ? 3 : 1], ["ring", depth >= 4 && room.w >= 26 && room.h >= 18 ? 3 : 0], ["cross", depth >= 5 ? 2.5 : 0]]);
+    const place = (x: number, y: number) => { if (!nearCentre(x, y) && !nearDoorLane(x, y)) wall(x, y); };
+    if (layout === "colonnade") {
+      for (const fy of [0.28, 0.72]) for (let x = room.x + 3; x < room.x + room.w - 3; x += 4) place(x, room.y + Math.round(room.h * fy));
+    } else if (layout === "divider") {
+      for (const fx of room.w >= 28 ? [0.33, 0.67] : [0.33]) {
+        const x = room.x + Math.round(room.w * fx);
+        for (let y = room.y + 2; y < room.y + room.h - 2; y++) if (Math.abs(y - cy) > 1 && Math.abs(y - (room.y + 3 + ((x * 7) % 3))) > 0) place(x, y);
+      }
+    } else if (layout === "ring") {
+      const ix = room.x + 5, iy = room.y + 4, iw = room.w - 10, ih = room.h - 8;
+      for (let x = ix; x < ix + iw; x++) for (const y of [iy, iy + ih - 1]) if (Math.abs(x - cx) > 1) place(x, y);
+      for (let y = iy; y < iy + ih; y++) for (const x of [ix, ix + iw - 1]) if (Math.abs(y - cy) > 1) place(x, y);
+    } else {
+      for (let x = room.x + 4; x < room.x + room.w - 4; x++) if (Math.abs(x - cx) > 2) place(x, cy - 3);
+      for (let y = room.y + 3; y < room.y + room.h - 3; y++) if (Math.abs(y - cy) > 2) place(cx + 4, y);
+    }
+  }
+
   // Pillars break up the bigger combat rooms without cutting off doors.
   for (const room of rooms) {
-    if (!["combat", "elite", "bonus", "boss"].includes(room.type) || room.w < 24 || rng.chance(0.3)) continue;
+    if (!["combat", "elite", "bonus", "boss"].includes(room.type) || shaped.has(room.id) || room.w < 24 || rng.chance(0.3)) continue;
     const layouts: Vec[][] = [
       [{ x: 0.25, y: 0.3 }, { x: 0.75, y: 0.3 }, { x: 0.25, y: 0.7 }, { x: 0.75, y: 0.7 }],
       [{ x: 0.33, y: 0.5 }, { x: 0.67, y: 0.5 }],
@@ -240,7 +297,7 @@ function tryGenerate(depth: number, seed: number): Floor | null {
     bossRoom: rooms.find(r => r.type === "boss")?.id,
     exitRoom: rooms.find(r => r.type === "exit")?.id,
     secretRoom: rooms.find(r => r.type === "secret")?.id,
-    isArena: false,
+    isArena: false, gridW: GRID_W, gridH: GRID_H,
   };
 }
 
@@ -313,7 +370,7 @@ export function generateArena(depth: number, seed: number, w = 30, h = 22): Floo
   decorate(rng, room, (x, y) => (x >= 0 && y >= 0 && x < width && y < height ? tiles[y * width + x] : T.Void));
   return {
     depth, seed, width, height, tiles, rooms: [room], connections: [],
-    start: { x: (room.x + w / 2) * TILE, y: (room.y + h - 3) * TILE }, band: { ...bandForFloor(99) }, isArena: true,
+    start: { x: (room.x + w / 2) * TILE, y: (room.y + h - 3) * TILE }, band: { ...bandForFloor(99) }, isArena: true, gridW: 1, gridH: 1,
   };
 }
 

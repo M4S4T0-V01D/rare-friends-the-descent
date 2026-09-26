@@ -19,11 +19,11 @@ npm ci
 npm run dev
 ```
 
-**Controls:** WASD/arrows move · J or click attack · Q or right-click Void Bolt · R Nova · Space dodge · F potion · E interact · C character · Tab RF ledger · Esc pause · M mute. Touch: drag the left side to move, with on-screen ATTACK, BOLT, NOVA, DODGE and potion buttons. Settings include mute, music, reduced motion, screen shake, damage numbers and CRT scanlines.
+**Controls:** WASD/arrows move · J or click attack · Q or right-click bolt · R your Friend's signature ability · Space dodge · F potion · E interact · C character · Tab RF ledger · Esc pause · M mute. Touch: drag the left side to move, with on-screen ATTACK, BOLT, NOVA, DODGE and potion buttons. Settings include mute, music, reduced motion, screen shake, damage numbers and CRT scanlines.
 
 ## How it uses Rare Friends and $RAREFRIENDS
 
-- **Character Spotlight:** your verified Generations NFT is the hero. Its canonical on-chain 16×16 artwork and animations are used in the dungeon, the HUD portrait, the camp, boss introductions, the character sheet and the run summary. The elite enemy is a corrupted reflection of *your* Friend, the secret boss wears its silhouette, and each Generations family grants a unique passive.
+- **Character Spotlight:** your verified Generations NFT is the hero. Its canonical on-chain 16×16 artwork and animations are used in the dungeon, the HUD portrait, the camp, boss introductions, the character sheet and the run summary. The elite enemy is a corrupted reflection of *your* Friend, the secret boss wears its silhouette, each Generations family grants a unique passive, and every Friend gets its own kit (signature ability by family; attack, bolt and dodge styles and action-bar look from its on-chain seed; 5,184 combinations).
 - **Token Activity:** about **7–8 paid RF decisions per floor** (measured across 900 generated floors): 5/10/25 RF shrines, 5/10/25 RF gates, 5 → 10 → 25 RF loot rerolls, a merchant, events, and 10/25 RF revives. RF is earned back from kills, elites, treasure, events and bosses. Every transaction appears in a live HUD feed, a full ledger and the end-of-run summary.
 - **Economy Potential:** every price uses only 5, 10 or 25 RF and lives in one terms file pinned by tests. Gameplay spends through a single `TokenEconomy` interface, awaiting a receipt before granting any outcome. The simulated ledger already uses the SDK's 18-decimal bigint RF units, ready for a live adapter.
 
@@ -46,7 +46,7 @@ npm run dev
 
 ## Checks and known issues
 
-Typecheck, ESLint, 14 unit tests, FriendSDK game validation and the static build all pass. **22 of 22 end-to-end browser checks pass** against the real SDK runtime with the SDK's mock wallet and RPC. They cover movement, combat, loot, every 5/10/25 RF spend, rerolls, rewards, the ledger, death and revive, the boss, the summary, restart, refresh, the error state, wrong network, touch, mute and reduced motion, with zero console errors.
+Floors grow larger and more complex as you descend (more rooms, loops, wings, interior architecture). Typecheck, ESLint, 15 unit tests, FriendSDK game validation and the static build all pass. **22 of 22 end-to-end browser checks pass** against the real SDK runtime with the SDK's mock wallet and RPC. They cover movement, combat, loot, every 5/10/25 RF spend, rerolls, rewards, the ledger, death and revive, the boss, the summary, restart, refresh, the error state, wrong network, touch, mute and reduced motion, with zero console errors.
 
 A **live Robinhood mainnet check against the published preview** (read-only stand-in wallet that refuses all signing) passed 3 of 3. A real holder's Friends were discovered, the ownership gate passed, and the Friend's on-chain artwork loaded. A generation-0-only address and a wrong-network wallet were both blocked. A playthrough with a real wallet extension is still outstanding.
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { RF_REWARDS, RF_STARTING_BALANCE } from "../economy/terms";
 import { wholeRf } from "../economy/TokenEconomy";
 import { titleCase, type Game } from "../game/Game";
+import { SHORT } from "../game/kit";
 import { RARITIES, RARITY_STYLE } from "../game/items";
 import type { UiState } from "../game/types";
 import { FriendPortrait, formatTime, ItemCard, Rf, SimulatedTag, TxList } from "./components";
@@ -27,6 +28,7 @@ function TitleScreen({ game }: { game: Game }) {
     <h1 id="dx-title-heading">The Descent</h1>
     <p className="dx-tagline">Your Rare Friend descends into a dungeon where <b>$RAREFRIENDS</b> is the currency of risk.</p>
     <p className="dx-verified"><span aria-hidden="true">✓</span> {game.friend.label} · verified hardwired Generations NFT</p>
+    <p className="dx-title-kit" style={{ color: game.kit.accent }}>Your Friend's kit: {game.kit.attack.name} · {game.kit.bolt.name} · <b>{game.kit.signature.name}</b> · {game.kit.dodge.name}</p>
     <button ref={button} type="button" className="dx-btn dx-btn-primary dx-btn-big" onClick={() => game.beginFromTitle()}>Begin ▸</button>
     <p className="dx-hint">Press Enter or tap · Sound on · M to mute</p>
     <p className="dx-sim-line"><SimulatedTag /> All RF in this game is simulated. No real tokens move.</p>
@@ -81,6 +83,14 @@ function CampScreen({ game, ui }: { game: Game; ui: UiState }) {
             <h2>{game.friend.label}</h2>
             <p className="dx-dim">Generations family: {game.friend.family}</p>
             <p><b>Family trait · {game.trait.name}:</b> {game.trait.text}</p>
+            <h3>This Friend's kit</h3>
+            <ul className="dx-kit" style={{ borderColor: game.kit.accent }}>
+              <li><kbd>J</kbd> <b>{game.kit.attack.name}</b> {game.kit.attack.text}</li>
+              <li><kbd>Q</kbd> <b>{game.kit.bolt.name}</b> {game.kit.bolt.text} {game.kit.bolt.energy} energy.</li>
+              <li><kbd>R</kbd> <b style={{ color: game.kit.signature.color }}>{game.kit.signature.name}</b> {game.kit.signature.text} {game.kit.signature.energy} energy.</li>
+              <li><kbd>SPC</kbd> <b>{game.kit.dodge.name}</b> {game.kit.dodge.text}</li>
+            </ul>
+            <p className="dx-dim">Every Friend's kit comes from its Generations family and its own on-chain art seed. No two play quite alike.</p>
             <p className="dx-dim">Base: 110 HP · 20 ATK · 5 armor · 5% crit. Grows +8 HP, +1.6 ATK and +1 armor per level.</p>
             <p className="dx-dim">Descents this session: {game.runsStarted}</p>
           </div>
@@ -223,9 +233,9 @@ function TouchControls({ game, ui }: { game: Game; ui: UiState }) {
     </div>
     <div className="dx-touch-buttons">
       <button type="button" className="dx-t-attack" onPointerDown={hold(true)} onPointerUp={hold(false)} onPointerLeave={hold(false)} onPointerCancel={hold(false)}>ATTACK</button>
-      <button type="button" className="dx-t-bolt" onPointerDown={press("bolt")}>BOLT</button>
-      <button type="button" className="dx-t-nova" onPointerDown={press("nova")}>NOVA</button>
-      <button type="button" className="dx-t-dodge" onPointerDown={press("dodge")}>DODGE</button>
+      <button type="button" className="dx-t-bolt" onPointerDown={press("bolt")}>{SHORT[game.kit.bolt.id]}</button>
+      <button type="button" className="dx-t-nova" style={{ borderColor: game.kit.signature.color }} onPointerDown={press("nova")}>{SHORT[game.kit.signature.id]}</button>
+      <button type="button" className="dx-t-dodge" onPointerDown={press("dodge")}>{SHORT[game.kit.dodge.id]}</button>
       <button type="button" className="dx-t-potion" onPointerDown={press("potion")}>♥ {game.player.potions}</button>
       {ui.canInteract && <button type="button" className="dx-t-use" onPointerDown={press("interact")}>USE</button>}
     </div>
