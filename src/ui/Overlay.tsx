@@ -118,7 +118,7 @@ function SummaryScreen({ game, ui }: { game: Game; ui: UiState }) {
   const s = ui.summary!;
   const primary = useRef<HTMLButtonElement>(null);
   useEffect(() => { primary.current?.focus(); }, []);
-  const heading = s.outcome === "conquered" ? "The Descent Conquered" : s.outcome === "escaped" ? "Run Complete · Escaped" : s.outcome === "abandoned" ? "Run Abandoned" : "Your Friend Has Fallen";
+  const heading = s.outcome === "conquered" ? "The Descent Conquered" : s.outcome === "escaped" ? "Escaped with the Loot" : s.outcome === "abandoned" ? "Run Abandoned" : "Your Friend Has Fallen";
   return <section className={`dx-summary dx-summary-${s.outcome}`} aria-labelledby="dx-summary-heading">
     <div className="dx-summary-panel">
       <p className="dx-kicker">RUN COMPLETE</p>
