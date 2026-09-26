@@ -1,3 +1,4 @@
+import { MusicPlayer } from "./music";
 import { createFriendSoundKit, type FriendSoundCue, type FriendSoundKit } from "@rarefriends/friendsdk/sounds";
 
 /**
@@ -30,9 +31,7 @@ export class AudioEngine {
   private musicOn = true;
   private musicMode: MusicMode = "none";
   private voice: { family: string; pitch: number } = { family: "", pitch: 1 };
-  private step = 0;
-  private musicNodes: AudioNode[] = [];
-  private musicTimer = 0;
+  private player: MusicPlayer | null = null;
   private lastPlayed = new Map<string, number>();
 
   constructor() { this.kit = createFriendSoundKit({ volume: 0.7 }); }
@@ -48,7 +47,7 @@ export class AudioEngine {
         this.master.gain.value = this.muted ? 0 : 0.8;
         this.master.connect(this.ctx.destination);
         this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = 0.55; this.sfxBus.connect(this.master);
-        this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = this.musicOn ? 0.32 : 0; this.musicBus.connect(this.master);
+        this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = this.musicOn ? 0.45 : 0; this.musicBus.connect(this.master);
         const length = this.ctx.sampleRate;
         this.noise = this.ctx.createBuffer(1, length, this.ctx.sampleRate);
         const data = this.noise.getChannelData(0);
@@ -56,7 +55,7 @@ export class AudioEngine {
       }
       if (this.ctx.state !== "running") await this.ctx.resume();
       await this.kit.unlock();
-      if (this.musicMode !== "none" && !this.musicNodes.length) this.startMusic(this.musicMode);
+      if (this.musicMode !== "none" && !this.player?.playing) this.startMusic(this.musicMode);
       return this.ctx.state === "running";
     } catch { return false; }
   }
@@ -69,7 +68,7 @@ export class AudioEngine {
   }
   setMusic(on: boolean) {
     this.musicOn = on;
-    if (this.musicBus && this.ctx) this.musicBus.gain.setTargetAtTime(on ? 0.32 : 0, this.ctx.currentTime, 0.2);
+    if (this.musicBus && this.ctx) this.musicBus.gain.setTargetAtTime(on ? 0.45 : 0, this.ctx.currentTime, 0.2);
   }
 
   cue(name: string) {
@@ -129,91 +128,12 @@ export class AudioEngine {
   }
 
   private startMusic(mode: Exclude<MusicMode, "none">) {
-    const ctx = this.ctx, bus = this.musicBus;
-    if (!ctx || !bus) return;
-    const cfg = {
-      camp: { root: 55, types: ["triangle", "sine"], ratios: [1, 1.5, 2], cutoff: 520, lfo: 0.08, lfoDepth: 120, level: 0.16 },
-      crypt: { root: 36.7, types: ["sawtooth", "sine"], ratios: [1, 1.002, 1.5, 2.003], cutoff: 380, lfo: 0.06, lfoDepth: 160, level: 0.17 },
-      tech: { root: 55, types: ["sawtooth", "square"], ratios: [1, 2, 3.01], cutoff: 700, lfo: 7, lfoDepth: 90, level: 0.12 },
-      flesh: { root: 41.2, types: ["sawtooth", "triangle"], ratios: [1, 1.01, 1.19], cutoff: 240, lfo: 0.3, lfoDepth: 90, level: 0.2 },
-      void: { root: 65.4, types: ["sine", "triangle"], ratios: [1, 1.498, 2.01, 3.003], cutoff: 1400, lfo: 0.05, lfoDepth: 700, level: 0.12 },
-      boss: { root: 43.65, types: ["sawtooth", "sawtooth"], ratios: [1, 1.003, 1.5, 2.01], cutoff: 700, lfo: 2, lfoDepth: 260, level: 0.22 },
-    }[mode];
-    const filter = ctx.createBiquadFilter();
-    filter.type = "lowpass"; filter.frequency.value = cfg.cutoff; filter.Q.value = 3;
-    const drone = ctx.createGain(); drone.gain.value = 0;
-    drone.gain.setTargetAtTime(cfg.level, ctx.currentTime, 1.5);
-    filter.connect(drone); drone.connect(bus);
-    const nodes: AudioNode[] = [filter, drone];
-    cfg.ratios.forEach((ratio, i) => {
-      const osc = ctx.createOscillator();
-      osc.type = cfg.types[i % cfg.types.length] as OscillatorType;
-      osc.frequency.value = cfg.root * ratio;
-      osc.connect(filter); osc.start();
-      nodes.push(osc);
-    });
-    const lfo = ctx.createOscillator(), lfoGain = ctx.createGain();
-    lfo.frequency.value = cfg.lfo; lfoGain.gain.value = cfg.lfoDepth;
-    lfo.connect(lfoGain); lfoGain.connect(filter.frequency); lfo.start();
-    nodes.push(lfo, lfoGain);
-    this.musicNodes = nodes;
-    this.step = 0;
-    const tick = () => {
-      if (!this.ctx || this.musicMode !== mode || !this.musicBus) return;
-      this.musicStep(mode, this.ctx.currentTime);
-      this.step++;
-      this.musicTimer = window.setTimeout(tick, mode === "tech" ? 180 : mode === "boss" ? 250 : 125);
-    };
-    this.musicTimer = window.setTimeout(tick, 600);
+    if (!this.ctx || !this.musicBus || !this.noise) return;
+    this.player ??= new MusicPlayer(this.ctx, this.musicBus, this.noise);
+    this.player.start(mode);
   }
 
-  /** One sequencer tick: rhythm, melody fragments and ambience for the current place. */
-  private musicStep(mode: Exclude<MusicMode, "none">, t: number) {
-    const bus = this.musicBus!, n = this.step, r = Math.random();
-    const minor = [0, 3, 5, 7, 10, 12, 15], major = [0, 2, 4, 7, 9, 12, 14];
-    const note = (root: number, scale: number[]) => root * 2 ** (scale[Math.floor(Math.random() * scale.length)] / 12);
-    switch (mode) {
-      case "camp":
-        if (r < 0.35) this.noiseBurstOn(bus, t, 0.03 + Math.random() * 0.05, 3000, 1500, 0.05 + Math.random() * 0.05, "bandpass");
-        if (n % 24 === 0 && Math.random() < 0.7) this.tone(t, note(330, major), 0, 2.6, 0.06, "sine", bus);
-        break;
-      case "crypt":
-        if (n % 40 === 0) this.tone(t, note(220, minor), 0, 3.2, 0.06, "sine", bus);
-        if (r < 0.02) { const f = 1200 + Math.random() * 900; this.tone(t, f, f * 0.55, 0.12, 0.05, "sine", bus); }
-        if (n % 64 === 32) this.noiseBurstOn(bus, t, 2.6, 300, 900, 0.05, "bandpass");
-        break;
-      case "tech": {
-        const seq = [0, 7, 12, 7, 3, 10, 15, 10];
-        this.tone(t, 110 * 2 ** (seq[n % 8] / 12), 0, 0.12, 0.035, "square", bus);
-        if (r < 0.06) { const f = 1800 + Math.random() * 1600; this.tone(t, f, f * 1.2, 0.05, 0.03, "square", bus); }
-        if (n % 32 === 0) this.tone(t, 90, 260, 0.8, 0.04, "sawtooth", bus);
-        break;
-      }
-      case "flesh":
-        if (n % 9 === 0) { this.tone(t, 70, 40, 0.18, 0.28, "sine", bus); this.tone(t + 0.22, 62, 36, 0.2, 0.22, "sine", bus); }
-        if (r < 0.03) this.noiseBurstOn(bus, t, 0.18, 500, 120, 0.09, "lowpass");
-        if (n % 72 === 36) this.tone(t, 140, 55, 1.6, 0.05, "sawtooth", bus);
-        break;
-      case "void":
-        if (n % 32 === 0) this.tone(t, note(440, [0, 2, 6, 7, 11]), 0, 4, 0.04, "sine", bus);
-        if (r < 0.04) { const f = 200 + Math.random() * 2400; this.tone(t, f, f * (Math.random() < 0.5 ? 0.5 : 2), 0.06, 0.03, "square", bus); }
-        if (n % 48 === 20) this.noiseBurstOn(bus, t, 1.8, 4000, 7000, 0.035, "bandpass");
-        break;
-      case "boss":
-        this.tone(t, n % 2 ? 87.3 : 43.65, 0, 0.18, 0.2, "square", bus);
-        if (n % 4 === 0) this.noiseBurstOn(bus, t, 0.08, 2400, 600, 0.12, "lowpass");
-        if (n % 16 === 8) this.tone(t, note(175, minor), 0, 1.2, 0.05, "sawtooth", bus);
-        break;
-    }
-  }
-
-  private stopMusic() {
-    window.clearTimeout(this.musicTimer);
-    for (const node of this.musicNodes) {
-      try { if (node instanceof OscillatorNode) node.stop(); node.disconnect(); } catch { /* already stopped */ }
-    }
-    this.musicNodes = [];
-  }
+  private stopMusic() { this.player?.stop(); }
 
   /** Each Generations family has its own little voice; each Friend's seed tunes it slightly. */
   setVoice(family: string, seed: number) { this.voice = { family, pitch: 2 ** (((seed % 7) - 3) / 12) }; }
@@ -240,20 +160,7 @@ export class AudioEngine {
     }
   }
 
-  private noiseBurstOn(bus: AudioNode, t: number, duration: number, from: number, to: number, level: number, type: BiquadFilterType) {
-    const ctx = this.ctx;
-    if (!ctx || !this.noise) return;
-    const source = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
-    source.buffer = this.noise;
-    filter.type = type;
-    filter.frequency.setValueAtTime(from, t);
-    filter.frequency.exponentialRampToValueAtTime(Math.max(40, to), t + duration);
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(level, t + Math.min(0.4, duration / 3));
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
-    source.connect(filter); filter.connect(gain); gain.connect(bus);
-    source.start(t, Math.random() * 0.4); source.stop(t + duration + 0.02);
-  }
+
 
   private tone(t: number, from: number, to: number, duration: number, level: number, type: OscillatorType, bus: AudioNode | null = this.sfxBus) {
     const ctx = this.ctx;
@@ -283,8 +190,27 @@ export class AudioEngine {
     source.start(t, Math.random() * 0.5); source.stop(t + duration + 0.02);
   }
 
+  /** Render a song to 16-bit PCM WAV bytes offline (for previews and tests; never used in play). */
+  static async renderSong(id: Exclude<MusicMode, "none">, seconds: number): Promise<Uint8Array> {
+    const rate = 22050, ctx = new OfflineAudioContext(1, rate * seconds, rate);
+    const noise = ctx.createBuffer(1, rate, rate);
+    const data = noise.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const bus = ctx.createGain(); bus.gain.value = 1.4; bus.connect(ctx.destination);
+    new MusicPlayer(ctx as unknown as AudioContext, bus, noise).prime(id, seconds - 0.5);
+    const pcm = (await ctx.startRendering()).getChannelData(0);
+    const out = new DataView(new ArrayBuffer(44 + pcm.length * 2));
+    const text = (o: number, str: string) => { for (let i = 0; i < str.length; i++) out.setUint8(o + i, str.charCodeAt(i)); };
+    text(0, "RIFF"); out.setUint32(4, 36 + pcm.length * 2, true); text(8, "WAVEfmt "); out.setUint32(16, 16, true);
+    out.setUint16(20, 1, true); out.setUint16(22, 1, true); out.setUint32(24, rate, true); out.setUint32(28, rate * 2, true);
+    out.setUint16(32, 2, true); out.setUint16(34, 16, true); text(36, "data"); out.setUint32(40, pcm.length * 2, true);
+    for (let i = 0; i < pcm.length; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 32767, true);
+    return new Uint8Array(out.buffer);
+  }
+
   dispose() {
     this.stopMusic();
+    this.player = null;
     this.kit.dispose();
     void this.ctx?.close();
     this.ctx = null;

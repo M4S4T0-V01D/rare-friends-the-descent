@@ -5,6 +5,7 @@ import { SimulatedTokenEconomy } from "../economy/SimulatedTokenEconomy";
 import { rf } from "../economy/TokenEconomy";
 import { RF_STARTING_BALANCE } from "../economy/terms";
 import { Game } from "../game/Game";
+import { AudioEngine } from "../audio/audio";
 import type { Settings } from "../game/types";
 import { Renderer } from "../render/renderer";
 import { FriendArt } from "../render/sprites";
@@ -99,7 +100,7 @@ export function DescentApp({ friendId, client, paused }: GameComponentProps) {
     document.addEventListener("visibilitychange", hidden);
     if (window.matchMedia("(pointer: coarse)").matches && !window.matchMedia("(pointer: fine)").matches) instance.setTouch(true);
     // Automated browsers get a read-only state view and test helpers; players never do.
-    if (navigator.webdriver) (window as unknown as { __descent?: Game }).__descent = instance;
+    if (navigator.webdriver) Object.assign(window as object, { __descent: instance, __renderSong: AudioEngine.renderSong });
     return () => {
       observer.disconnect();
       rootEl.removeEventListener("pointerdown", focus);
