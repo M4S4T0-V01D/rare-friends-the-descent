@@ -16,13 +16,14 @@ export type Player = {
   dead: boolean; deathTime: number;
 };
 
-export type EnemyKind = "cursed" | "crawler" | "goblin" | "corrupted" | "warden" | "beast" | "unminted";
+export type EnemyKind = "cursed" | "crawler" | "goblin" | "corrupted" | "warden" | "beast" | "unminted"
+  | "wisp" | "gunner" | "drone" | "turret" | "mite" | "spitter" | "eyestalk" | "bloodling" | "shade";
 export type Modifier = "vampiric" | "explosive" | "frozen" | "swarm" | "frenzied" | "armored" | "teleporting" | "cursed";
 
 export type Enemy = {
   id: number; kind: EnemyKind; name: string; pos: Vec; vel: Vec; radius: number;
   hp: number; maxHp: number; dmg: number; speed: number; xp: number;
-  elite: boolean; champion: boolean; boss: boolean; mods: Modifier[];
+  elite: boolean; champion: boolean; boss: boolean; minion: boolean; mods: Modifier[];
   roomId: number; spawnT: number; dead: boolean;
   state: string; stateT: number; cd: number; cd2: number; cd3: number; aim: number;
   hitFlash: number; knock: Vec; burnT: number; burnDps: number; burnTick: number;
@@ -37,8 +38,10 @@ export type Enemy = {
 
 export type Projectile = {
   id: number; pos: Vec; vel: Vec; radius: number; dmg: number; owner: "player" | "enemy";
-  life: number; color: string; kind: "bolt" | "orb" | "wave" | "shard" | "rune"; crit?: boolean;
+  life: number; color: string; kind: "bolt" | "orb" | "wave" | "shard" | "rune" | "pellet" | "needle" | "glob"; crit?: boolean;
   hit: Set<number>; pierce: number; source?: Enemy; slow?: boolean; curse?: boolean;
+  /** Lobbed globs burst into a ring of bullets where they land. */
+  burst?: { count: number; speed: number; color: string; dmg: number };
 };
 
 export type HazardShape = "circle" | "cone" | "line" | "ring";
@@ -59,12 +62,14 @@ export type Pickup = {
 };
 
 export type ChestKind = "reward" | "treasure" | "bonus" | "elite" | "boss" | "mythic" | "cursed";
-export type InteractableKind = "shrine" | "gate" | "merchant" | "event" | "chest" | "stairs" | "waystone" | "secretWall";
+export type InteractableKind = "shrine" | "gate" | "merchant" | "event" | "chest" | "stairs" | "waystone" | "secretWall" | "station" | "prop";
 export type Interactable = {
   id: number; kind: InteractableKind; pos: Vec; radius: number; roomId: number; used: boolean;
   shrine?: ShrineTier; gate?: { tier: GateTier; connection: number }; event?: EventKind;
   chest?: { kind: ChestKind; minRarity: Rarity; boost: number; options?: Item[]; rerolls: number; rfPaid: boolean };
   stock?: Record<string, number>; label: string; t: number;
+  /** Camp only: what using this spot opens, or a decorative prop. */
+  station?: "descend" | "friend" | "stash" | "codex" | "hall" | "rf"; prop?: "statue" | "tent" | "fire" | "lantern" | "pillar" | "crates" | "bedroll";
 };
 
 export type Particle = {

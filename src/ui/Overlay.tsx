@@ -4,7 +4,7 @@ import { wholeRf } from "../economy/TokenEconomy";
 import { titleCase, type Game } from "../game/Game";
 import { SHORT } from "../game/kit";
 import { RARITIES, RARITY_STYLE } from "../game/items";
-import type { UiState } from "../game/types";
+import type { CampTab, UiState } from "../game/types";
 import { FriendPortrait, formatTime, ItemCard, Rf, SimulatedTag, TxList } from "./components";
 import { Modals } from "./modals";
 
@@ -35,24 +35,37 @@ function TitleScreen({ game }: { game: Game }) {
   </section>;
 }
 
-type CampTab = "descend" | "friend" | "stash" | "codex" | "hall" | "rf";
-
+/** Walking around the camp: a light overlay; stations open the camp panel. */
 function CampScreen({ game, ui }: { game: Game; ui: UiState }) {
-  const [tab, setTab] = useState<CampTab>("descend");
+  return <section className="dx-camp" aria-label="The Camp">
+    <div className="dx-camp-title"><p className="dx-kicker">THE CAMP</p><h1>Ruined Sanctuary</h1></div>
+    <div className="dx-camp-rfchip"><span>$RAREFRIENDS</span><strong>{ui.balance} RF</strong><SimulatedTag /></div>
+    <div className="dx-camp-hint">
+      <p>{ui.touch ? "Drag to walk · tap USE at the glowing stations" : "WASD walk · E use · walk down the great stairs to descend"}</p>
+      <div>
+        <button type="button" className="dx-btn" onClick={() => game.openCampPanel("friend")}>Camp menu</button>
+        <button type="button" className="dx-btn dx-btn-primary" onClick={() => void game.descend()}>Descend ▾</button>
+      </div>
+    </div>
+    {ui.touch && <TouchControls game={game} ui={ui} />}
+    {ui.campPanel && <CampPanel game={game} ui={ui} tab={ui.campPanel} />}
+  </section>;
+}
+
+function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab }) {
   const descend = useRef<HTMLButtonElement>(null);
+  const setTab = (next: CampTab) => game.openCampPanel(next);
   useEffect(() => { if (tab === "descend") descend.current?.focus(); }, [tab]);
   useEffect(() => {
-    const down = (event: KeyboardEvent) => {
-      if (event.key === "Enter" && document.activeElement?.tagName !== "BUTTON") { event.preventDefault(); void game.descend(); }
-    };
+    const down = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); game.closeCampPanel(); } };
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
   }, [game]);
   const tabs: [CampTab, string][] = [["descend", "Descend"], ["friend", "Friend"], ["stash", `Stash ${game.stash.length}`], ["codex", "Codex"], ["hall", "Hall"], ["rf", "$RF"]];
   const balance = ui.balance;
-  return <section className="dx-camp" aria-label="The Camp">
-    <div className="dx-camp-title"><p className="dx-kicker">THE CAMP</p><h1>Before the Descent</h1></div>
-    <div className="dx-camp-panel">
+  return <div className="dx-scrim dx-camp-scrim">
+    <div className="dx-camp-panel" role="dialog" aria-modal="true" aria-label="Camp menu">
+      <button type="button" className="dx-close dx-camp-close" onClick={() => game.closeCampPanel()} aria-label="Close camp menu">×</button>
       <div className="dx-camp-rf"><span>$RAREFRIENDS</span><strong>{balance} RF</strong><SimulatedTag /></div>
       <nav className="dx-tabs" role="tablist" aria-label="Camp">
         {tabs.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? "dx-tab-on" : ""} onClick={() => setTab(id)}>{label}</button>)}
@@ -74,7 +87,7 @@ function CampScreen({ game, ui }: { game: Game; ui: UiState }) {
               {game.stash.map(item => <option key={item.id} value={item.id}>{RARITY_STYLE[item.rarity].label} · {item.name}</option>)}
             </select>
           </label>}
-          <button ref={descend} type="button" className="dx-btn dx-btn-primary dx-btn-big" onClick={() => void game.descend()}>Descend ▾</button>
+          <button ref={descend} type="button" className="dx-btn dx-btn-primary dx-btn-big" onClick={() => void game.descend()}>Begin the Descent</button>
           <p className="dx-hint">WASD move · J/click attack · Q bolt · R nova · Space dodge · F potion · E interact</p>
         </>}
         {tab === "friend" && <div className="dx-friend">
@@ -121,7 +134,7 @@ function CampScreen({ game, ui }: { game: Game; ui: UiState }) {
         </>}
       </div>
     </div>
-  </section>;
+  </div>;
 }
 
 function SummaryScreen({ game, ui }: { game: Game; ui: UiState }) {

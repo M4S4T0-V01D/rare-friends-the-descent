@@ -32,31 +32,6 @@ html body #root { width: 100%; }
 }
 /* Keep the game above the decorative title shown behind the Friend picker. */
 .rf-frame-viewport > iframe { position: relative; z-index: 1; background: #07050b; }
-.rf-frame-viewport::before {
-  content: "The Descent";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 7%;
-  text-align: center;
-  font: clamp(32px, 9cqi, 96px)/1 "Jacquard 24", serif;
-  color: #f3eeff;
-  text-shadow: 0 0 24px rgba(143, 111, 216, 0.7), 3px 3px 0 #2a0a12;
-  pointer-events: none;
-}
-.rf-frame-viewport::after {
-  content: "RARE FRIENDS";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 3%;
-  text-align: center;
-  font: clamp(11px, 1.8cqi, 18px) VT323, monospace;
-  letter-spacing: 0.5em;
-  color: #ccff00;
-  pointer-events: none;
-}
-
 .rf-frame-toolbar > * { background: rgba(12, 9, 18, 0.92); color: #ece7ff; border-color: #3d3357; }
 .rf-frame-mode { color: #ffb02e; }
 .rf-game-frame button, .rf-frame-scrim button { background: #15101d; color: #ece7ff; border-color: #3d3357; font-family: VT323, ui-monospace, monospace; }

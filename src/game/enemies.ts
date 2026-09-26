@@ -2,6 +2,7 @@ import type { Enemy, EnemyKind, Hazard, Modifier, Player, Projectile } from "./e
 import type { Rect } from "./dungeon";
 import { angleTo, dist, fromAngle, inCone, normalize, TAU, type Vec } from "./math";
 import type { Rng } from "./rng";
+import { updateBestiary } from "./bestiary";
 
 /** What enemy AI may ask of the world. The Game implements it. */
 export interface World {
@@ -10,6 +11,8 @@ export interface World {
   readonly depth: number;
   readonly rng: Rng;
   readonly enemies: readonly Enemy[];
+  /** Bullet colour for this floor's enemies. */
+  readonly bulletColor: string;
   moveCircle(pos: Vec, radius: number, dx: number, dy: number): { hitX: boolean; hitY: boolean };
   los(a: Vec, b: Vec): boolean;
   flow(pos: Vec): Vec | null;
@@ -48,6 +51,15 @@ const BASE: Readonly<Record<EnemyKind, { name: string; hp: number; dmg: number; 
   warden: { name: "DUNGEON WARDEN", hp: 1100, dmg: 24, speed: 95, radius: 40, xp: 260 },
   beast: { name: "THE RARE BEAST", hp: 9500, dmg: 30, speed: 112, radius: 56, xp: 700 },
   unminted: { name: "THE UNMINTED", hp: 1000, dmg: 26, speed: 120, radius: 34, xp: 420 },
+  wisp: { name: "CHOIR WISP", hp: 22, dmg: 7, speed: 90, radius: 12, xp: 7 },
+  gunner: { name: "BONE GUNNER", hp: 36, dmg: 6, speed: 105, radius: 13, xp: 8 },
+  drone: { name: "STATIC DRONE", hp: 26, dmg: 6, speed: 175, radius: 12, xp: 8 },
+  turret: { name: "RELAY TURRET", hp: 75, dmg: 6, speed: 0, radius: 16, xp: 10 },
+  mite: { name: "SIGNAL MITE", hp: 12, dmg: 5, speed: 215, radius: 8, xp: 2 },
+  spitter: { name: "MAW SPITTER", hp: 50, dmg: 8, speed: 80, radius: 15, xp: 10 },
+  eyestalk: { name: "EYE STALK", hp: 58, dmg: 7, speed: 0, radius: 14, xp: 10 },
+  bloodling: { name: "BLOODLING", hp: 40, dmg: 9, speed: 140, radius: 13, xp: 7 },
+  shade: { name: "NULL SHADE", hp: 62, dmg: 8, speed: 120, radius: 14, xp: 14 },
 };
 
 export const hpScale = (depth: number) => 1 + 0.42 * (depth - 1) + 0.06 * (depth - 1) ** 2;
@@ -77,7 +89,7 @@ export function createEnemy(kind: EnemyKind, pos: Vec, depth: number, roomId: nu
   return {
     id: nextEnemyId++, kind, name, pos: { ...pos }, vel: { x: 0, y: 0 }, radius, hp, maxHp: hp, dmg, speed,
     xp: Math.round(base.xp * (1 + 0.1 * (depth - 1)) * (options.elite ? 1 : options.champion ? 1.6 : 1)),
-    elite: options.elite ?? kind === "corrupted", champion: options.champion ?? false, boss, mods,
+    elite: options.elite ?? kind === "corrupted", champion: options.champion ?? false, boss, minion: options.minion ?? false, mods,
     roomId, spawnT: boss ? 0 : 0.6, dead: false, state: "idle", stateT: 0,
     cd: rng.range(0.4, 1.4), cd2: rng.range(3, 5), cd3: rng.range(5, 8), aim: 0,
     hitFlash: 0, knock: { x: 0, y: 0 }, burnT: 0, burnDps: 0, burnTick: 0, seed: rng.int(0, 1e6), phase: 1, anim: 0,
@@ -90,9 +102,9 @@ export function rollModifiers(rng: Rng, count: number): Modifier[] {
   return rng.shuffle([...ALL_MODIFIERS]).slice(0, count);
 }
 
-const playerReach = (e: Enemy, p: Player) => e.radius + p.radius + 16;
+export const playerReach = (e: Enemy, p: Player) => e.radius + p.radius + 16;
 
-function steer(e: Enemy, w: World, target: Vec, speed: number, dt: number) {
+export function steer(e: Enemy, w: World, target: Vec, speed: number, dt: number) {
   let dir = normalize(target.x - e.pos.x, target.y - e.pos.y);
   if (!w.los(e.pos, target)) dir = w.flow(e.pos) ?? dir;
   e.vel.x = dir.x * speed;
@@ -100,7 +112,7 @@ function steer(e: Enemy, w: World, target: Vec, speed: number, dt: number) {
   w.moveCircle(e.pos, e.radius, e.vel.x * dt, e.vel.y * dt);
 }
 
-function attackTempo(e: Enemy) { return e.mods.includes("frenzied") ? 0.7 : 1; }
+export function attackTempo(e: Enemy) { return e.mods.includes("frenzied") ? 0.7 : 1; }
 
 /** Advance one enemy. Damage from telegraphed attacks resolves through hazards in the Game. */
 export function updateEnemy(e: Enemy, w: World, dt: number) {
@@ -135,11 +147,12 @@ export function updateEnemy(e: Enemy, w: World, dt: number) {
     case "warden": return warden(e, w, dt);
     case "beast": return beast(e, w, dt);
     case "unminted": return unminted(e, w, dt);
+    default: return updateBestiary(e, w, dt);
   }
   void p;
 }
 
-function melee(e: Enemy, w: World, dt: number, windup: number, arcDeg: number, range: number) {
+export function melee(e: Enemy, w: World, dt: number, windup: number, arcDeg: number, range: number) {
   const p = w.player, tempo = attackTempo(e);
   const d = dist(e.pos, p.pos);
   if (e.state === "idle" || e.state === "chase") {

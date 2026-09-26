@@ -148,13 +148,51 @@ export const CURSED_BOX = [
   { id: "cursedItem", chanceBps: 5500 }, { id: "potions", chanceBps: 2000 }, { id: "curse", chanceBps: 1500 }, { id: "epic", chanceBps: 1000 },
 ] as const;
 
-export const FLOOR_BANDS = [
-  { name: "THE UPPER CRYPTS", floor: "#1a1622", floorAlt: "#1f1a29", wall: "#2c2440", wallTop: "#3d3357", accent: "#8f6fd8", torch: "#ff9a3c" },
-  { name: "THE SIGNAL VAULTS", floor: "#121a1f", floorAlt: "#152028", wall: "#1f3340", wallTop: "#2b4a5c", accent: "#3ef0ff", torch: "#3ef0ff" },
-  { name: "THE HOLLOW DEEP", floor: "#1d1215", floorAlt: "#24161a", wall: "#3d1c26", wallTop: "#562636", accent: "#ff3d5a", torch: "#ff5a3c" },
-  { name: "THE ENDLESS VOID", floor: "#0f0d17", floorAlt: "#141021", wall: "#261b3b", wallTop: "#35264f", accent: "#ccff00", torch: "#ff3d7f" },
-] as const;
-export const bandForFloor = (floor: number) => FLOOR_BANDS[Math.min(FLOOR_BANDS.length - 1, Math.floor((floor - 1) / 3))];
+/** Every floor has its own scenery, palette and enemy roster. Depths 10+ are the endless void. */
+export type FloorStyle = "crypt" | "tech" | "flesh" | "void";
+export type RosterKind = "cursed" | "crawler" | "wisp" | "gunner" | "drone" | "turret" | "mite" | "spitter" | "eyestalk" | "bloodling" | "shade";
+export type FloorTheme = Readonly<{
+  name: string; area: string; style: FloorStyle;
+  floor: string; floorAlt: string; wall: string; wallTop: string; accent: string; torch: string; bullet: string;
+  decor: readonly (readonly [string, number])[];
+  roster: readonly (readonly [RosterKind, number])[];
+}>;
+
+const CRYPT_DECOR = [["bones", 3], ["skull", 3], ["candles", 3], ["chains", 2], ["banner", 2], ["rubble", 2], ["coffin", 2], ["gravestone", 3], ["runeCircle", 1]] as const;
+const TECH_DECOR = [["terminal", 3], ["cables", 3], ["serverRack", 3], ["pipe", 2], ["screen", 2], ["crystal", 1], ["rubble", 1]] as const;
+const FLESH_DECOR = [["tendril", 3], ["fleshPool", 2], ["ribcage", 2], ["eyeball", 2], ["skull", 1], ["bones", 1], ["candles", 1]] as const;
+const VOID_DECOR = [["voidShard", 3], ["glitch", 3], ["runeCircle", 2], ["crystal", 2], ["terminal", 1], ["tendril", 1]] as const;
+
+export const FLOOR_THEMES: readonly FloorTheme[] = [
+  { name: "THE UPPER CRYPTS", area: "Ossuary", style: "crypt", floor: "#1a1622", floorAlt: "#1f1a29", wall: "#2c2440", wallTop: "#3d3357", accent: "#8f6fd8", torch: "#ff9a3c", bullet: "#c9b8ff",
+    decor: CRYPT_DECOR, roster: [["cursed", 5], ["crawler", 1.2], ["wisp", 1.5]] },
+  { name: "THE UPPER CRYPTS", area: "Candle Nave", style: "crypt", floor: "#1d1719", floorAlt: "#231b1f", wall: "#382a2c", wallTop: "#4d3a3a", accent: "#ffb347", torch: "#ffb347", bullet: "#ffd9a0",
+    decor: [["candles", 6], ...CRYPT_DECOR], roster: [["cursed", 4], ["crawler", 1.5], ["wisp", 2], ["gunner", 2]] },
+  { name: "THE UPPER CRYPTS", area: "Warden's Vault", style: "crypt", floor: "#171520", floorAlt: "#1c1928", wall: "#262036", wallTop: "#352d4d", accent: "#c2283f", torch: "#ff5a3c", bullet: "#ff8fa3",
+    decor: [["chains", 5], ["coffin", 4], ...CRYPT_DECOR], roster: [["cursed", 3], ["crawler", 2], ["wisp", 2], ["gunner", 3]] },
+  { name: "THE SIGNAL VAULTS", area: "Relay Halls", style: "tech", floor: "#121a1f", floorAlt: "#152028", wall: "#1f3340", wallTop: "#2b4a5c", accent: "#3ef0ff", torch: "#3ef0ff", bullet: "#3ef0ff",
+    decor: TECH_DECOR, roster: [["drone", 3], ["mite", 2.5], ["cursed", 1.5], ["crawler", 1]] },
+  { name: "THE SIGNAL VAULTS", area: "Server Tombs", style: "tech", floor: "#101818", floorAlt: "#132020", wall: "#1c3434", wallTop: "#274848", accent: "#6ee07a", torch: "#6ee07a", bullet: "#b9ff6b",
+    decor: [["serverRack", 6], ...TECH_DECOR], roster: [["drone", 3], ["turret", 2], ["mite", 2], ["gunner", 1]] },
+  { name: "THE SIGNAL VAULTS", area: "Signal Core", style: "tech", floor: "#14131f", floorAlt: "#191828", wall: "#252340", wallTop: "#343157", accent: "#ccff00", torch: "#ccff00", bullet: "#ccff00",
+    decor: [["screen", 4], ["pipe", 4], ...TECH_DECOR], roster: [["drone", 3], ["turret", 2.5], ["mite", 2], ["wisp", 1]] },
+  { name: "THE HOLLOW DEEP", area: "Red Gullet", style: "flesh", floor: "#1d1215", floorAlt: "#24161a", wall: "#3d1c26", wallTop: "#562636", accent: "#ff3d5a", torch: "#ff5a3c", bullet: "#ff4d6d",
+    decor: FLESH_DECOR, roster: [["bloodling", 3.5], ["spitter", 2.5], ["cursed", 1], ["crawler", 1]] },
+  { name: "THE HOLLOW DEEP", area: "Vein Galleries", style: "flesh", floor: "#1a1016", floorAlt: "#21131c", wall: "#3a1830", wallTop: "#522243", accent: "#ff8fb3", torch: "#ff3d7f", bullet: "#ff8fb3",
+    decor: [["eyeball", 5], ...FLESH_DECOR], roster: [["bloodling", 3], ["spitter", 2], ["eyestalk", 2.5], ["gunner", 1]] },
+  { name: "THE HOLLOW DEEP", area: "The Beast's Heart", style: "flesh", floor: "#1f0f10", floorAlt: "#271315", wall: "#451a1c", wallTop: "#62262a", accent: "#ccff00", torch: "#ff5a3c", bullet: "#ff9a3c",
+    decor: [["tendril", 6], ["ribcage", 4], ...FLESH_DECOR], roster: [["bloodling", 3], ["spitter", 2.5], ["eyestalk", 2.5], ["drone", 1]] },
+];
+
+export const VOID_THEME: FloorTheme = {
+  name: "THE ENDLESS VOID", area: "Stratum", style: "void", floor: "#0f0d17", floorAlt: "#141021", wall: "#261b3b", wallTop: "#35264f", accent: "#ccff00", torch: "#ff3d7f", bullet: "#ff3d7f",
+  decor: VOID_DECOR, roster: [["shade", 3], ["drone", 1.5], ["turret", 1.5], ["spitter", 1.5], ["eyestalk", 1.5], ["bloodling", 1.5], ["wisp", 1.5], ["gunner", 1.5], ["mite", 1]],
+};
+
+export function bandForFloor(depth: number): FloorTheme {
+  if (depth <= FLOOR_THEMES.length) return FLOOR_THEMES[Math.max(0, depth - 1)];
+  return { ...VOID_THEME, area: `Stratum ${depth - FLOOR_THEMES.length}` };
+}
 
 export const BOSS_FLOORS = (floor: number) => floor % 3 === 0;
 export const FINAL_FLOOR = 9;

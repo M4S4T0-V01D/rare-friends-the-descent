@@ -5,6 +5,7 @@ import type { Item } from "./items";
 import type { BoonId } from "./stats";
 
 export type Screen = "title" | "camp" | "run" | "summary";
+export type CampTab = "descend" | "friend" | "stash" | "codex" | "hall" | "rf";
 export type RevealTone = "good" | "bad" | "neutral" | "legendary" | "mythic" | "void";
 export type FollowUp = "arena-unminted" | "arena-cursed" | "merchant" | "loot";
 
@@ -47,4 +48,6 @@ export type UiState = Readonly<{
   toasts: readonly Toast[]; banner: Banner | null;
   settings: Settings; pendingLevels: number; touch: boolean; canInteract: boolean;
   summary: RunSummary | null; version: number;
+  /** Camp menu tab open over the walkable camp, if any. */
+  campPanel: CampTab | null;
 }>;
