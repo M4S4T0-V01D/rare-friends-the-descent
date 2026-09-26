@@ -1,0 +1,42 @@
+{
+  "name": "rare-friends-the-descent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rare Friends: The Descent — a dark action-RPG dungeon crawler starring your Rare Friend, with a simulated $RAREFRIENDS risk economy. Built on FriendSDK v0.1.2.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "friendsdk dev .",
+    "build": "friendsdk build . --outdir ./site",
+    "check": "friendsdk check .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test:unit": "node --import tsx --test tests/unit/*.test.ts",
+    "test:smoke": "friendsdk test . --screenshot ./artifacts/smoke.png",
+    "test:browser": "node scripts/test-browser.mjs",
+    "test:real": "npm run build && node scripts/test-real-gate.mjs",
+    "playtest": "npm run build && node scripts/playtest-bot.mjs",
+    "test": "npm run typecheck && npm run lint && npm run test:unit && npm run check && npm run test:browser"
+  },
+  "dependencies": {
+    "@rarefriends/friendsdk": "file:vendor/rarefriends-friendsdk-0.1.2.tgz",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.4",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "playwright": "^1.63.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.1"
+  }
+}

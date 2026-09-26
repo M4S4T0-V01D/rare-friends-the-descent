@@ -1,0 +1,8 @@
+{
+  "name": "Rare Friends: The Descent",
+  "consumable": "Unused SDK reference token",
+  "price": "5000000000000000000",
+  "outcomes": [
+    { "name": "Unused SDK reference reward", "chanceBps": 10000, "reward": "1000000000000000000" }
+  ]
+}
