@@ -20,9 +20,12 @@ const holder = await chain.readContract({ address: GENERATIONS, abi, functionNam
 const generation = await chain.readContract({ address: GENERATIONS, abi, functionName: "generation", args: [SAMPLE_ID] });
 console.log(`Friend #${SAMPLE_ID} is held by ${holder} (generation ${generation}) at block ${await chain.getBlockNumber()}`);
 
-const server = createGameServer("./site");
-await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
-const origin = `http://127.0.0.1:${server.address().port}`;
+// Set TARGET_URL to check a published preview (for example the GitHub Pages site) instead of ./site.
+const target = process.env.TARGET_URL;
+const server = target ? null : createGameServer("./site");
+if (server) await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+const pageUrl = target ?? `http://127.0.0.1:${server.address().port}/`;
+const origin = new URL(pageUrl).origin;
 const browser = await chromium.launch({ headless: true });
 const results = [];
 
@@ -55,7 +58,7 @@ async function scenario(name, { account, chainId }, check) {
     return route.abort();
   });
   try {
-    await page.goto(origin);
+    await page.goto(pageUrl);
     await check(page);
     const methods = await page.evaluate(() => window.__readOnlyWallet.requests);
     assert(methods.every(m => ["eth_accounts", "eth_requestAccounts", "eth_chainId", "wallet_switchEthereumChain"].includes(m)), `wallet methods: ${methods}`);
@@ -111,7 +114,7 @@ await scenario("the wrong network is detected before play", { account: holder, c
 });
 
 await browser.close();
-server.closeAllConnections();
-server.close();
+server?.closeAllConnections();
+server?.close();
 console.log(`\n${results.join("\n")}`);
 if (results.some(r => r.startsWith("FAIL"))) process.exitCode = 1;

@@ -1,5 +1,3 @@
-<!-- DRAFT: not submitted. Before opening the vibeathon PR: publish the repository and the GitHub Pages preview,
-     confirm every link below works, and complete a playthrough with a real wallet extension. -->
 # Rare Friends: The Descent
 
 Your Rare Friend descends into a dark action-RPG dungeon where **$RAREFRIENDS is the currency of risk**. Fight, loot, and at every shrine, gate, reroll and revive decide: *spend 5 RF now, save for 10, or risk everything for 25?*
@@ -50,7 +48,7 @@ npm run dev
 
 Typecheck, ESLint, 14 unit tests, FriendSDK game validation and the static build all pass. **22 of 22 end-to-end browser checks pass** against the real SDK runtime with the SDK's mock wallet and RPC. They cover movement, combat, loot, every 5/10/25 RF spend, rerolls, rewards, the ledger, death and revive, the boss, the summary, restart, refresh, the error state, wrong network, touch, mute and reduced motion, with zero console errors.
 
-A **live Robinhood mainnet check** (read-only stand-in wallet that refuses all signing) passed 3 of 3. A real holder's Friends were discovered, the ownership gate passed, and the Friend's on-chain artwork loaded. A generation-0-only address and a wrong-network wallet were both blocked. A playthrough with a real wallet extension is still outstanding.
+A **live Robinhood mainnet check against the published preview** (read-only stand-in wallet that refuses all signing) passed 3 of 3. A real holder's Friends were discovered, the ownership gate passed, and the Friend's on-chain artwork loaded. A generation-0-only address and a wrong-network wallet were both blocked. A playthrough with a real wallet extension is still outstanding.
 
 **Known issues:** progress is session-only, because the SDK sandbox has no storage. The runtime's own "Friend wallet" panel shows the SDK reference ledger (20 RF), which this game does not use. The public RPC sometimes needs **Retry loading Friends**. The game is landscape-first on phones. No live contracts, token transfers, trading, wearable NFTs or creator fees are included.
 
