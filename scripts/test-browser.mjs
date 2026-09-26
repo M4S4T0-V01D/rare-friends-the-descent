@@ -380,16 +380,19 @@ await testSite({
       const result = await call(`
         const a = g.audio;
         return a.unlock().then(running => {
-          for (const mode of ["camp", "crypt", "tech", "flesh", "void", "boss"]) { a.setMusicMode(mode); for (let i = 0; i < 6; i++) a.musicStep(mode, 0); }
+          const songs = [];
+          for (const mode of ["camp", "crypt", "tech", "flesh", "void", "boss"]) { a.setMusicMode(mode); songs.push(a.player && a.player.playing); }
           for (const family of ["Skeleton", "Mask", "Family", "Cellular", "Asymmetry", "Hoverer", "Colossus", "Sparkling", "Hollow"]) {
             a.setVoice(family, 7730); a.lastPlayed.clear(); a.friendVoice("signature");
           }
           a.setVoice(g.friend.family, g.kit.seed);
           a.setMusicMode("crypt");
-          return { running, state: a.ctx && a.ctx.state };
+          return { running, state: a.ctx && a.ctx.state, songs };
         });
       `);
       assert.equal(result.state, "running", "audio context runs after a gesture");
+      assert.deepEqual(result.songs, [true, true, true, true, true, true], "every place has a tune");
+      await page.waitForTimeout(1500);
     });
 
     await step("no console errors during play", async () => {

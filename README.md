@@ -37,7 +37,18 @@ Every price lives in one file ([`src/economy/terms.ts`](src/economy/terms.ts)), 
 
 ### Sound
 
-Every place has its own mood, all synthesized live with Web Audio: the camp's warm drone and crackling fire, the crypts' choir pad with dripping water and wind, the Signal Vaults' electric hum and synth arpeggio with data chirps, the Hollow Deep's heartbeat and growling drone with wet squelches, the void's shimmering pads and glitch whispers, and a pulsing boss track. **Each Generations family has its own voice** (Skeleton bone-clacks, Mask hollow toks, Family chirps, Cellular bubbles, Asymmetry detuned zaps, Hoverer airy whooshes, Colossus deep thuds, Sparkling chimes, Hollow echoing pings), heard when you dodge, get hit, cast your signature, land a heavy blow or level up. Each Friend's on-chain seed tunes its voice slightly, so no two sound quite alike. Mute with M; music has its own toggle.
+Every place has its own little creepy dungeon tune, composed as a looping song and played live by synthesized instruments (no recordings):
+
+| Place | Tune |
+|---|---|
+| Camp | Melancholy music-box lullaby in A minor, with fire crackle |
+| The Upper Crypts | Harpsichord danse-macabre waltz in D harmonic minor (3/4), with dripping water |
+| The Signal Vaults | Nervous E-minor chiptune: square lead, arpeggios, drums |
+| The Hollow Deep | Slow bell melody in C harmonic minor over a lub-dub heartbeat |
+| The Endless Void | Glassy whole-tone bells, dreamy and wrong |
+| Boss fights | Driving D-minor bass, harpsichord and drums |
+
+Each tune loops in sections (the melody rests, then returns an octave up) so it does not wear thin. `node scripts/render-music.mjs` renders every tune to `artifacts/music/*.wav` for listening. **Each Generations family has its own voice** (Skeleton bone-clacks, Mask hollow toks, Family chirps, Cellular bubbles, Asymmetry detuned zaps, Hoverer airy whooshes, Colossus deep thuds, Sparkling chimes, Hollow echoing pings), heard when you dodge, get hit, cast your signature, land a heavy blow or level up. Each Friend's on-chain seed tunes its voice slightly, so no two sound quite alike. Mute with M; music has its own toggle.
 
 ### Every Friend plays differently
 
