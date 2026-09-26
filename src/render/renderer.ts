@@ -15,8 +15,10 @@ import { formatScore } from "../game/score";
 const W = 960, H = 640;
 /** The lighting mask is drawn at a quarter resolution and upscaled smoothly: soft falloff, a fraction of the fill cost. */
 const LIGHT_SCALE = 4, LW = W / LIGHT_SCALE, LH = H / LIGHT_SCALE;
-/** The grade that turns the world near-monochrome: faded color, deep blacks, glow still reads. */
-const FADED_FILTER = "saturate(0.26) contrast(1.12) brightness(0.97)";
+/** The grade that turns the world toward monochrome: muted color, soft blacks, glow and foes still read. */
+const FADED_FILTER = "saturate(0.5) contrast(1.06) brightness(1.08)";
+/** Screen areas owned by the run HUD: player panel and buffs, the right column, the action bar. */
+const HUD_RECTS: readonly (readonly [number, number, number, number])[] = [[10, 10, 336, 140], [734, 10, 216, 322], [426, 540, 342, 98]];
 const FONT_UI = "VT323, ui-monospace, monospace";
 const FONT_DISPLAY = "'Jacquard 24', VT323, serif";
 
@@ -107,6 +109,9 @@ export class Renderer {
       w.drawImage(this.chunk(cx, cy), cx * CHUNK, cy * CHUNK);
     }
     this.drawDoors();
+    // The room you stand in carries a soft ambient light, so a fight reads edge to edge.
+    const here = g.screen === "run" && g.currentRoom !== null ? floor.rooms[g.currentRoom] : null;
+    if (here) this.lights.push({ x: (here.x + here.w / 2) * TILE, y: (here.y + here.h / 2) * TILE, r: Math.hypot(here.w, here.h) * TILE * 0.62, a: here.cleared ? 0.5 : 0.4 });
     for (const room of floor.rooms) for (const torch of room.torches) {
       if (!this.visible(torch.x, torch.y, 60)) continue;
       this.drawFlame(torch.x, torch.y - 8, 1, floor.band.torch);
@@ -120,16 +125,20 @@ export class Renderer {
     for (const h of g.hazards) this.drawHazard(h);
     for (const c of g.corpses) if (this.visible(c.e.pos.x, c.e.pos.y, 80)) this.drawCorpse(c.e, c.t);
     this.drawAfterimages(dt);
+    const stairs = g.interactables.find(it => it.kind === "station" && it.station === "descend" && this.visible(it.pos.x, it.pos.y, 260));
+    if (stairs) this.drawStairs(stairs, "steps");
     const drawables: { y: number; draw: () => void }[] = [];
+    if (stairs) for (const side of [-1, 1]) drawables.push({ y: stairs.pos.y + 35, draw: () => this.drawStairs(stairs, side === -1 ? "left" : "right") });
     for (const it of g.interactables) if (this.visible(it.pos.x, it.pos.y, 160)) drawables.push({ y: it.pos.y, draw: () => this.drawInteractable(it) });
     for (const p of g.pickups) if (this.visible(p.pos.x, p.pos.y, 40)) drawables.push({ y: p.pos.y, draw: () => this.drawPickup(p) });
     for (const e of g.enemies) if (this.visible(e.pos.x, e.pos.y, 120)) drawables.push({ y: e.pos.y, draw: () => this.drawEnemy(e) });
     drawables.push({ y: g.player.pos.y, draw: () => this.drawPlayer() });
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
+    if (stairs) this.drawStairs(stairs, "lintel");
     this.drawProjectiles();
     w.restore();
-    this.applyLighting(g.screen === "camp" ? 0.6 : floor.isArena ? 0.8 : 0.72);
+    this.applyLighting(g.screen === "camp" ? 0.5 : floor.isArena ? 0.62 : 0.55);
     w.save();
     w.translate(-cam.x, -cam.y);
     for (const draw of this.emissive) draw();
@@ -306,7 +315,7 @@ export class Renderer {
     if (p.hitFlash > 0) drawSprite(w, flashSprite(sprite, "#ff4d6d"), p.pos.x, p.pos.y + 6 + bob, false, 0.7);
     if (p.chill > 0) drawSprite(w, flashSprite(sprite, "#8fe3ff"), p.pos.x, p.pos.y + 6 + bob, false, 0.3);
     w.restore();
-    this.lights.push({ x: p.pos.x, y: p.pos.y - 10, r: 300, a: 1 });
+    this.lights.push({ x: p.pos.x, y: p.pos.y - 10, r: 340, a: 1 });
     if (g.worn.glow !== "glow-lime") this.lights.push({ x: p.pos.x, y: p.pos.y - 10, r: 120, a: 0.6, color: glow });
     if (p.swing) this.drawSwing();
     if (g.stats.powers.has("runeOrbit") || g.stats.powers.has("voidHeart")) {
@@ -396,6 +405,8 @@ export class Renderer {
     const size = e.guardian ? 1.9 : 1;
     const sx = size * (e.hitFlash > 0 ? 1.14 : e.state === "fuse" ? 1 + 0.12 * Math.abs(Math.sin(this.t * 24)) : 1 + breathe);
     const sy = size * (e.hitFlash > 0 ? 0.88 : e.state === "fuse" ? 1 - 0.06 * Math.abs(Math.sin(this.t * 24)) : 1 - breathe);
+    // A faint halo keeps every foe readable in the dark; a fading wraith stays hidden.
+    if (ghost === 1) this.lights.push({ x: e.pos.x, y: e.pos.y - 14 * size, r: 72 * size, a: 0.45 });
     if (e.guardian) {
       // A guardian wears a crown of light and a slow pulsing aura.
       this.glowAt(e.pos.x, e.pos.y - e.radius * 1.2, e.radius * 2.6, "#ff4d6d", 0.18 + 0.08 * Math.sin(this.t * 3));
@@ -672,6 +683,44 @@ export class Renderer {
     }
   }
 
+  /**
+   * The great stairs sink north into the dark, framed by a ruined arch. The steps are ground, each pillar
+   * sorts by its base and the lintel hangs overhead, so the Friend climbs between them instead of vanishing.
+   */
+  private drawStairs(it: Interactable, layer: "steps" | "left" | "right" | "lintel") {
+    const w = this.wctx, x = Math.round(it.pos.x), y = Math.round(it.pos.y);
+    const t = this.game.reducedMotion ? 0 : this.t;
+    const steps = 9, top = y + 40 - steps * 15;
+    if (layer === "steps") {
+      for (let i = steps - 1; i >= 0; i--) {
+        const k = i / steps, half = 104 - k * 48, sy = y + 40 - i * 15;
+        w.fillStyle = shade("#3a2e26", -i * 5); w.fillRect(x - half, sy - 15, half * 2, 15);
+        w.fillStyle = shade("#5e4e40", -i * 7); w.fillRect(x - half, sy - 15, half * 2, 3);
+      }
+      const grad = w.createLinearGradient(0, top - 40, 0, top + 30);
+      grad.addColorStop(0, "#07030d"); grad.addColorStop(1, "rgba(7,3,13,0)");
+      w.fillStyle = grad; w.fillRect(x - 60, top - 40, 120, 70);
+      this.glowAt(x, top, 110, "#8f6fd8", 0.35 + 0.1 * Math.sin(t));
+      this.lights.push({ x, y: top + 10, r: 220, a: 0.75, color: "#8f6fd8" });
+      return;
+    }
+    if (layer === "left" || layer === "right") {
+      const px = layer === "left" ? x - 120 : x + 96;
+      this.shadow(px + 12, y + 36, 16);
+      w.fillStyle = "#4e3f33"; w.fillRect(px, top - 70, 24, 200);
+      w.fillStyle = "#5e4e40"; w.fillRect(px, top - 70, 4, 200);
+      w.fillStyle = "#2a221d"; w.fillRect(px - 3, y + 26, 30, 10);
+      return;
+    }
+    w.fillStyle = "#4e3f33"; w.fillRect(x - 120, top - 86, 240, 22);
+    w.fillStyle = "#3a2e26"; w.fillRect(x - 60, top - 86, 40, 6); w.fillRect(x + 30, top - 80, 50, 4);
+    const pulse = 0.5 + 0.4 * Math.sin(t * 2);
+    w.fillStyle = "#ccff00"; w.globalAlpha = pulse;
+    for (let i = 0; i < 9; i++) w.fillRect(x - 96 + i * 24, top - 78, 10, 4);
+    w.globalAlpha = 1;
+    this.glowAt(x, top - 76, 140, "#ccff00", 0.12 * pulse);
+  }
+
   private drawInteractable(it: Interactable) {
     const w = this.wctx, g = this.game, x = Math.round(it.pos.x), y = Math.round(it.pos.y);
     const t = g.reducedMotion ? 0 : this.t;
@@ -866,29 +915,7 @@ export class Renderer {
   private drawStation(it: Interactable, x: number, y: number, t: number) {
     const w = this.wctx, g = this.game;
     switch (it.station) {
-      case "descend": {
-        // The great stairs sink north into the dark, framed by a ruined arch.
-        const steps = 9;
-        for (let i = steps - 1; i >= 0; i--) {
-          const k = i / steps, half = 104 - k * 48, sy = y + 40 - i * 15;
-          w.fillStyle = shade("#3a2e26", -i * 5); w.fillRect(x - half, sy - 15, half * 2, 15);
-          w.fillStyle = shade("#5e4e40", -i * 7); w.fillRect(x - half, sy - 15, half * 2, 3);
-        }
-        const top = y + 40 - steps * 15;
-        const grad = w.createLinearGradient(0, top - 40, 0, top + 30);
-        grad.addColorStop(0, "#07030d"); grad.addColorStop(1, "rgba(7,3,13,0)");
-        w.fillStyle = grad; w.fillRect(x - 60, top - 40, 120, 70);
-        w.fillStyle = "#4e3f33"; w.fillRect(x - 120, top - 70, 24, 200); w.fillRect(x + 96, top - 70, 24, 200); w.fillRect(x - 120, top - 86, 240, 22);
-        w.fillStyle = "#3a2e26"; w.fillRect(x - 60, top - 86, 40, 6); w.fillRect(x + 30, top - 80, 50, 4);
-        const pulse = 0.5 + 0.4 * Math.sin(t * 2);
-        w.fillStyle = "#ccff00"; w.globalAlpha = pulse;
-        for (let i = 0; i < 9; i++) w.fillRect(x - 96 + i * 24, top - 78, 10, 4);
-        w.globalAlpha = 1;
-        this.glowAt(x, top, 110, "#8f6fd8", 0.35 + 0.1 * Math.sin(t));
-        this.glowAt(x, top - 76, 140, "#ccff00", 0.12 * pulse);
-        this.lights.push({ x, y: top + 10, r: 220, a: 0.75, color: "#8f6fd8" });
-        break;
-      }
+      case "descend": break; // Drawn in layers by drawStairs so the Friend can climb between them.
       case "friend": {
         w.fillStyle = "#3a322a"; w.beginPath(); w.ellipse(x, y, 34, 16, 0, 0, TAU); w.fill();
         w.fillStyle = "#0f2430"; w.beginPath(); w.ellipse(x, y, 28, 12, 0, 0, TAU); w.fill();
@@ -1030,10 +1057,10 @@ export class Renderer {
   }
 
   private applyLighting(darkness: number) {
-    const l = this.lctx, cam = this.cam, faded = this.game.settings.faded;
+    const l = this.lctx, cam = this.cam;
     l.setTransform(1 / LIGHT_SCALE, 0, 0, 1 / LIGHT_SCALE, 0, 0);
     l.globalCompositeOperation = "source-over";
-    l.fillStyle = `rgba(3,3,4,${faded ? Math.min(0.84, darkness + 0.04) : darkness})`;
+    l.fillStyle = `rgba(4,3,8,${darkness})`;
     l.fillRect(0, 0, W, H);
     l.globalCompositeOperation = "destination-out";
     for (const light of this.lights) {
@@ -1052,7 +1079,7 @@ export class Renderer {
       if (!light.color) continue;
       const x = light.x - cam.x, y = light.y - cam.y, r = light.r * 0.7;
       if (x < -r || y < -r || x > W + r || y > H + r) continue;
-      w.globalAlpha = 0.12 * light.a;
+      w.globalAlpha = 0.16 * light.a;
       w.drawImage(tintedGlow(this.glow, light.color), x - r, y - r, r * 2, r * 2);
     }
     w.restore();
@@ -1071,6 +1098,13 @@ export class Renderer {
   private drawWorldOverlays() {
     const g = this.game, ctx = this.ctx, cam = this.cam;
     ctx.save();
+    if (g.screen === "run") {
+      // Nameplates and price plates stay in the world: they never show through the HUD panels or the action bar.
+      ctx.beginPath();
+      ctx.rect(0, 0, W, H);
+      for (const [x, y, w, h] of HUD_RECTS) ctx.rect(x, y, w, h);
+      ctx.clip("evenodd");
+    }
     ctx.translate(-cam.x, -cam.y);
     ctx.textAlign = "center";
     for (const e of g.enemies) {

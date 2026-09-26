@@ -144,8 +144,8 @@ kbd { font: 15px var(--dx-ui); border: 1px solid currentColor; border-radius: 2p
 .dx-rflog li b { font-weight: 400; }
 .dx-tx-spend b, .dx-tx-spend .dx-tx-amount { color: var(--dx-red); }
 .dx-tx-reward b, .dx-tx-reward .dx-tx-amount { color: var(--dx-rf); }
-.dx-toasts { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; width: 440px; }
-.dx-toasts p { margin: 0; font-size: 19px; padding: 3px 12px; background: rgba(8, 8, 8, 0.9); border-left: 3px solid; animation: dx-toast 0.25s ease-out; text-align: center; }
+.dx-toasts { position: absolute; left: 50%; top: 112px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; width: 520px; }
+.dx-toasts p { margin: 0; font-size: 18px; padding: 2px 12px; background: rgba(8, 8, 8, 0.78); border-left: 3px solid; animation: dx-toast 0.25s ease-out; text-align: center; }
 @keyframes dx-toast { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .dx-banner { position: absolute; left: 0; right: 0; top: 196px; display: flex; flex-direction: column; align-items: center; text-align: center; animation: dx-banner 2.4s ease-out forwards; }
 .dx-banner strong { font: 58px/1 var(--dx-display); font-weight: 400; text-shadow: 0 0 22px currentColor, 3px 3px 0 #07050b; }
@@ -428,7 +428,7 @@ button.dx-item:hover { transform: translateY(-2px); background: #1d1628; }
 .dx-lifted .dx-cup-rune { opacity: 1; }
 .dx-cup-win .dx-cup-body { background: linear-gradient(90deg, #6b8a00, #ccff00 45%, #6b8a00); }
 .dx-cup-lose .dx-cup-body { background: linear-gradient(90deg, #5c1422, #ff4d6d 45%, #5c1422); }
-.dx-faded .dx-creature { filter: saturate(0.3) contrast(1.1); }
+.dx-faded .dx-creature { filter: saturate(0.55) contrast(1.05); }
 
 /* ─── Share the run ─────────────────────────────────────────────────────── */
 .dx-share { margin: 0 0 8px; }

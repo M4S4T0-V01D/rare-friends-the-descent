@@ -294,7 +294,7 @@ function PauseModal({ game, ui }: { game: Game; ui: UiState }) {
         {toggle("screenShake", "Screen shake")}
         {toggle("damageNumbers", "Damage numbers")}
         {toggle("crt", "CRT scanlines")}
-        {toggle("faded", "Rare Friends look (greyscale, faded color)")}
+        {toggle("faded", "Rare Friends look (muted color, soft light)")}
         <p>
           <button type="button" className="dx-btn" onClick={() => game.setModal({ kind: "character" })}>Character (C)</button>{" "}
           <button type="button" className="dx-btn" onClick={() => game.setModal({ kind: "log" })}>RF activity (Tab)</button>{" "}

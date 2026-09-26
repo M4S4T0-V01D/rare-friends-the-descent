@@ -30,11 +30,11 @@ export type Modal =
 
 export type Settings = {
   sound: boolean; music: boolean; reducedMotion: boolean; screenShake: boolean; damageNumbers: boolean; crt: boolean;
-  /** The Rare Friends look: near-black and white with faded color. */
+  /** The Rare Friends look: near-monochrome with muted color. */
   faded: boolean;
 };
 
-export type Toast = { id: number; text: string; color: string; until: number };
+export type Toast = { id: number; text: string; color: string; until: number; key?: string };
 export type Banner = { id: number; title: string; subtitle?: string; color: string; kind: "floor" | "boss" | "loot" | "clear" | "level" };
 
 export type RunSummary = Readonly<{

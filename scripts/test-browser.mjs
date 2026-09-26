@@ -356,6 +356,14 @@ await testSite({
       await press("Escape", 300);
       s = await st();
       assert.equal(s.modal, "none");
+      // Meeting several new creatures at once reads as one toast, never a wall of them over the fight.
+      const fresh = ["mite", "spitter", "eyestalk"].filter(k => !s.bestiary.includes(k));
+      const ids = await call("return arg.map(k => g.debugSpawn(k))", fresh);
+      await waitFor(s => fresh.every(k => s.bestiary.includes(k)), "new creatures recorded");
+      const toasts = await call("return g.ui.toasts.map(t => t.text)");
+      assert.equal(toasts.filter(t => t.startsWith("BESTIARY")).length, 1, `one combined bestiary toast (${toasts.join(" | ")})`);
+      assert(toasts.length <= 3, "at most three toasts at once");
+      await call("g.enemies = g.enemies.filter(e => !arg.includes(e.id))", ids);
     });
 
     await step("guardian: a titled mini-boss guards the stairs and pays +3 RF", async () => {

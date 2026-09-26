@@ -9,6 +9,7 @@ import { COIN_DASH, GALLERY_PAYOUTS, RF_COSTS, RF_DENOMINATIONS, SHELL_GAME } fr
 import { BESTIARY_ORDER, LORE } from "../../src/game/lore.ts";
 import { COSMETICS, DEFAULT_COSMETICS } from "../../src/game/content.ts";
 import { dmgScale, GUARDIAN_TITLES } from "../../src/game/enemies.ts";
+import { generateCamp } from "../../src/game/camp.ts";
 import { OUTCOME_MULTIPLIER, RARITY_POINTS, scoreRun } from "../../src/game/score.ts";
 
 const sum = (rows: readonly { chanceBps: number }[]) => rows.reduce((total, row) => total + row.chanceBps, 0);
@@ -204,4 +205,15 @@ test("mini-games cost 5 or 10 RF and a skilled player comes out ahead", () => {
   assert.ok(GALLERY_PAYOUTS[0].payout > EVENTS.gallery.cost && SHELL_GAME.payout > EVENTS.shells.cost && COIN_DASH.coins * COIN_DASH.perCoin > EVENTS.coinDash.cost);
   for (let i = 1; i < GALLERY_PAYOUTS.length; i++) assert.ok(GALLERY_PAYOUTS[i].hits < GALLERY_PAYOUTS[i - 1].hits && GALLERY_PAYOUTS[i].payout < GALLERY_PAYOUTS[i - 1].payout);
   for (const row of GALLERY_PAYOUTS) assert.ok(RF_DENOMINATIONS.includes(row.payout as never) || row.payout === 5, `${row.payout}`);
+});
+
+test("the camp's great stairs: the arch pillars are solid and the steps between them are walkable", () => {
+  const { floor, things } = generateCamp();
+  const stairs = things.find(t => t.kind === "station" && t.station === "descend")!;
+  const tile = (x: number, y: number) => floor.tiles[Math.floor(y / TILE) * floor.width + Math.floor(x / TILE)];
+  for (const dy of [-120, -60, 0, 30]) {
+    assert.equal(tile(stairs.pos.x - 108, stairs.pos.y + dy), T.Wall, `left pillar solid at ${dy}`);
+    assert.equal(tile(stairs.pos.x + 108, stairs.pos.y + dy), T.Wall, `right pillar solid at ${dy}`);
+  }
+  for (const dy of [-80, -40, 0, 40]) for (const dx of [-60, 0, 60]) assert.equal(tile(stairs.pos.x + dx, stairs.pos.y + dy), T.Floor, `steps walkable at ${dx},${dy}`);
 });

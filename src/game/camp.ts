@@ -32,6 +32,8 @@ export function generateCamp(): { floor: Floor; spawn: Vec; things: Omit<Interac
   const solid = (x: number, y: number, w = 1, h = 1) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) set(x + OX + i, y + OY + j, T.Wall); };
   // Statue pedestals and broken columns are solid.
   solid(cx - 7, 5, 2, 2); solid(cx + 5, 5, 2, 2);
+  // The arch's pillars flank the stairs: solid from the top of the alcove down to their bases.
+  solid(cx - 4, 1, 1, 5); solid(cx + 3, 1, 1, 5);
   for (const [px, py] of [[6, 10], [29, 10], [8, 19], [27, 20]] as const) solid(px, py, 1, 1);
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     if (get(x, y) !== T.Void) continue;

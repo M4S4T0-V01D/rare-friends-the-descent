@@ -2,7 +2,7 @@
 
 **Your Rare Friend descends into a dungeon where $RAREFRIENDS is the currency of risk.**
 
-A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Your own Generations NFT is the playable hero. It fights through procedurally generated floors of cursed crypts, finds randomized loot, and at every turn faces the same question: *spend 5 RF now, save for 10, or risk everything for 25?* Every run ends with a **score**, and RF can also dress your Friend in **cosmetic glows, skins and trails** at the camp. The dungeon is drawn in the Rare Friends style: near-black, white and grey, with faded color and soft light.
+A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Your own Generations NFT is the playable hero. It fights through procedurally generated floors of cursed crypts, finds randomized loot, and at every turn faces the same question: *spend 5 RF now, save for 10, or risk everything for 25?* Every run ends with a **score**, and RF can also dress your Friend in **cosmetic glows, skins and trails** at the camp. The dungeon is drawn in the Rare Friends style: black, white and grey, with muted color and soft, warm light.
 
 | | |
 |---|---|
@@ -12,6 +12,25 @@ A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Yo
 | **Playable preview** | **https://m4s4t0-v01d.github.io/rare-friends-the-descent/** |
 | **Requirements** | A browser wallet on **Robinhood mainnet (chain 4663)** holding a **hardwired Rare Friends Generations NFT (generation ≥ 1)** |
 | **Economy** | **SIMULATED $RAREFRIENDS.** No real money, no token transfers, no purchases, no transactions. |
+
+---
+
+## Screenshots
+
+| | |
+|---|---|
+| ![The title screen: your verified Friend on a glowing rune circle](docs/screenshots/title.png) | ![The camp: a ruined Rare Friends sanctuary with tents, lanterns and a campfire](docs/screenshots/camp.png) |
+| **Title.** Your verified Friend, its kit, and the simulated-RF label. | **The camp.** Walk your Friend around a ruined sanctuary before each descent. |
+| ![The great stairs, flanked by two stone statues of your own Friend](docs/screenshots/camp-stairs.png) | ![Depth 1, the Ossuary: a Rune Slash into Cursed Friends](docs/screenshots/combat-depth-1.png) |
+| **The great stairs.** Two statues of *your* Friend guard the way down. | **Depth 1 · Ossuary.** Cursed Friends in the upper crypts. |
+| ![Depth 3, Warden's Vault: Hex Priest curse circles, Bone Gunner shots and a Loot Goblin](docs/screenshots/combat-depth-3.png) | ![Depth 5, Server Tombs: Signal Mites, a Relay Turret and a Static Drone](docs/screenshots/combat-depth-5.png) |
+| **Depth 3 · Warden's Vault.** Hex Priest curse circles and a Loot Goblin. | **Depth 5 · Server Tombs.** A mite swarm under turret fire. |
+| ![Depth 8, Vein Galleries: elite champions with modifiers and an Eye Stalk's needle stream](docs/screenshots/combat-depth-8.png) | ![The character sheet: a paper doll of equipped gear and the bag grouped by type](docs/screenshots/inventory.png) |
+| **Depth 8 · Vein Galleries.** Named champions and an Eye Stalk's needles. | **Character sheet.** Paper-doll gear and a bag grouped by item type. |
+| ![The bestiary: 24 creature pages, unseen ones as silhouettes](docs/screenshots/bestiary.png) | ![The Friend picker with each Friend's on-chain artwork](docs/screenshots/picker.png) |
+| **Bestiary (B).** A page for every creature your Friend has met. | **Friend picker.** Each Friend's on-chain artwork and family (test fixture wallet shown). |
+
+Screenshots are captured from the shipped site by `node scripts/screenshots.mjs`, using the FriendSDK's mock wallet fixture and sample Friend #7730.
 
 ---
 
@@ -31,7 +50,7 @@ Every price lives in one file ([`src/economy/terms.ts`](src/economy/terms.ts)), 
 ## How to play
 
 1. Connect your wallet and choose your Friend from a picker that shows each Friend's own on-chain artwork and family. The FriendSDK verifies ownership at a fresh block, and once you enter, that Friend is locked in for the session (reload the page to pick another).
-2. **Begin** at the title and arrive at **the camp**: a ruined sanctuary of the ancient Rare Friends. Walk around with your Friend among tents, a campfire, lanterns and broken columns. Use the stations (your stash, the Rune Tablet codex, the Obelisk of Descents with your scores, the RF Ledger, the Still Pool that shows your Friend's kit, and the **Dye Altar** wardrobe), then walk down **the great stairs**, flanked by two stone statues of your own Friend, to descend.
+2. **Begin** at the title and arrive at **the camp**: a ruined sanctuary of the ancient Rare Friends. Walk around with your Friend among tents, a campfire, lanterns and broken columns. Use the stations (your stash, the Rune Tablet codex, the Obelisk of Descents with your scores, the RF Ledger, the Still Pool that shows your Friend's kit, and the **Dye Altar** wardrobe), then walk down **the great stairs**, through a ruined arch flanked by two stone statues of your own Friend, to descend. The arch's pillars are solid, and on the steps your Friend passes between them and under the lintel instead of clipping through.
 3. Clear rooms, loot, make RF decisions, go deeper. A **guardian** (mini-boss) blocks the stairs on every floor without a boss, and bosses wait at depths 3, 6 and 9. Pay-to-play **mini-games** hide in event rooms, and every creature you meet unlocks a page in the **bestiary** (B).
 4. Escape at a Waystone with your loot, or die and decide whether RF can buy you another chance. Either way, the run is scored.
 
@@ -39,7 +58,7 @@ Every price lives in one file ([`src/economy/terms.ts`](src/economy/terms.ts)), 
 
 ### The Rare Friends look
 
-Rare Friends are black and white, so the dungeon is too. The whole world is graded toward monochrome (color faded to about a quarter, deeper blacks). Glows, bullets and telegraphs still light the dark and keep a hint of their color, so every attack stays readable. The lighting mask is drawn at quarter resolution and smoothly upscaled, which keeps soft light for a fraction of the cost. Panels and menus use neutral blacks and greys, keeping the lime RF accent. It is on by default; **Pause → Settings → Rare Friends look** switches back to full color.
+Rare Friends are black and white, so the dungeon is too. The whole world is graded toward monochrome (color muted to about half, soft blacks, slightly lifted brightness). Glows, bullets and telegraphs light the dark and keep their color, so every attack stays readable. The room you stand in carries a soft ambient light so a fight reads edge to edge, every enemy wears a faint halo so it never hides in the dark (except the Grave Wraith, which is meant to), and torches, shrines and your Friend's glow tint the stone with their color. The lighting mask is drawn at quarter resolution and smoothly upscaled, which keeps soft light for a fraction of the cost. Panels and menus use neutral blacks and greys, keeping the lime RF accent. It is on by default; **Pause → Settings → Rare Friends look** switches back to full color.
 
 ### Sound
 
@@ -275,7 +294,7 @@ Dodge-rolling through bullets is the core skill, and leftover enemy bullets vani
 
 **Guardians (mini-bosses).** Every floor from depth 2 that has no boss ends its main path in a guardian room right before the stairs. The guardian is a giant, titled form of one of that floor's creatures, about twice its size with nine times its health: The First Husk, Void Matriarch, The Choirmaster, Ossuary Captain, Static Overseer, Relay Bastion, The Great Maw, All-Seeing Stalk, The Clot, Null Sovereign, The Demolisher, Bone Champion, High Hexer, Deadeye Relay, The Butcher, Hive Queen, The Pale Widow or The Shattered Prism. It fights with its kind's own attacks, carries 1–2 modifiers and adds a **rage ring** of bullets every few seconds (more often when hurt), and at half health it **calls two of its kin**. It gets a boss bar, a banner and the boss music, and brings a small escort. Slaying one pays **+3 RF** and 400 score, and the room drops an elite chest (Rare or better). Guardian rooms show a crown on the minimap.
 
-**The bestiary (B).** The first time your Friend sees a creature, its page unlocks, with a toast to tell you. Each page has the creature's portrait, a line of lore, what its attacks look like, where it lives, how many you have slain this session and whether you have beaten its guardian form. Unseen creatures show as dark silhouettes. Open it with **B** in the dungeon (or from the pause menu), or from the camp menu's Bestiary tab. It covers all 24 creatures, from the Cursed Friend to The Unminted.
+**The bestiary (B).** The first time your Friend sees a creature, its page unlocks, with a toast to tell you. Creatures met together share one toast ("BESTIARY: Static Drone, Relay Sniper and Grave Bomber recorded"), and at most three toasts show at once, so a new room never buries the fight under notices. Each page has the creature's portrait, a line of lore, what its attacks look like, where it lives, how many you have slain this session and whether you have beaten its guardian form. Unseen creatures show as dark silhouettes. Open it with **B** in the dungeon (or from the pause menu), or from the camp menu's Bestiary tab. It covers all 24 creatures, from the Cursed Friend to The Unminted.
 
 **Bosses, redrawn and rearmed.** Every boss has new pixel art and a cinematic entrance: letterbox bars, a name card, and a moment of immunity while it rises.
 
@@ -334,7 +353,8 @@ If your Playwright version has no matching browser download (for example in a sa
 | `src/render/` | Canvas renderer, dungeon art, sprites (canonical Friend artwork plus original enemy art), `bossArt.ts` (mirrored pixel-art boss bodies) |
 | `src/ui/` | React overlays: title, camp, HUD, dialogs (including the Shell Game), bestiary, summary, touch controls |
 | `src/audio/` | Procedural sound effects and music (place tunes, special-room tunes, crossfading layers), plus the FriendSDK sound kit |
-| `tests/unit/`, `scripts/` | Unit tests; browser, live-gate and balance-playtest scripts |
+| `tests/unit/`, `scripts/` | Unit tests; browser, live-gate, balance-playtest and screenshot scripts |
+| `docs/screenshots/` | README screenshots (`node scripts/screenshots.mjs`) |
 
 `game.json` exists because the SDK runtime requires a chance-game definition. Its terms are **unused reference values**, not a mechanic of this game (the same approach as the SDK's scrolling-world example).
 
@@ -346,10 +366,10 @@ If your Playwright version has no matching browser download (for example in a sa
 |---|---|---|
 | `npm run typecheck` | TypeScript, strict | Pass |
 | `npm run lint` | ESLint (typescript-eslint, react-hooks) | Pass |
-| `npm run test:unit` | 23 tests: guardian rooms on every boss-less floor from depth 2, a bestiary page for every creature, mini-game prices and payouts, per-floor themes and rosters (including all 8 new enemies), floor growth with depth plus full-tile reachability, economy ledger, bigint RF units, insufficient funds, all prices (cosmetics included) in the 5/10/25 family, small rewards, every odds table sums to 100%, prices come from the economy terms, generation determinism, reachability of every room (300 floors), floor-1 script, depth-2 Void shrine, loot and stats, player/enemy balance caps, run scoring and outcome multipliers, cosmetic catalogue, every sprite mask is a clean rectangle | 23/23 pass |
+| `npm run test:unit` | 24 tests: the camp's stair-arch pillars are solid and its steps walkable, guardian rooms on every boss-less floor from depth 2, a bestiary page for every creature, mini-game prices and payouts, per-floor themes and rosters (including all 8 new enemies), floor growth with depth plus full-tile reachability, economy ledger, bigint RF units, insufficient funds, all prices (cosmetics included) in the 5/10/25 family, small rewards, every odds table sums to 100%, prices come from the economy terms, generation determinism, reachability of every room (300 floors), floor-1 script, depth-2 Void shrine, loot and stats, player/enemy balance caps, run scoring and outcome multipliers, cosmetic catalogue, every sprite mask is a clean rectangle | 24/24 pass |
 | `npm run check` | FriendSDK game validation (imports, sandbox boundary, definition) | Pass |
 | `npm run build` | Static preview build | Pass |
-| `npm run test:browser` | 29 end-to-end checks in headless Chromium against **the site as shipped** (The Descent host plus the SDK runtime pieces) with the SDK's own mock wallet and RPC fixture: picker thumbnails, Friend locked in during play, walking the camp and descending the great stairs, every floor mood, every special-room tune and family voice, title and verified Friend, keyboard movement, locked-room combat with real key presses, first loot, level-up, **5 RF** shrine (and its tune fading in inside the shrine room and out after leaving), +3 RF treasure, **5 → 10 → 25** rerolls with no 4th, **5 RF** gate, events, **10 RF** revive, **25 RF** full revival, **25 RF** Void shrine (including the secret-boss path and +25 RF), merchant **5 RF** and **10 RF** buys, potion, pause, mute, reduced motion, depth-3 boss with +5 RF, Waystone, escape summary with its score breakdown, **Copy image** putting a 1200×675 PNG scoreboard on the clipboard and **Post on X** opening X's composer with the run text and a link back, restart with no free RF top-up, death and End Run, **10 RF + 5 RF** Dye Altar buys (Corrupted skin, Blood Moon glow) and free swaps, the bestiary unlocking and opening with B, a guardian fight paying +3 RF, a **5 RF** Shell Game won by following the real shuffle (+15 RF) and a **5 RF** Rune Gallery paying by runes shattered, artwork-load error with retry, wrong-network unmount and recheck, browser refresh, touch joystick and buttons, zero console errors | 29/29 pass |
+| `npm run test:browser` | 29 end-to-end checks in headless Chromium against **the site as shipped** (The Descent host plus the SDK runtime pieces) with the SDK's own mock wallet and RPC fixture: picker thumbnails, Friend locked in during play, walking the camp and descending the great stairs, every floor mood, every special-room tune and family voice, title and verified Friend, keyboard movement, locked-room combat with real key presses, first loot, level-up, **5 RF** shrine (and its tune fading in inside the shrine room and out after leaving), +3 RF treasure, **5 → 10 → 25** rerolls with no 4th, **5 RF** gate, events, **10 RF** revive, **25 RF** full revival, **25 RF** Void shrine (including the secret-boss path and +25 RF), merchant **5 RF** and **10 RF** buys, potion, pause, mute, reduced motion, depth-3 boss with +5 RF, Waystone, escape summary with its score breakdown, **Copy image** putting a 1200×675 PNG scoreboard on the clipboard and **Post on X** opening X's composer with the run text and a link back, restart with no free RF top-up, death and End Run, **10 RF + 5 RF** Dye Altar buys (Corrupted skin, Blood Moon glow) and free swaps, the bestiary unlocking and opening with B (and several new creatures sharing one toast), a guardian fight paying +3 RF, a **5 RF** Shell Game won by following the real shuffle (+15 RF) and a **5 RF** Rune Gallery paying by runes shattered, artwork-load error with retry, wrong-network unmount and recheck, browser refresh, touch joystick and buttons, zero console errors | 29/29 pass |
 | `npm run test:real` (or `TARGET_URL=<preview> node scripts/test-real-gate.mjs`) | **Live Robinhood mainnet**, read-only, also run against the published GitHub Pages preview: a stand-in wallet that refuses every signing method reports a real holder's public address. The real SDK picker discovered the holder's 5 hardwired Friends, freshly verified ownership, and the game loaded that Friend's on-chain artwork. An address with only a generation-0 Friend was refused, and a wrong-network wallet was stopped before play. | 3/3 pass |
 | `npm run playtest` | A bot plays the real engine at accelerated speed using only player controls, reporting depth, deaths, damage by source and RF flow | Used for balance. After the difficulty pass, a bot that never dodges usually falls at depths 2–4 (often to the Dungeon Warden) and takes about 3× the damage per floor it used to; a bot that sidesteps bullets reaches about depth 5–6 instead of clearing all 9 floors. Deep runs earn about 40–110 RF. |
 

@@ -85,6 +85,8 @@ export class Game implements World {
   lockedRoom: number | null = null;
   encounter: Encounter | null = null;
   currentRoom: number | null = null;
+  /** Names in the live bestiary toast, so a wave of new creatures reads as one line. */
+  private bestiaryNews: string[] = [];
   boss: Enemy | null = null;
   lastHitBy = "";
   /** Damage taken by source this run, for balance playtests. */
@@ -222,9 +224,16 @@ export class Game implements World {
     this.input.clear();
     this.patch({ modal: modal.kind === "reveal" && modal.id === undefined ? { ...modal, id: this.nextId++ } : modal });
   }
-  toast(text: string, color = "#e9e4ff") {
-    const toast: Toast = { id: this.toastId++, text, color, until: performance.now() + 2600 };
-    this.patch({ toasts: [...this.ui.toasts.slice(-3), toast] });
+  /**
+   * Show a short notice. A toast with a `key` (or the same text) updates the live one in place instead of
+   * stacking another, and at most three show at once, so bursts never wall off the fight.
+   */
+  toast(text: string, color = "#e9e4ff", key?: string) {
+    const until = performance.now() + 2600;
+    const live = this.ui.toasts.find(t => (key !== undefined && t.key === key) || t.text === text);
+    if (live) { this.patch({ toasts: this.ui.toasts.map(t => (t === live ? { ...t, text, color, until } : t)) }); return; }
+    const toast: Toast = { id: this.toastId++, text, color, until, key };
+    this.patch({ toasts: [...this.ui.toasts.slice(-2), toast] });
   }
   private banner(title: string, subtitle: string | undefined, color: string, kind: Banner["kind"]) {
     this.patch({ banner: { id: this.toastId++, title, subtitle, color, kind } });
@@ -1302,7 +1311,11 @@ export class Game implements World {
     const kind = e.kind as BestiaryKind;
     if (!LORE[kind]) return;
     this.bestiary.set(kind, { kills: 0, guardians: [] });
-    this.toast(`BESTIARY: ${LORE[kind].name} recorded${this.ui.touch ? "" : " (B)"}`, "#d8d8d8");
+    // Creatures met together share one toast: "BESTIARY: A, B and C recorded".
+    const live = this.ui.toasts.some(t => t.key === "bestiary");
+    this.bestiaryNews = live ? [...this.bestiaryNews, LORE[kind].name] : [LORE[kind].name];
+    const names = this.bestiaryNews.length > 3 ? `${this.bestiaryNews.length} creatures` : this.bestiaryNews.join(", ").replace(/, ([^,]*)$/, " and $1");
+    this.toast(`BESTIARY: ${names} recorded${this.ui.touch ? "" : " (B)"}`, "#d8d8d8", "bestiary");
   }
 
   // ─── Mini-games ────────────────────────────────────────────────────────────
