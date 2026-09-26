@@ -29,7 +29,15 @@ export interface World {
   toast(text: string, color?: string): void;
 }
 
-export type SpawnOptions = { elite?: boolean; champion?: boolean; mods?: Modifier[]; variant?: number; minion?: boolean };
+export type SpawnOptions = { elite?: boolean; champion?: boolean; mods?: Modifier[]; variant?: number; minion?: boolean; guardian?: boolean };
+
+/** Each floor enemy has a guardian form: a titled mini-boss twice its size. Mites never guard. */
+export const GUARDIAN_TITLES: Readonly<Partial<Record<EnemyKind, string>>> = {
+  cursed: "THE FIRST HUSK", crawler: "VOID MATRIARCH", wisp: "THE CHOIRMASTER", gunner: "OSSUARY CAPTAIN", drone: "STATIC OVERSEER",
+  turret: "RELAY BASTION", spitter: "THE GREAT MAW", eyestalk: "ALL-SEEING STALK", bloodling: "THE CLOT", shade: "NULL SOVEREIGN",
+  bomber: "THE DEMOLISHER", lancer: "BONE CHAMPION", hexer: "HIGH HEXER", sniper: "DEADEYE RELAY", brute: "THE BUTCHER",
+  hive: "HIVE QUEEN", wraith: "THE PALE WIDOW", prism: "THE SHATTERED PRISM",
+};
 
 export const MODIFIER_INFO: Readonly<Record<Modifier, { label: string; color: string }>> = {
   vampiric: { label: "Vampiric", color: "#ff2e4d" },
@@ -71,6 +79,7 @@ const BASE: Readonly<Record<EnemyKind, { name: string; hp: number; dmg: number; 
   hive: { name: "HIVE MOTHER", hp: 115, dmg: 7, speed: 0, radius: 18, xp: 16 },
   wraith: { name: "GRAVE WRAITH", hp: 46, dmg: 15, speed: 140, radius: 13, xp: 11 },
   prism: { name: "VOID PRISM", hp: 95, dmg: 11, speed: 60, radius: 15, xp: 16 },
+  target: { name: "RUNE", hp: 1, dmg: 0, speed: 0, radius: 15, xp: 0 },
 };
 
 export const hpScale = (depth: number) => 1 + 0.45 * (depth - 1) + 0.07 * (depth - 1) ** 2;
@@ -90,20 +99,25 @@ export function createEnemy(kind: EnemyKind, pos: Vec, depth: number, roomId: nu
     if (depth > 9) hp *= hpScale(depth) / hpScale(9);
   } else if (kind === "unminted") {
     hp = 1200 + 600 * depth;
-  } else hp *= hpScale(depth);
+  } else if (kind !== "target") hp *= hpScale(depth);
   const mods = [...(options.mods ?? [])];
+  const guardian = Boolean(options.guardian);
+  if (guardian) {
+    hp *= 9; dmg *= 1.25; radius = Math.round(radius * 1.9); speed *= 0.85;
+    name = GUARDIAN_TITLES[kind] ?? `GREAT ${name}`;
+  }
   if (options.champion) { hp *= 1.5; radius += 2; }
   if (options.minion) { hp *= 0.6; dmg *= 0.8; }
   if (mods.includes("armored")) hp *= 1.6;
   if (mods.includes("splitting")) hp *= 0.85;
   if (mods.includes("frenzied")) speed *= 1.35;
-  if (mods.length && !boss) name = `${mods.map(mod => MODIFIER_INFO[mod].label).join(" ")} ${name}`;
+  if (mods.length && !boss && !guardian) name = `${mods.map(mod => MODIFIER_INFO[mod].label).join(" ")} ${name}`;
   hp = Math.round(hp);
   return {
     id: nextEnemyId++, kind, name, pos: { ...pos }, vel: { x: 0, y: 0 }, radius, hp, maxHp: hp, dmg, speed,
-    xp: Math.round(base.xp * (1 + 0.1 * (depth - 1)) * (options.elite ? 1 : options.champion ? 1.6 : 1)),
-    elite: options.elite ?? kind === "corrupted", champion: options.champion ?? false, boss, minion: options.minion ?? false, mods,
-    roomId, spawnT: boss ? 1.4 : 0.45, dead: false, state: boss ? "intro" : "idle", stateT: 0,
+    xp: Math.round(base.xp * (1 + 0.1 * (depth - 1)) * (options.elite ? 1 : options.champion ? 1.6 : guardian ? 8 : 1)),
+    elite: options.elite ?? kind === "corrupted", champion: options.champion ?? false, boss, minion: options.minion ?? false, mods, guardian,
+    roomId, spawnT: boss ? 1.4 : guardian ? 1.1 : kind === "target" ? 0.15 : 0.45, dead: false, state: boss ? "intro" : "idle", stateT: 0,
     cd: rng.range(0.4, 1.4), cd2: rng.range(3, 5), cd3: rng.range(5, 8), aim: 0,
     hitFlash: 0, knock: { x: 0, y: 0 }, burnT: 0, burnDps: 0, burnTick: 0, seed: rng.int(0, 1e6), phase: 1, anim: 0,
     coins: 0, fleeT: 0, counter: 0, orbitHitT: 0, minionCd: 6, teleportCd: rng.range(3, 5), stunT: 0, invulnT: 0,
@@ -162,6 +176,8 @@ export function updateEnemy(e: Enemy, w: World, dt: number) {
       w.sound("enemyShot");
     }
   }
+  if (e.guardian) guardianRage(e, w, dt);
+  if (e.kind === "target") return;
   if (e.mods.includes("swarm") && e.elite && e.minionCd <= 0 && w.enemies.filter(o => !o.dead && o.roomId === e.roomId).length < 12) {
     e.minionCd = 9;
     for (let i = 0; i < 2; i++) w.spawn("cursed", w.pointNearPlayer(e.roomId, 90, 220), e.roomId, { minion: true });
@@ -177,6 +193,28 @@ export function updateEnemy(e: Enemy, w: World, dt: number) {
     default: return updateBestiary(e, w, dt);
   }
   void p;
+}
+
+/**
+ * Guardians fight like a giant version of their kind, and on top of that throw a telegraphed
+ * rage ring every few seconds and call two of their kin when they fall below half health.
+ */
+function guardianRage(e: Enemy, w: World, dt: number) {
+  e.stormCd -= dt;
+  if (e.stormCd <= 0) {
+    e.stormCd = e.hp < e.maxHp * 0.5 ? 4.5 : 6.5;
+    const n = 14 + Math.min(8, w.depth), off = w.rng.range(0, TAU);
+    w.hazard({ shape: "ring", pos: { ...e.pos }, radius: e.radius + 30, delay: 0.5, dmg: 0, color: w.bulletColor });
+    for (let i = 0; i < n; i++) {
+      w.fire({ pos: { ...e.pos }, vel: fromAngle(off + (i / n) * TAU, 150), radius: 8, dmg: e.dmg * 0.55, owner: "enemy", life: 4.5, color: w.bulletColor, kind: "orb", source: e });
+    }
+    w.sound("roar");
+  }
+  if (e.hp < e.maxHp * 0.5 && e.minionCd > -100) {
+    e.minionCd = -1000;
+    w.toast(`${e.name} calls for its kin!`, "#ff4d6d");
+    for (let i = 0; i < 2; i++) w.spawn(e.kind === "hive" || e.kind === "turret" || e.kind === "eyestalk" ? "cursed" : e.kind, w.pointNearPlayer(e.roomId, 140, 260), e.roomId, { minion: true });
+  }
 }
 
 export function melee(e: Enemy, w: World, dt: number, windup: number, arcDeg: number, range: number) {

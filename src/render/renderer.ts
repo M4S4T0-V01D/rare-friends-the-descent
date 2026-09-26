@@ -8,11 +8,17 @@ import { angleTo, clamp, TAU } from "../game/math";
 import { SHORT } from "../game/kit";
 import { xpForLevel } from "../game/stats";
 import { CHUNK, makeGlow, paintChunk, shade, tintedGlow } from "./world";
-import { drawSprite, flashSprite, MASKS, maskSprite, type FriendLook, type Sprite } from "./sprites";
+import { drawSprite, flashSprite, MASKS, maskSprite, type FriendArt, type FriendLook, type Sprite } from "./sprites";
 import { BEAST_BODY, BEAST_EYES, beastPalette, WARDEN_BODY, WARDEN_LEG, wardenPalette } from "./bossArt";
 import { formatScore } from "../game/score";
 
 const W = 960, H = 640;
+/** The lighting mask is drawn at a quarter resolution; in the Rare Friends look it is dithered into chunky bands. */
+const LIGHT_SCALE = 4, LW = W / LIGHT_SCALE, LH = H / LIGHT_SCALE;
+/** 4×4 ordered-dither (Bayer) thresholds. */
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
+/** The grade that turns the world near-monochrome: faded color, deep blacks, glow still reads. */
+const FADED_FILTER = "saturate(0.26) contrast(1.12) brightness(0.97)";
 const FONT_UI = "VT323, ui-monospace, monospace";
 const FONT_DISPLAY = "'Jacquard 24', VT323, serif";
 
@@ -45,8 +51,8 @@ export class Renderer {
     this.ctx = canvas.getContext("2d", { alpha: false })!;
     this.world.width = W; this.world.height = H;
     this.wctx = this.world.getContext("2d", { alpha: false })!;
-    this.light.width = W; this.light.height = H;
-    this.lctx = this.light.getContext("2d")!;
+    this.light.width = LW; this.light.height = LH;
+    this.lctx = this.light.getContext("2d", { willReadFrequently: true })!;
     this.setScale(1);
   }
 
@@ -73,7 +79,10 @@ export class Renderer {
     else this.drawTitle(dt);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingEnabled = false;
+    // The Rare Friends look grades the whole world toward black and white; the HUD keeps its accents.
+    if (g.settings.faded) ctx.filter = FADED_FILTER;
     ctx.drawImage(this.world, 0, 0, W * k, H * k);
+    ctx.filter = "none";
     ctx.setTransform(k, 0, 0, k, 0, 0);
     if ((g.screen === "run" || g.screen === "camp") && g.floor) this.drawWorldOverlays();
     if (g.screen === "run" && g.floor) this.drawHud();
@@ -135,11 +144,11 @@ export class Renderer {
   private drawCorpse(e: Enemy, t: number) {
     const sprite = e.kind === "warden" || e.kind === "beast" ? null : this.enemySprite(e);
     if (!sprite) return;
-    const k = t / 0.4, pop = 1 + (1 - k) * 0.35;
+    const k = Math.min(1, t / 0.4), pop = 1 + (1 - k) * 0.35, size = e.guardian ? 1.9 : 1;
     const w = this.wctx;
     w.save();
     w.globalCompositeOperation = "lighter";
-    drawSprite(w, flashSprite(sprite, e.elite ? "#ff2e4d" : "#ffffff"), e.pos.x, e.pos.y + 6, false, k * 0.9, pop, 2 - pop);
+    drawSprite(w, flashSprite(sprite, e.elite ? "#ff2e4d" : "#ffffff"), e.pos.x, e.pos.y + 6, false, k * 0.9, pop * size, (2 - pop) * size);
     w.restore();
   }
 
@@ -386,8 +395,14 @@ export class Renderer {
     const ghost = e.kind === "wraith" && e.state === "fade" && e.hitFlash <= 0 ? 0.14 + 0.06 * Math.sin(this.t * 7 + e.seed) : 1;
     // Squash on hit, stretch on a fuse or wind-up, a slow breath otherwise.
     const breathe = g.reducedMotion ? 0 : Math.sin(e.anim * 3 + e.seed) * 0.03;
-    const sx = e.hitFlash > 0 ? 1.14 : e.state === "fuse" ? 1 + 0.12 * Math.abs(Math.sin(this.t * 24)) : 1 + breathe;
-    const sy = e.hitFlash > 0 ? 0.88 : e.state === "fuse" ? 1 - 0.06 * Math.abs(Math.sin(this.t * 24)) : 1 - breathe;
+    const size = e.guardian ? 1.9 : 1;
+    const sx = size * (e.hitFlash > 0 ? 1.14 : e.state === "fuse" ? 1 + 0.12 * Math.abs(Math.sin(this.t * 24)) : 1 + breathe);
+    const sy = size * (e.hitFlash > 0 ? 0.88 : e.state === "fuse" ? 1 - 0.06 * Math.abs(Math.sin(this.t * 24)) : 1 - breathe);
+    if (e.guardian) {
+      // A guardian wears a crown of light and a slow pulsing aura.
+      this.glowAt(e.pos.x, e.pos.y - e.radius * 1.2, e.radius * 2.6, "#ff4d6d", 0.18 + 0.08 * Math.sin(this.t * 3));
+      this.lights.push({ x: e.pos.x, y: e.pos.y - e.radius, r: 200, a: 0.6, color: "#ff4d6d" });
+    }
     const lift = e.kind === "unminted" ? Math.sin(this.t * 2) * 6 - 14 : 0;
     if (e.kind === "unminted") this.glowAt(e.pos.x, e.pos.y - 50, 110, "#ff3d7f", 0.35 + 0.1 * Math.sin(this.t * 4));
     if (e.kind === "unminted" && !g.reducedMotion) {
@@ -398,7 +413,7 @@ export class Renderer {
         drawSprite(w, sprite, e.pos.x + offset, e.pos.y + 6 + lift, false, 0.5 * spawning); w.restore();
       }
     }
-    const bob = (e.kind === "wisp" || e.kind === "drone" || e.kind === "shade" || e.kind === "prism" || e.kind === "wraith") && !g.reducedMotion ? Math.sin(e.anim * 3 + e.seed) * 4 - 6 : 0;
+    const bob = (e.kind === "wisp" || e.kind === "drone" || e.kind === "shade" || e.kind === "prism" || e.kind === "wraith" || e.kind === "target") && !g.reducedMotion ? Math.sin(e.anim * 3 + e.seed) * 4 - 6 : 0;
     const liftAll = lift + bob;
     if (e.kind === "turret") {
       w.save(); w.strokeStyle = "#1a2230"; w.lineWidth = 8; w.lineCap = "round";
@@ -453,7 +468,7 @@ export class Renderer {
     drawSprite(w, body, x, top, false, 1, 1, 1 + breathe * 0.004);
     w.restore();
     // Swinging chains hang from the gauntlets.
-    w.save(); w.strokeStyle = deep ? "#5d7a8c" : "#6d6780"; w.lineWidth = 3; w.lineCap = "round";
+    w.save(); w.strokeStyle = deep ? "#5d7a8c" : "#6a6a6a"; w.lineWidth = 3; w.lineCap = "round";
     for (const side of [-1, 1]) {
       const hx = x + side * 48, hy = top - 12, swing = Math.sin(t * 2.4 + side) * 0.5 + (e.state === "chains" ? t * 9 * side : 0);
       w.beginPath(); w.moveTo(hx, hy);
@@ -632,6 +647,12 @@ export class Renderer {
       w.beginPath(); w.ellipse(p.pos.x, p.pos.y - 8 + bob, 7 * spin + 1, 7, 0, 0, TAU); w.fill();
       w.fillStyle = "#3d5200"; w.fillRect(p.pos.x - 1, p.pos.y - 12 + bob, 2, 8);
       this.lights.push({ x: p.pos.x, y: p.pos.y, r: 50, a: 0.5, color: "#ccff00" });
+    } else if (p.kind === "coin") {
+      const spin = this.game.reducedMotion ? 1 : Math.abs(Math.cos(t * 6));
+      this.glowAt(p.pos.x, p.pos.y - 8 + bob, 18, "#ffd23c", 0.6);
+      w.fillStyle = "#ffd23c"; w.beginPath(); w.ellipse(p.pos.x, p.pos.y - 8 + bob, 6 * spin + 1, 6, 0, 0, TAU); w.fill();
+      w.fillStyle = "#7a5a00"; w.fillRect(p.pos.x - 1, p.pos.y - 11 + bob, 2, 6);
+      this.lights.push({ x: p.pos.x, y: p.pos.y, r: 44, a: 0.45, color: "#ffd23c" });
     } else if (p.kind === "potion") {
       w.fillStyle = "#e9e4ff"; w.fillRect(p.pos.x - 2, p.pos.y - 18 + bob, 4, 4);
       w.fillStyle = "#ff2e4d"; w.fillRect(p.pos.x - 5, p.pos.y - 14 + bob, 10, 10);
@@ -659,10 +680,10 @@ export class Renderer {
     switch (it.kind) {
       case "shrine": {
         const def = SHRINES[it.shrine!], used = it.used;
-        const color = used ? "#4a4452" : def.color;
+        const color = used ? "#474747" : def.color;
         this.shadow(x, y + 4, it.shrine === "void" ? 40 : 26);
         if (it.shrine === "greed") {
-          w.fillStyle = "#3d3357"; w.fillRect(x - 22, y - 26, 44, 28);
+          w.fillStyle = "#3a3a3a"; w.fillRect(x - 22, y - 26, 44, 28);
           w.fillStyle = "#4d4260"; w.fillRect(x - 26, y - 30, 52, 6);
           if (!used) this.drawFlame(x, y - 30, 1.4, color);
           w.fillStyle = "#ccff00"; w.fillRect(x - 12, y - 6, 4, 3); w.fillRect(x + 6, y - 4, 4, 3);
@@ -674,8 +695,8 @@ export class Renderer {
         } else {
           const pulse = used ? 0.2 : 0.6 + 0.4 * Math.sin(t * 2.2);
           w.fillStyle = "#040206"; w.fillRect(x - 26, y - 118, 52, 120);
-          w.fillStyle = "#15101d"; w.fillRect(x - 30, y - 4, 60, 8); w.fillRect(x - 30, y - 122, 60, 6);
-          w.strokeStyle = used ? "#2a2335" : "#5c1a3a"; w.lineWidth = 2; w.strokeRect(x - 26, y - 118, 52, 120);
+          w.fillStyle = "#141414"; w.fillRect(x - 30, y - 4, 60, 8); w.fillRect(x - 30, y - 122, 60, 6);
+          w.strokeStyle = used ? "#2a2a2a" : "#5c1a3a"; w.lineWidth = 2; w.strokeRect(x - 26, y - 118, 52, 120);
           const cracks = () => {
             w.save();
             w.strokeStyle = color; w.globalAlpha = pulse; w.lineWidth = 2;
@@ -710,11 +731,11 @@ export class Renderer {
         if (!it.used) {
           const d = c.doorA;
           this.glowAt(d.x + d.w / 2, d.y + d.h / 2, 70, def.color, 0.35 + 0.15 * Math.sin(t * 3));
-          w.fillStyle = "#15101d"; w.fillRect(x - 18, y - 30, 36, 24);
+          w.fillStyle = "#141414"; w.fillRect(x - 18, y - 30, 36, 24);
           w.strokeStyle = def.color; w.lineWidth = 2; w.strokeRect(x - 18, y - 30, 36, 24);
           w.fillStyle = def.color; w.fillRect(x - 3, y - 26, 6, 16);
-          w.fillStyle = "#15101d"; w.fillRect(x - 1, y - 24, 2, 4);
-          w.fillStyle = "#2a2335"; w.fillRect(x - 3, y - 6, 6, 10);
+          w.fillStyle = "#141414"; w.fillRect(x - 1, y - 24, 2, 4);
+          w.fillStyle = "#2a2a2a"; w.fillRect(x - 3, y - 6, 6, 10);
         }
         break;
       }
@@ -808,7 +829,7 @@ export class Renderer {
       }
       case "fire": {
         w.fillStyle = "#3a2618"; w.fillRect(x - 22, y + 2, 44, 7); w.fillRect(x - 16, y - 3, 32, 7);
-        for (const [rx, ry] of [[-26, 6], [22, 6], [-18, 12], [14, 12]]) { w.fillStyle = "#4a4452"; w.fillRect(x + rx, y + ry, 8, 6); }
+        for (const [rx, ry] of [[-26, 6], [22, 6], [-18, 12], [14, 12]]) { w.fillStyle = "#474747"; w.fillRect(x + rx, y + ry, 8, 6); }
         this.drawFlame(x, y - 2, 2.4, "#ff9a3c");
         this.drawFlame(x + 5, y - 2, 1.5, "#ffd23c");
         this.glowAt(x, y - 20, 150, "#ff9a3c", 0.3 * this.flicker(x));
@@ -964,7 +985,7 @@ export class Renderer {
         break;
       }
       case "blackDoor": {
-        w.fillStyle = "#15101d"; w.fillRect(x - 30, y - 80, 60, 84);
+        w.fillStyle = "#141414"; w.fillRect(x - 30, y - 80, 60, 84);
         w.fillStyle = "#000000"; w.fillRect(x - 22, y - 72, 44, 76);
         w.strokeStyle = "#ff3d7f"; w.lineWidth = 2; w.globalAlpha = dim * (0.5 + 0.4 * Math.sin(t * 2)); w.strokeRect(x - 22, y - 72, 44, 76);
         this.glowAt(x, y - 34, 70, "#ff3d7f", 0.25 * dim);
@@ -992,7 +1013,7 @@ export class Renderer {
         break;
       }
       case "corpse": {
-        const sprite = maskSprite("corpse", MASKS.husk[0], { "#": "#4a4452", x: "#1a1622", e: "#1a1622" }, 3);
+        const sprite = maskSprite("corpse", MASKS.husk[0], { "#": "#474747", x: "#1a1622", e: "#1a1622" }, 3);
         w.save(); w.translate(x, y); w.rotate(Math.PI / 2); drawSprite(w, sprite, 0, 24); w.restore();
         if (!used) { w.fillStyle = "#ccff00"; w.fillRect(x + 14, y - 4, 4, 4); }
         break;
@@ -1011,9 +1032,10 @@ export class Renderer {
   }
 
   private applyLighting(darkness: number) {
-    const l = this.lctx, cam = this.cam;
+    const l = this.lctx, cam = this.cam, faded = this.game.settings.faded;
+    l.setTransform(1 / LIGHT_SCALE, 0, 0, 1 / LIGHT_SCALE, 0, 0);
     l.globalCompositeOperation = "source-over";
-    l.fillStyle = `rgba(4,2,10,${darkness})`;
+    l.fillStyle = `rgba(3,3,4,${faded ? Math.min(0.84, darkness + 0.04) : darkness})`;
     l.fillRect(0, 0, W, H);
     l.globalCompositeOperation = "destination-out";
     for (const light of this.lights) {
@@ -1024,7 +1046,7 @@ export class Renderer {
     }
     l.globalAlpha = 1;
     const w = this.wctx;
-    w.drawImage(this.light, 0, 0);
+    this.presentLight(faded);
     // Colored light pools tint the stone.
     w.save();
     w.globalCompositeOperation = "lighter";
@@ -1038,6 +1060,26 @@ export class Renderer {
     w.restore();
   }
 
+  /**
+   * Lay the darkness mask over the world. In the Rare Friends look its alpha is quantized to a few
+   * levels through a 4×4 Bayer matrix, so light falls off in chunky, dithered pixel bands.
+   */
+  private presentLight(faded: boolean) {
+    const w = this.wctx;
+    if (faded) {
+      const image = this.lctx.getImageData(0, 0, LW, LH), d = image.data, levels = 5;
+      for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) {
+        const i = (y * LW + x) * 4 + 3;
+        const q = Math.min(levels, Math.floor((d[i] / 255) * levels + BAYER[(y & 3) * 4 + (x & 3)]));
+        d[i] = Math.round((q / levels) * 255);
+      }
+      this.lctx.putImageData(image, 0, 0);
+      w.imageSmoothingEnabled = false;
+    } else w.imageSmoothingEnabled = true;
+    w.drawImage(this.light, 0, 0, W, H);
+    w.imageSmoothingEnabled = false;
+  }
+
   // ─── World-space overlays drawn at full resolution ─────────────────────────
 
   private drawWorldOverlays() {
@@ -1046,7 +1088,7 @@ export class Renderer {
     ctx.translate(-cam.x, -cam.y);
     ctx.textAlign = "center";
     for (const e of g.enemies) {
-      if (e.boss || e.spawnT > 0 || !this.visible(e.pos.x, e.pos.y, 60) || (e.kind === "wraith" && e.state === "fade")) continue;
+      if (e.boss || e.guardian || e.kind === "target" || e.spawnT > 0 || !this.visible(e.pos.x, e.pos.y, 60) || (e.kind === "wraith" && e.state === "fade")) continue;
       const damaged = e.hp < e.maxHp;
       const top = e.pos.y - (e.kind === "corrupted" ? 88 : e.kind === "brute" || e.kind === "hive" ? 80 : e.champion ? 66 : 54);
       if (e.elite || e.champion) {
@@ -1086,7 +1128,7 @@ export class Renderer {
       const { text, pos, color } = g.prompt;
       ctx.font = `18px ${FONT_UI}`;
       const tw = ctx.measureText(text).width + 20;
-      ctx.fillStyle = "rgba(7,5,11,0.88)"; ctx.fillRect(pos.x - tw / 2, pos.y - 16, tw, 24);
+      ctx.fillStyle = "rgba(8,8,8,0.88)"; ctx.fillRect(pos.x - tw / 2, pos.y - 16, tw, 24);
       ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.strokeRect(pos.x - tw / 2 + 0.5, pos.y - 15.5, tw - 1, 23);
       ctx.fillStyle = color; ctx.fillText(text, pos.x, pos.y + 1);
     }
@@ -1097,7 +1139,7 @@ export class Renderer {
     const ctx = this.ctx;
     ctx.font = `17px ${FONT_UI}`;
     const tw = ctx.measureText(text).width + 12;
-    ctx.fillStyle = "rgba(7,5,11,0.85)"; ctx.fillRect(x - tw / 2, y - 13, tw, 18);
+    ctx.fillStyle = "rgba(8,8,8,0.85)"; ctx.fillRect(x - tw / 2, y - 13, tw, 18);
     ctx.fillStyle = color; ctx.fillText(text, x, y + 1);
   }
 
@@ -1131,13 +1173,13 @@ export class Renderer {
     ctx.textAlign = "left";
     bar(ctx, 112, 70, 222, 9, p.energy / s.energyMax, "#5a3fb0", "#3ef0ff", "#120a24");
     bar(ctx, 112, 83, 222, 5, p.xp / xpForLevel(g.level), "#6b8a00", "#ccff00", "#141a05");
-    ctx.font = `15px ${FONT_UI}`; ctx.fillStyle = "#9a93ad";
+    ctx.font = `15px ${FONT_UI}`; ctx.fillStyle = "#9a9a9a";
     ctx.fillText(`ATK ${s.atk}  ARM ${s.armor}  CRIT ${Math.round(s.critChance)}%  LUCK ${Math.round(s.luck)}%`, 112, 103);
     // Buffs and curses.
     let bx = 14;
     for (const buff of g.buffs) {
       const label = buff.run ? "RUN" : buff.floors !== undefined ? "FLR" : `${buff.rooms}`;
-      ctx.fillStyle = "rgba(7,5,11,0.85)"; ctx.fillRect(bx, 116, 30, 30);
+      ctx.fillStyle = "rgba(8,8,8,0.85)"; ctx.fillRect(bx, 116, 30, 30);
       ctx.strokeStyle = buff.color; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, 116.5, 29, 29);
       ctx.fillStyle = buff.color; ctx.font = `18px ${FONT_UI}`; ctx.textAlign = "center"; ctx.fillText(buff.icon, bx + 15, 133);
       ctx.font = `12px ${FONT_UI}`; ctx.fillText(label, bx + 15, 144); ctx.textAlign = "left";
@@ -1153,6 +1195,20 @@ export class Renderer {
     this.drawScore();
     if (!g.ui.touch) this.drawAbilityBar();
     if (g.boss && !g.boss.dead) { this.drawBossIntro(g.boss); this.drawBossBar(); }
+    if (g.miniGame) this.drawMiniGame();
+  }
+
+  /** Timer and tally while a mini-game runs. */
+  private drawMiniGame() {
+    const g = this.game, game = g.miniGame!, ctx = this.ctx;
+    const left = Math.max(0, game.until - g.time), x = 364, y = 18, w = 352;
+    panel(ctx, x - 10, y - 6, w + 20, 56);
+    ctx.textAlign = "center";
+    ctx.font = `24px ${FONT_DISPLAY}`; ctx.fillStyle = "#ffd23c";
+    ctx.fillText(game.kind === "gallery" ? "The Rune Gallery" : "The Coin Dash", x + w / 2, y + 18);
+    ctx.font = `20px ${FONT_UI}`; ctx.fillStyle = left < 4 && Math.floor(this.t * 4) % 2 ? "#ff4d6d" : "#f3eeff";
+    ctx.fillText(`${game.score} ${game.kind === "gallery" ? "runes" : "coins"} · ${left.toFixed(1)} s`, x + w / 2, y + 42);
+    ctx.textAlign = "left";
   }
 
   /** Live run score under the minimap. Recomputed a few times a second, not every frame. */
@@ -1160,7 +1216,7 @@ export class Renderer {
     const g = this.game, ctx = this.ctx;
     if (this.t - this.scoreCache.at > 0.25) this.scoreCache = { at: this.t, text: formatScore(g.scoreFor("running").total) };
     panel(ctx, 738, 238, 210, 30);
-    ctx.font = `15px ${FONT_UI}`; ctx.fillStyle = "#9a93ad"; ctx.textAlign = "left"; ctx.fillText("SCORE", 748, 258);
+    ctx.font = `15px ${FONT_UI}`; ctx.fillStyle = "#9a9a9a"; ctx.textAlign = "left"; ctx.fillText("SCORE", 748, 258);
     ctx.font = `20px ${FONT_UI}`; ctx.fillStyle = "#ffd23c"; ctx.textAlign = "right"; ctx.fillText(this.scoreCache.text, 938, 259);
     ctx.textAlign = "left";
   }
@@ -1185,14 +1241,14 @@ export class Renderer {
     ];
     const size = 50, gap = 16, x0 = 440, y0 = 562;
     // Backplate so the bar reads over any floor.
-    ctx.fillStyle = "rgba(7,5,11,0.78)"; ctx.fillRect(x0 - 12, y0 - 20, slots.length * (size + gap) - gap + 24, size + 44);
+    ctx.fillStyle = "rgba(8,8,8,0.78)"; ctx.fillRect(x0 - 12, y0 - 20, slots.length * (size + gap) - gap + 24, size + 44);
     ctx.fillStyle = kit.accent; ctx.globalAlpha = 0.7; ctx.fillRect(x0 - 12, y0 - 20, slots.length * (size + gap) - gap + 24, 2); ctx.globalAlpha = 1;
     slots.forEach((slot, i) => {
       const x = x0 + i * (size + gap), y = y0, cx = x + size / 2, cy = y + size / 2;
-      const color = slot.ok ? slot.color : "#5a5370";
+      const color = slot.ok ? slot.color : "#5a5a5a";
       // Decorative frame (this Friend's style) sits outside the icon well, never over text.
-      frameRing(ctx, kit.frame, x, y, size, slot.ok ? kit.accent : "#3d3357");
-      ctx.fillStyle = "#0c0912"; ctx.fillRect(x, y, size, size);
+      frameRing(ctx, kit.frame, x, y, size, slot.ok ? kit.accent : "#3a3a3a");
+      ctx.fillStyle = "#0c0c0c"; ctx.fillRect(x, y, size, size);
       ctx.save(); ctx.beginPath(); ctx.rect(x, y, size, size); ctx.clip();
       drawAbilityIcon(ctx, slot.id, cx, cy, color);
       if (slot.cd > 0) {
@@ -1202,7 +1258,7 @@ export class Renderer {
         if (slot.cd > 0.5) outlined(ctx, slot.cd.toFixed(slot.cd < 10 ? 1 : 0), cx, cy + 6, "#ffffff", `18px ${FONT_UI}`, "center");
       }
       ctx.restore();
-      ctx.strokeStyle = slot.ok ? color : "#3d3357"; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
+      ctx.strokeStyle = slot.ok ? color : "#3a3a3a"; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
       if (!slot.ok) { ctx.fillStyle = "#ff4d6d"; ctx.fillRect(x + 4, y + size - 4, size - 8, 2); }
       // Ability name above, key cap below: both on dark backgrounds.
       outlined(ctx, SHORT[slot.id] ?? "POTION", cx, y - 6, slot.ok ? "#ece7ff" : "#8a83a0", `14px ${FONT_UI}`, "center");
@@ -1217,7 +1273,7 @@ export class Renderer {
       }
       if (slot.pips) for (let k = 0; k < slot.pips[1]; k++) {
         ctx.fillStyle = "#07050b"; ctx.fillRect(x + 2 + k * 10, y + 2, 9, 9);
-        ctx.fillStyle = k < slot.pips[0] ? "#8fe3ff" : "#2a2335"; ctx.fillRect(x + 4 + k * 10, y + 4, 5, 5);
+        ctx.fillStyle = k < slot.pips[0] ? "#8fe3ff" : "#2a2a2a"; ctx.fillRect(x + 4 + k * 10, y + 4, 5, 5);
       }
       ctx.textAlign = "left";
     });
@@ -1232,7 +1288,7 @@ export class Renderer {
     ctx.font = `24px ${FONT_DISPLAY}`; ctx.fillStyle = b.kind === "beast" ? "#ccff00" : b.kind === "unminted" ? "#ff3d7f" : "#ff4d6d";
     ctx.fillText(titleCase(b.name), x + w / 2, y + 18);
     bar(ctx, x, y + 26, w, 14, b.hp / b.maxHp, "#8a1c2b", b.kind === "beast" ? "#ccff00" : "#ff2e4d", "#1a0508");
-    ctx.font = `14px ${FONT_UI}`; ctx.fillStyle = "#fff"; ctx.fillText(`PHASE ${b.phase}${b.invulnT > 0 ? " · IMMUNE" : b.stunT > 0 ? " · STUNNED" : ""}`, x + w / 2, y + 38);
+    ctx.font = `14px ${FONT_UI}`; ctx.fillStyle = "#fff"; ctx.fillText(b.guardian ? `GUARDIAN${b.hp < b.maxHp * 0.5 ? " · ENRAGED" : ""}` : `PHASE ${b.phase}${b.invulnT > 0 ? " · IMMUNE" : b.stunT > 0 ? " · STUNNED" : ""}`, x + w / 2, y + 38);
     ctx.textAlign = "left";
   }
 
@@ -1252,18 +1308,18 @@ export class Renderer {
       const a = floor.rooms[c.a], b = floor.rooms[c.b];
       if (!(a.known && b.known) || (c.kind === "secret" && !c.open)) continue;
       const pa = center(a), pb = center(b);
-      ctx.strokeStyle = c.kind === "gate" && !c.open && c.tier ? GATES[c.tier].color : "#4a4452";
+      ctx.strokeStyle = c.kind === "gate" && !c.open && c.tier ? GATES[c.tier].color : "#474747";
       ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
     }
     for (const r of floor.rooms) {
       if (!r.known) continue;
       const c = center(r), rw = cw - 8, rh = ch - 6;
       const current = g.currentRoom === r.id;
-      ctx.fillStyle = current ? "#ccff00" : r.visited ? "#3d3357" : "#15101d";
+      ctx.fillStyle = current ? "#ccff00" : r.visited ? "#3a3a3a" : "#141414";
       ctx.fillRect(c.x - rw / 2, c.y - rh / 2, rw, rh);
-      ctx.strokeStyle = r.visited ? "#6d6780" : "#4a4452"; ctx.lineWidth = 1; ctx.strokeRect(c.x - rw / 2 + 0.5, c.y - rh / 2 + 0.5, rw - 1, rh - 1);
+      ctx.strokeStyle = r.visited ? "#6a6a6a" : "#474747"; ctx.lineWidth = 1; ctx.strokeRect(c.x - rw / 2 + 0.5, c.y - rh / 2 + 0.5, rw - 1, rh - 1);
       const icon = roomIcon(r);
-      if (icon && (r.visited || r.revealed || r.type === "boss" || r.type === "exit")) {
+      if (icon && (r.visited || r.revealed || r.type === "boss" || r.type === "exit" || r.type === "guardian")) {
         ctx.font = `14px ${FONT_UI}`; ctx.textAlign = "center"; ctx.fillStyle = current ? "#07050b" : icon.color;
         ctx.fillText(icon.glyph, c.x, c.y + 4); ctx.textAlign = "left";
       }
@@ -1324,11 +1380,11 @@ export class Renderer {
       w.fillStyle = "#28213a"; w.fillRect(x, y, 32, 1);
     }
     w.fillStyle = "#2c2440"; w.fillRect(0, 150, W, 150);
-    w.fillStyle = "#3d3357"; w.fillRect(0, 140, W, 12);
+    w.fillStyle = "#3a3a3a"; w.fillRect(0, 140, W, 12);
     for (let x = 0; x < W; x += 48) { w.fillStyle = "#231d33"; w.fillRect(x + ((x / 48) % 2) * 24, 190, 1, 30); w.fillRect(x, 220, 48, 1); }
     // The Descent gate.
     const gx = 290, gy = 300;
-    w.fillStyle = "#3d3357"; w.fillRect(gx - 110, gy - 190, 220, 190);
+    w.fillStyle = "#3a3a3a"; w.fillRect(gx - 110, gy - 190, 220, 190);
     w.fillStyle = "#050308"; w.beginPath(); w.moveTo(gx - 80, gy); w.lineTo(gx - 80, gy - 120); w.arc(gx, gy - 120, 80, Math.PI, 0); w.lineTo(gx + 80, gy); w.fill();
     for (let i = 0; i < 5; i++) {
       w.strokeStyle = i % 2 ? "#ccff00" : "#6b4fa0"; w.globalAlpha = 0.35; w.lineWidth = 2;
@@ -1352,12 +1408,13 @@ export class Renderer {
     drawSprite(w, g.art.frame("hero", 4, "right", false, frame, "right"), 200, 500);
     // Warm light.
     const l = this.lctx;
-    l.globalCompositeOperation = "source-over"; l.fillStyle = "rgba(4,2,10,0.72)"; l.fillRect(0, 0, W, H);
+    l.setTransform(1 / LIGHT_SCALE, 0, 0, 1 / LIGHT_SCALE, 0, 0);
+    l.globalCompositeOperation = "source-over"; l.fillStyle = "rgba(3,3,4,0.72)"; l.fillRect(0, 0, W, H);
     l.globalCompositeOperation = "destination-out";
     const flick = g.reducedMotion ? 1 : 0.9 + Math.sin(this.t * 11) * 0.05;
     l.drawImage(this.glow, fx - 300 * flick, fy - 300 * flick, 600 * flick, 600 * flick);
     l.drawImage(this.glow, gx - 180, gy - 230, 360, 360);
-    w.drawImage(this.light, 0, 0);
+    this.presentLight(g.settings.faded);
     this.glowAtScreen(fx, fy - 20, 200, "#ff9a3c", 0.25);
   }
 
@@ -1403,8 +1460,8 @@ export class Renderer {
 }
 
 function panel(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
-  ctx.fillStyle = "rgba(7,5,11,0.82)"; ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = "#3d3357"; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  ctx.fillStyle = "rgba(8,8,8,0.82)"; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "#3a3a3a"; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
   ctx.fillStyle = "#ccff00"; ctx.fillRect(x, y, 6, 2); ctx.fillRect(x, y, 2, 6); ctx.fillRect(x + w - 6, y + h - 2, 6, 2); ctx.fillRect(x + w - 2, y + h - 6, 2, 6);
 }
 
@@ -1428,6 +1485,7 @@ function roomIcon(r: { type: string; shrine?: string; bonus?: string }): { glyph
     case "exit": return { glyph: "▼", color: "#ccff00" };
     case "secret": return { glyph: "✦", color: "#ccff00" };
     case "elite": return { glyph: "!", color: "#ff2e4d" };
+    case "guardian": return { glyph: "♛", color: "#ff4d6d" };
     case "bonus": return { glyph: "◈", color: r.bonus ? GATES[r.bonus as keyof typeof GATES].color : "#ff2e4d" };
     default: return null;
   }
@@ -1530,6 +1588,24 @@ function bestiaryLook(kind: string, champ: string | null, accent: string, bullet
     case "hive": return { mask: MASKS.hive, pal: { "#": champ ?? "#5a3a2a", e: accent, x: "#1a0f08" }, scale: 4 };
     case "wraith": return { mask: MASKS.wraith, pal: { "#": champ ?? "#9a93c9", e: "#ccff00", x: "#07050b" }, scale: 3 };
     case "prism": return { mask: MASKS.prism, pal: { "#": champ ?? "#1a1030", l: "#e9e4ff", e: bullet }, scale: 3 };
+    case "target": return { mask: MASKS.target, pal: { "#": "#ffd23c", e: "#ffffff" }, scale: 3 };
     default: return null;
+  }
+}
+
+/** A still portrait of any creature, for the bestiary. Uses neutral floor colors. */
+export function creaturePortrait(kind: string, art: FriendArt): Sprite {
+  switch (kind) {
+    case "warden": return maskSprite("portrait:warden", WARDEN_BODY, wardenPalette(false, false), 2);
+    case "beast": return maskSprite("portrait:beast", BEAST_BODY, beastPalette(1, false), 2);
+    case "unminted": return art.frame("void", 4, "down", false, 0, "right");
+    case "corrupted": return art.frame("corrupted", 4, "down", false, 0, "right");
+    case "cursed": return maskSprite("portrait:cursed", MASKS.husk[0], { "#": "#5a2a66", x: "#0b0710", e: "#ff2e4d" }, 3);
+    case "crawler": return maskSprite("portrait:crawler", MASKS.crawler[0], { "#": "#2c3654", x: "#ff3d7f", e: "#f0e6ff" }, 3);
+    case "goblin": return maskSprite("portrait:goblin", MASKS.goblin[0], { "#": "#7a6632", x: "#2a2010", e: "#ffd23c", s: "#ccff00" }, 3);
+    default: {
+      const look = bestiaryLook(kind, null, "#c9b8ff", "#ff8fa3", false)!;
+      return maskSprite(`portrait:${kind}`, look.mask[0], look.pal, 3);
+    }
   }
 }

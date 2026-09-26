@@ -118,7 +118,7 @@ await testGame(".", {
         const drop = g.pickups.find(pk => pk.kind === "item" && Math.hypot(pk.pos.x - p.pos.x, pk.pos.y - p.pos.y) < 400);
         let goal = drop?.pos;
         if (!goal) {
-          const rooms = g.floor.rooms.filter(r => r.main && !r.cleared && ["combat", "elite", "boss"].includes(r.type));
+          const rooms = g.floor.rooms.filter(r => r.main && !r.cleared && ["combat", "elite", "guardian", "boss"].includes(r.type));
           const exit = g.interactables.find(it => it.kind === "waystone") ?? g.interactables.find(it => it.kind === "stairs");
           if (rooms.length) goal = { x: (rooms[0].x + rooms[0].w / 2) * TILE, y: (rooms[0].y + rooms[0].h / 2) * TILE };
           else if (exit) {
