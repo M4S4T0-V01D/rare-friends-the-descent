@@ -7,7 +7,7 @@ import { RARITY_STYLE, SLOT_LABEL } from "../game/items";
 import { formatScore, OUTCOME_MULTIPLIER } from "../game/score";
 import { BOONS } from "../game/stats";
 import type { Modal, UiState } from "../game/types";
-import { Dialog, ItemCard, OddsTable, Rf, SimulatedTag, TxList } from "./components";
+import { Dialog, ItemCard, OddsTable, Rf, saveLine, SimulatedTag, TxList } from "./components";
 import { CharacterModal } from "./inventory";
 
 export function Modals({ game, ui }: { game: Game; ui: UiState }) {
@@ -313,7 +313,7 @@ function PauseModal({ game, ui }: { game: Game; ui: UiState }) {
           <li><kbd>C</kbd> character · <kbd>B</kbd> bestiary · <kbd>Tab</kbd> RF log · <kbd>Esc</kbd> pause</li>
         </ul>
         <h3>About $RAREFRIENDS here</h3>
-        <p className="dx-dim">Every RF price, reward and outcome in The Descent is <b>simulated</b>. No real tokens move and no transactions are sent. Your Friend's ownership was verified by the FriendSDK runtime. The runtime's Friend wallet panel shows the SDK's own reference preview balance, which this game does not spend. Reloading starts a new session.</p>
+        <p className="dx-dim">Every RF price, reward and outcome in The Descent is <b>simulated</b>. No real tokens move and no transactions are sent. Your Friend's ownership was verified by the FriendSDK runtime. The runtime's Friend wallet panel shows the SDK's own reference preview balance, which this game does not spend. {saveLine(game)}</p>
       </div>
     </div>
   </Dialog>;

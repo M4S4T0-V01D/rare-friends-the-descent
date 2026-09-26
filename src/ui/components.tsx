@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { wholeRf, type RfTransaction } from "../economy/TokenEconomy";
-import { titleCase } from "../game/Game";
+import { titleCase, type Game } from "../game/Game";
 import { describeAffix, POWERS, RARITY_STYLE, SLOT_LABEL, type Item } from "../game/items";
 import type { FriendArt, FriendLook } from "../render/sprites";
 
@@ -126,4 +126,11 @@ export function FriendPortrait({ art, look = "canonical", scale = 5, className }
 export function formatTime(ms: number) {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** Where progress goes: the Friend's canonical wallet on this browser, or nowhere (session only). */
+export function saveLine(game: Game) {
+  const w = game.saveInfo.wallet;
+  if (!game.saveInfo.available) return "Progress lasts this session only: this page cannot save.";
+  return `Progress saves automatically to ${game.friend.label}'s wallet${w ? ` ${w.slice(0, 6)}…${w.slice(-4)}` : ""} in this browser.`;
 }

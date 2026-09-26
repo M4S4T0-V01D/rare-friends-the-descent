@@ -17,8 +17,11 @@ async function site() {
 }
 export async function cleanup() { if (built) await rm(built.dir, { recursive: true, force: true }); built = null; }
 
-/** `video` ({ dir }) records the page at viewport size; check receives `pageCreatedAt` (ms) to line clips up with the recording. */
-export async function testSite({ width = 960, height = 800, timeout = 30000, picker, check, video, reducedMotion = "reduce" }) {
+/**
+ * `video` ({ dir }) records the page at viewport size; check receives `pageCreatedAt` (ms) to line clips up with the recording.
+ * `init` ({ script, arg }) runs in every frame before its own scripts (used by the deterministic golden-frame replay).
+ */
+export async function testSite({ width = 960, height = 800, timeout = 30000, picker, check, video, reducedMotion = "reduce", init }) {
   const outdir = await site();
   const server = createGameServer(outdir);
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
@@ -30,6 +33,7 @@ export async function testSite({ width = 960, height = 800, timeout = 30000, pic
       ...(video ? { recordVideo: { dir: video.dir, size: { width, height } } } : {}) });
     const page = await context.newPage();
     const pageCreatedAt = Date.now();
+    if (init) await page.addInitScript(init.script, init.arg);
     page.setDefaultTimeout(timeout);
     page.on("pageerror", error => errors.push(error.message));
     const fixture = await installFixture(page, origin, { artworkCall: await createArtworkFixture() });

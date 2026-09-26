@@ -129,6 +129,8 @@ const RARITY_SCALE: Readonly<Record<Rarity, { affixes: number; mult: number }>> 
 
 let nextItemId = 1;
 export const newItemId = () => nextItemId++;
+/** Restored items keep their ids; new ones must never collide with them. */
+export const reserveItemIds = (maxId: number) => { nextItemId = Math.max(nextItemId, maxId + 1); };
 
 /** Roll a rarity. `boost` shifts the curve upward (luck, depth, shrines); `min` sets a floor. */
 export function rollRarity(rng: Rng, boost = 0, min: Rarity = "common"): Rarity {

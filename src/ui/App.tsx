@@ -2,22 +2,25 @@ import { useEffect, useRef, useState } from "react";
 import type { GameComponentProps } from "@rarefriends/friendsdk/runtime";
 import { createFriendReader } from "@rarefriends/friendsdk/sprites";
 import { SimulatedTokenEconomy } from "../economy/SimulatedTokenEconomy";
-import { rf } from "../economy/TokenEconomy";
+import { rf, type RfTransaction } from "../economy/TokenEconomy";
 import { RF_STARTING_BALANCE } from "../economy/terms";
 import { Game } from "../game/Game";
+import { loadSave, type SaveInfo } from "../game/save";
 import { AudioEngine } from "../audio/audio";
 import type { Settings } from "../game/types";
 import { Renderer } from "../render/renderer";
 import { FriendArt } from "../render/sprites";
 import { Overlay } from "./Overlay";
 
-type Loaded = { art: FriendArt; family: string };
+type Loaded = { art: FriendArt; family: string; save: SaveInfo };
 
 /** Mounts the engine inside the SDK's sandboxed child and scales the 960×640 stage to the frame. */
 export function DescentApp({ friendId, client, paused }: GameComponentProps) {
   const root = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const hudLayer = useRef<HTMLCanvasElement>(null);
+  const crtLayer = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<"loading" | "error" | "ready">("loading");
   const [message, setMessage] = useState("Summoning your Friend from Robinhood Chain…");
   const [artFailed, setArtFailed] = useState(false);
@@ -36,6 +39,8 @@ export function DescentApp({ friendId, client, paused }: GameComponentProps) {
     // The initial read also lets the SDK runtime finish its own loading state.
     const snapshot = client.read();
     const sprites = createFriendReader().read(friendId);
+    // The trusted host keeps this Friend's saved progress; without it, play is session-only.
+    const save = loadSave(friendId.toString());
     void (async () => {
       try {
         const session = await snapshot;
@@ -47,7 +52,8 @@ export function DescentApp({ friendId, client, paused }: GameComponentProps) {
       await fonts;
       try {
         const art = await sprites;
-        if (!cancelled) { setLoaded({ art: new FriendArt(art), family: art.familyName }); setStatus("ready"); }
+        const saved = await save;
+        if (!cancelled) { setLoaded({ art: new FriendArt(art), family: art.familyName, save: saved }); setStatus("ready"); }
       } catch {
         if (!cancelled) {
           setArtFailed(true); setStatus("error");
@@ -60,14 +66,20 @@ export function DescentApp({ friendId, client, paused }: GameComponentProps) {
 
   // Boot the engine once assets are ready.
   useEffect(() => {
-    if (status !== "ready" || !loaded || !canvas.current || !stage.current || !root.current) return;
+    if (status !== "ready" || !loaded || !canvas.current || !hudLayer.current || !crtLayer.current || !stage.current || !root.current) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const settings: Settings = { sound: true, music: true, reducedMotion: reduced, screenShake: !reduced, damageNumbers: true, crt: !reduced, faded: true };
-    const economy = new SimulatedTokenEconomy(0n);
-    void economy.reward(rf(RF_STARTING_BALANCE), "Starting balance (simulated)", "stipend");
+    const saved = loaded.save.data;
+    const settings: Settings = { sound: true, music: true, reducedMotion: reduced, screenShake: !reduced, damageNumbers: true, crt: !reduced, faded: true, ...saved?.settings };
+    // A saved Friend resumes its simulated balance and ledger; only a Friend's very first session gets the 25 RF start.
+    const restored: RfTransaction[] = (saved?.ledger ?? []).map(tx => Object.freeze({ ...tx, amount: rf(tx.amount), balanceAfter: rf(tx.balanceAfter), at: 0, simulated: true }));
+    const economy = new SimulatedTokenEconomy(saved ? rf(saved.balance) : 0n, undefined, restored);
+    if (!saved) void economy.reward(rf(RF_STARTING_BALANCE), "Starting balance (simulated)", "stipend");
     const label = `${loaded.family} #${friendId}`;
     const instance = new Game({ id: friendId, label, family: loaded.family }, loaded.art, economy, settings);
-    const renderer = new Renderer(canvas.current, instance);
+    instance.saveInfo = { available: loaded.save.available, wallet: loaded.save.wallet };
+    if (saved) instance.importSave(saved);
+    const renderer = new Renderer({ world: canvas.current, hud: hudLayer.current, crt: crtLayer.current }, instance);
+    const layers = [canvas.current, hudLayer.current, crtLayer.current];
     instance.renderer = renderer;
     const stageEl = stage.current, rootEl = root.current;
     instance.input.attach(stageEl, (x, y) => {
@@ -82,7 +94,7 @@ export function DescentApp({ friendId, client, paused }: GameComponentProps) {
       stageEl.dataset.scale = s.toFixed(3);
       const k = s * (window.devicePixelRatio || 1) > 1.25 ? 2 : 1;
       if (k !== scale) { scale = k; renderer.setScale(k); }
-      canvas.current?.classList.toggle("dx-smooth", s < 0.98);
+      for (const layer of layers) layer.classList.toggle("dx-smooth", s < 0.98);
     };
     fit();
     const observer = new ResizeObserver(fit);
@@ -93,11 +105,13 @@ export function DescentApp({ friendId, client, paused }: GameComponentProps) {
     const focus = (event: PointerEvent) => { window.focus(); if (event.pointerType === "touch") instance.setTouch(true); };
     const keyboard = (event: KeyboardEvent) => { if (event.key.length === 1 || event.key.startsWith("Arrow")) instance.setTouch(false); };
     const blur = () => instance.onFocusLost();
-    const hidden = () => { if (document.hidden) instance.onFocusLost(); };
+    const hidden = () => { if (document.hidden) { instance.onFocusLost(); instance.autosave(); } };
+    const leaving = () => instance.autosave();
     rootEl.addEventListener("pointerdown", focus);
     window.addEventListener("keydown", keyboard);
     window.addEventListener("blur", blur);
     document.addEventListener("visibilitychange", hidden);
+    window.addEventListener("pagehide", leaving);
     if (window.matchMedia("(pointer: coarse)").matches && !window.matchMedia("(pointer: fine)").matches) instance.setTouch(true);
     // Automated browsers get a read-only state view and test helpers; players never do.
     if (navigator.webdriver) Object.assign(window as object, { __descent: instance, __renderSong: AudioEngine.renderSong });
@@ -107,6 +121,7 @@ export function DescentApp({ friendId, client, paused }: GameComponentProps) {
       window.removeEventListener("keydown", keyboard);
       window.removeEventListener("blur", blur);
       document.removeEventListener("visibilitychange", hidden);
+      window.removeEventListener("pagehide", leaving);
       instance.dispose();
       setGame(null);
     };
@@ -117,6 +132,8 @@ export function DescentApp({ friendId, client, paused }: GameComponentProps) {
   return <div className="dx-root" ref={root}>
     <div className="dx-stage" ref={stage}>
       <canvas ref={canvas} className="dx-canvas" aria-label="Rare Friends: The Descent game view" role="img" />
+      <canvas ref={hudLayer} className="dx-canvas dx-layer" aria-hidden="true" />
+      <canvas ref={crtLayer} className="dx-canvas dx-layer" aria-hidden="true" />
       {game && <Overlay game={game} />}
     </div>
     {status !== "ready" && <div className="dx-loading" role={status === "error" ? "alert" : "status"} aria-live="polite">
@@ -125,7 +142,7 @@ export function DescentApp({ friendId, client, paused }: GameComponentProps) {
       {status === "loading" && <div className="dx-loading-runes" aria-hidden="true"><span /><span /><span /></div>}
       {status === "error" && <div className="dx-loading-actions">
         <button type="button" className="dx-btn dx-btn-primary" onClick={() => setAttempt(value => value + 1)}>Retry</button>
-        {artFailed && <button type="button" className="dx-btn" onClick={() => { setLoaded({ art: new FriendArt(null), family: "Friend" }); setStatus("ready"); }}>
+        {artFailed && <button type="button" className="dx-btn" onClick={() => { void loadSave(friendId.toString()).then(save => { setLoaded({ art: new FriendArt(null), family: "Friend", save }); setStatus("ready"); }); }}>
           Continue without artwork
         </button>}
       </div>}

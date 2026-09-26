@@ -16,8 +16,9 @@ import type {
 } from "./entities";
 import { Input } from "./input";
 import { friendKit, type FriendKit } from "./kit";
+import { SAVE_VERSION, writeSave, type SaveData } from "./save";
 import {
-  generateItem, itemScore, newItemId, rarityRank, RARITIES, RARITY_STYLE, rollRarity, SLOTS, type Item, type Rarity, type Slot,
+  generateItem, itemScore, newItemId, rarityRank, reserveItemIds, RARITIES, RARITY_STYLE, rollRarity, SLOTS, type Item, type Rarity, type Slot,
 } from "./items";
 import { angleDiff, angleTo, clamp, dist, fromAngle, inCone, normalize, segmentDistance, TAU, type Vec } from "./math";
 import { hash32, randomSeed, Rng } from "./rng";
@@ -120,6 +121,12 @@ export class Game implements World {
   /** Every run's score this session, added together. */
   lifetimeScore = 0;
   bestScore = 0;
+  /** Saved progress: whether the host keeps saves, and the Friend wallet it files them under (shown to the player). */
+  saveInfo: { available: boolean; wallet: string | null } = { available: false, wallet: null };
+  private lastSaveJson = "";
+  private saveCheckAt = 0;
+  private saving = false;
+  private saveWarned = false;
   /** Wardrobe: cosmetics bought with RF at the Dye Altar, and which are worn. Session only. */
   readonly ownedCosmetics = new Set<string>(Object.values(DEFAULT_COSMETICS));
   readonly worn: Record<CosmeticSlot, string> = { ...DEFAULT_COSMETICS };
@@ -176,12 +183,14 @@ export class Game implements World {
       const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
       this.last = now;
       this.tick(dt);
+      if (now - this.saveCheckAt > 5000) { this.saveCheckAt = now; this.autosave(); }
       this.raf = requestAnimationFrame(frame);
     };
     this.raf = requestAnimationFrame(frame);
   }
 
   dispose() {
+    this.autosave();
     this.disposed = true;
     cancelAnimationFrame(this.raf);
     this.input.detach();
@@ -247,6 +256,8 @@ export class Game implements World {
     if (this.ui.toasts.some(t => t.until < now)) this.patch({ toasts: this.ui.toasts.filter(t => t.until >= now) });
   }
   private onTransaction(tx: RfTransaction) {
+    // RF moved: save within a second instead of waiting for the next five-second check.
+    this.saveCheckAt = Math.min(this.saveCheckAt, performance.now() - 4000);
     const delta = wholeRf(tx.amount) * (tx.kind === "spend" ? -1 : 1);
     this.patch({ balance: wholeRf(tx.balanceAfter), rfFlash: { id: tx.id, delta }, recent: [...this.economy.getHistory()].slice(-5).reverse() });
   }
@@ -2363,8 +2374,7 @@ export class Game implements World {
     if (!run) return;
     const carried = this.allCarried();
     const kept = outcome === "escaped" || outcome === "conquered" ? carried : carried.filter(item => this.secured.has(item.id));
-    const starter = this.equipment.weapon?.name === "Rune Claw" && this.equipment.weapon.rarity === "common" ? this.equipment.weapon.id : -1;
-    const toStash = kept.filter(item => item.id !== starter);
+    const toStash = kept.filter(item => !this.isStarter(item));
     this.stash = [...toStash, ...this.stash].sort((a, b) => itemScore(b) - itemScore(a)).slice(0, STASH_LIMIT);
     const history = this.economy.getHistory();
     const score = this.scoreFor(outcome, carried);
@@ -2389,6 +2399,59 @@ export class Game implements World {
     this.audio.setMusicMode("none");
     this.audio.cue(outcome === "fallen" || outcome === "abandoned" ? "impact" : "reveal-legendary");
     this.patch({ screen: "summary", modal: { kind: "none" }, summary, banner: null, pendingLevels: 0, toasts: [] });
+    this.autosave();
+  }
+
+  /** The free Rune Claw every run starts with never goes to the stash. */
+  private isStarter(item: Item) { return item === this.equipment.weapon && item.name === "Rune Claw" && item.rarity === "common"; }
+
+  // ─── Saved progress ─────────────────────────────────────────────────────────
+
+  /**
+   * Everything that outlives a run, as plain JSON. Mid-run it saves as if the run ended now with End Run:
+   * secured loot goes to the stash and everything else is lost, so closing the tab can never duplicate items.
+   */
+  exportSave(): SaveData {
+    const secured = this.run ? this.allCarried().filter(item => this.secured.has(item.id) && !this.isStarter(item)) : [];
+    const stash = [...secured, ...this.stash].sort((a, b) => itemScore(b) - itemScore(a)).slice(0, STASH_LIMIT);
+    return {
+      v: SAVE_VERSION, friendId: this.friend.id.toString(), savedAt: Date.now(), balance: wholeRf(this.economy.getBalance()),
+      ledger: this.economy.getHistory().slice(-200).map(tx => ({ id: tx.id, kind: tx.kind, amount: wholeRf(tx.amount), reason: tx.reason, category: tx.category, balanceAfter: wholeRf(tx.balanceAfter) })),
+      stash, heirloomId: this.run ? null : this.heirloomId, codex: [...this.codex], hall: this.hall.map(run => ({ ...run, transactions: [] })),
+      runsStarted: this.runsStarted, lifetimeScore: this.lifetimeScore, bestScore: this.bestScore, bestiary: [...this.bestiary].map(([kind, r]) => [kind, { kills: r.kills, guardians: [...r.guardians] }]),
+      owned: [...this.ownedCosmetics], worn: { ...this.worn }, settings: { ...this.settings },
+    };
+  }
+
+  /** Restore a sanitized save (balance and ledger are restored by the economy itself). */
+  importSave(save: SaveData) {
+    this.stash = [...save.stash];
+    this.heirloomId = save.heirloomId;
+    for (const [key, entry] of save.codex) this.codex.set(key, { ...entry });
+    this.hall.splice(0, this.hall.length, ...save.hall);
+    this.runsStarted = save.runsStarted;
+    this.lifetimeScore = save.lifetimeScore;
+    this.bestScore = save.bestScore;
+    for (const [kind, record] of save.bestiary) this.bestiary.set(kind, { kills: record.kills, guardians: [...record.guardians] });
+    for (const id of save.owned) this.ownedCosmetics.add(id);
+    Object.assign(this.worn, save.worn);
+    reserveItemIds(Math.max(0, ...save.stash.map(i => i.id), ...save.hall.map(r => r.rarest?.id ?? 0)));
+    this.lastSaveJson = JSON.stringify({ ...this.exportSave(), savedAt: 0 });
+    this.patch({});
+  }
+
+  /** Write the save if anything changed. Runs every few seconds, soon after RF moves, and when a run ends. */
+  autosave() {
+    if (!this.saveInfo.available || this.saving || this.disposed) return;
+    const save = this.exportSave();
+    const json = JSON.stringify({ ...save, savedAt: 0 });
+    if (json === this.lastSaveJson) return;
+    this.saving = true;
+    void writeSave(save).then(ok => {
+      this.saving = false;
+      if (ok) this.lastSaveJson = json;
+      else if (!this.saveWarned) { this.saveWarned = true; this.toast("Progress could not be saved in this browser", "#ffb02e"); }
+    });
   }
 
   /** Score for the run so far, as if it ended now with `outcome`. */

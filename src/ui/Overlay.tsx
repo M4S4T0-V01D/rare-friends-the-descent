@@ -10,7 +10,7 @@ import { relayShare, renderScoreCard, shareText, type ShareAction } from "./shar
 import { BASE_ATK, BASE_HP, ATK_PER_LEVEL, HP_PER_LEVEL } from "../game/stats";
 import type { FriendLook } from "../render/sprites";
 import type { CampTab, UiState } from "../game/types";
-import { FriendPortrait, formatTime, ItemCard, Rf, SimulatedTag, TxList } from "./components";
+import { FriendPortrait, formatTime, ItemCard, Rf, saveLine, SimulatedTag, TxList } from "./components";
 import { Modals } from "./modals";
 import { BestiaryView } from "./bestiary";
 
@@ -38,6 +38,7 @@ function TitleScreen({ game }: { game: Game }) {
     <button ref={button} type="button" className="dx-btn dx-btn-primary dx-btn-big" onClick={() => game.beginFromTitle()}>Begin ▸</button>
     <p className="dx-hint">Press Enter or tap · Sound on · M to mute</p>
     <p className="dx-sim-line"><SimulatedTag /> All RF in this game is simulated. No real tokens move.</p>
+    <p className="dx-save-line">{saveLine(game)}</p>
   </section>;
 }
 
@@ -112,26 +113,26 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
             </ul>
             <p className="dx-dim">Every Friend's kit comes from its Generations family and its own on-chain art seed. No two play quite alike.</p>
             <p className="dx-dim">Base: {BASE_HP} HP · {BASE_ATK} ATK · 3 armor · 5% crit. Grows +{HP_PER_LEVEL} HP, +{ATK_PER_LEVEL} ATK and +0.6 armor per level. The dungeon hits hard: dodge, don't trade blows.</p>
-            <p className="dx-dim">Descents this session: {game.runsStarted}</p>
+            <p className="dx-dim">Descents: {game.runsStarted}</p>
           </div>
         </div>}
         {tab === "wardrobe" && <Wardrobe game={game} ui={ui} />}
         {tab === "bestiary" && <BestiaryView game={game} />}
         {tab === "stash" && <>
-          <p className="dx-dim">Loot you escape with (or secure at a Waystone) lands here. Pick one heirloom to carry into your next descent. Session only: reloading clears it.</p>
+          <p className="dx-dim">Loot you escape with (or secure at a Waystone) lands here. Pick one heirloom to carry into your next descent. {game.saveInfo.available ? "Saved with your Friend in this browser." : "Session only: reloading clears it."}</p>
           {game.stash.length ? <div className="dx-grid">{game.stash.map(item => <ItemCard key={item.id} item={item} compact
             note={game.heirloomId === item.id ? "Heirloom for next descent" : undefined} selected={game.heirloomId === item.id}
             onClick={() => game.setHeirloom(game.heirloomId === item.id ? null : item.id)} />)}</div> : <p>Your stash is empty.</p>}
         </>}
         {tab === "codex" && <>
-          <p className="dx-dim">Every item your Friend has found this session.</p>
+          <p className="dx-dim">Every item your Friend has found.</p>
           <p>{RARITIES.map(r => <span key={r} className="dx-codex-count" style={{ color: RARITY_STYLE[r].color }}>{RARITY_STYLE[r].label} {[...game.codex.values()].filter(e => e.rarity === r).length} </span>)}</p>
           <ul className="dx-codex">{[...game.codex.values()].sort((a, b) => RARITIES.indexOf(b.rarity) - RARITIES.indexOf(a.rarity)).map(entry =>
             <li key={entry.name + entry.rarity} style={{ color: RARITY_STYLE[entry.rarity].color }}>{entry.name}{entry.count > 1 ? ` ×${entry.count}` : ""}</li>)}</ul>
         </>}
         {tab === "hall" && <>
           <p className="dx-hall-totals"><span>Lifetime score <b>{formatScore(game.lifetimeScore)}</b></span><span>Best run <b>{formatScore(game.bestScore)}</b></span></p>
-          <p className="dx-dim">Your best descents this session, by score.</p>
+          <p className="dx-dim">Your best descents, by score.</p>
           {game.hall.length ? <ol className="dx-hall">{game.hall.map((run, i) => <li key={i}>
             <b className="dx-hall-score">{formatScore(run.score.total)}</b> · Depth {run.depth} · {run.kills} kills · {OUTCOME_LABEL[run.outcome].toLowerCase()} · {run.rarest ? <span style={{ color: RARITY_STYLE[run.rarest.rarity].color }}>{run.rarest.name}</span> : "no loot"}
           </li>)}</ol> : <p>No descents yet.</p>}
@@ -156,7 +157,7 @@ function Wardrobe({ game, ui }: { game: Game; ui: UiState }) {
       <FriendPortrait art={game.art} look={game.skinLook as FriendLook} scale={5} className="dx-wardrobe-preview" />
       <div>
         <p>Spend RF at the Dye Altar on looks for your Friend. Cosmetics only recolor your Friend's canonical pixels and add light: the on-chain shape never changes, and they give no power.</p>
-        <p className="dx-dim">Bought cosmetics last for this session. You carry <Rf amount={ui.balance} /> <SimulatedTag /></p>
+        <p className="dx-dim">{game.saveInfo.available ? "Bought cosmetics are saved with your Friend." : "Bought cosmetics last for this session."} You carry <Rf amount={ui.balance} /> <SimulatedTag /></p>
       </div>
     </div>
     {(["glow", "skin", "trail"] as const).map(slot => <section key={slot}>

@@ -40,7 +40,7 @@ npm run dev
 
 ## Costs and rewards
 
-**All balances, purchases and rewards are simulated. No real tokens move.** Each Friend starts its first session with 25 RF, the only free RF. After that there are no top-ups: each descent begins with what your Friend carried out of the camp, and RF is only ever spent by your own choice.
+**All balances, purchases and rewards are simulated. No real tokens move.** Each Friend starts with 25 RF on its very first visit, the only free RF. After that there are no top-ups: each descent begins with what your Friend carried out of the camp, and RF is only ever spent by your own choice.
 
 | | 5 RF | 10 RF | 25 RF |
 |---|---|---|---|
@@ -65,10 +65,12 @@ Nine themed floors (the Upper Crypts, the Signal Vaults, the Hollow Deep) and an
 
 ## Checks and known issues
 
-Typecheck, ESLint, **24 unit tests**, FriendSDK game validation and the static build all pass. **29 of 29 end-to-end browser checks pass** against the site as shipped (The Descent's host page plus the SDK runtime) with the SDK's mock wallet and RPC. They cover the picker and Friend lock, walking the camp and descending the stairs, movement, combat, loot, level-ups, every 5/10/25 RF spend, rerolls, rewards, the ledger, guardians, the bestiary, mini-games, Dye Altar purchases, death and revive, the boss, the scored summary and sharing, restart, refresh, the error state, wrong network, touch, audio, mute and reduced motion, with zero console errors. A separate showcase check (12 of 12) confirms the no-wallet page makes zero wallet calls and no outside requests, links Play to the gated game, and plays the trailer and all nine family clips at desktop and phone widths.
+Typecheck, ESLint, **29 unit tests**, FriendSDK game validation and the static build all pass. **30 of 30 end-to-end browser checks pass** against the site as shipped (The Descent's host page plus the SDK runtime) with the SDK's mock wallet and RPC. They cover the picker and Friend lock, walking the camp and descending the stairs, movement, combat, loot, level-ups, every 5/10/25 RF spend, rerolls, rewards, the ledger, guardians, the bestiary, mini-games, Dye Altar purchases, death and revive, the boss, the scored summary and sharing, restart, progress saved per Friend and restored after a refresh (with forged saves refused), the error state, wrong network, touch, audio, mute and reduced motion, with zero console errors. A separate showcase check (12 of 12) confirms the no-wallet page makes zero wallet calls and no outside requests, links Play to the gated game, and plays the trailer and all nine family clips at desktop and phone widths.
 
 A **live Robinhood mainnet check against the published preview** (read-only stand-in wallet that refuses all signing) passed 3 of 3. A real holder's Friends were discovered, the ownership gate passed, and the Friend's on-chain artwork loaded. A generation-0-only address and a wrong-network wallet were both blocked. A playthrough with a real wallet extension is still outstanding.
 
-**Known issues:** progress (stash, scores, cosmetics, ledger) is session-only, because the SDK sandbox has no storage. The runtime's own "Friend wallet" panel shows the SDK reference ledger (20 RF), which this game does not use. The public RPC sometimes needs **Retry loading Friends**. The game is landscape-first on phones. Balance was tuned with bot playtests, not a large human playtest. No live contracts, token transfers, trading, wearable NFTs or creator fees are included.
+**Saved progress:** the simulated RF balance and ledger, stash, heirloom, codex, scores, bestiary, cosmetics and settings save automatically per Friend, filed under the Friend's canonical wallet in the browser where you play. The trusted host page stores them for the verified Friend only, and the game re-validates every save it loads.
+
+**Known issues:** saves are per browser, not synced between devices. The runtime's own "Friend wallet" panel shows the SDK reference ledger (20 RF), which this game does not use. The public RPC sometimes needs **Retry loading Friends**. The game is landscape-first on phones. Balance was tuned with bot playtests, not a large human playtest. No live contracts, token transfers, trading, wearable NFTs or creator fees are included.
 
 **Credits:** original code, game design, enemy and dungeon art, and audio. Rare Friends Generations artwork is read through the FriendSDK (permitted by its NOTICE), plus the FriendSDK sound kit and the OFL fonts Jacquard 24 and VT323. See [NOTICE.md](https://github.com/M4S4T0-V01D/rare-friends-the-descent/blob/main/NOTICE.md).

@@ -49,7 +49,7 @@ export function BestiaryView({ game }: { game: Game }) {
         <p className="dx-bestiary-lore">“{entry.lore}”</p>
         <h4>Attacks</h4>
         <ul>{entry.attacks.map(line => <li key={line}>{line}</li>)}</ul>
-        <p className="dx-dim">Found: {entry.found} · Slain this session: {record.kills}</p>
+        <p className="dx-dim">Found: {entry.found} · Slain: {record.kills}</p>
         {guardian && <p className={record.guardians.length ? "dx-pos" : "dx-dim"}>Guardian form: {guardian}{record.guardians.length ? " · slain ✓" : " · not yet slain"}</p>}
       </div>
     </article> : <p className="dx-bestiary-empty">Descend and meet something. Its page will be waiting here.</p>}

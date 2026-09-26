@@ -2,7 +2,7 @@ import { InsufficientRfError, type RfAmount, type RfCategory, type RfReceipt, ty
 
 /**
  * SIMULATED $RAREFRIENDS. No real money, no token transfers, no purchases.
- * Session-local: the FriendSDK sandbox has no storage, so reloading starts a new ledger.
+ * A saved balance and ledger can be restored (The Descent's host keeps them per Friend); otherwise it is session-local.
  */
 export class SimulatedTokenEconomy implements TokenEconomy {
   readonly mode = "simulated" as const;
@@ -12,10 +12,12 @@ export class SimulatedTokenEconomy implements TokenEconomy {
   private readonly started: number;
   private nextId = 1;
 
-  constructor(startingBalance: RfAmount, private readonly clock: () => number = () => performance.now()) {
+  constructor(startingBalance: RfAmount, private readonly clock: () => number = () => performance.now(), restoredHistory: readonly RfTransaction[] = []) {
     if (startingBalance < 0n) throw new RangeError("Starting balance cannot be negative.");
     this.balance = startingBalance;
     this.started = clock();
+    this.history.push(...restoredHistory);
+    this.nextId = restoredHistory.reduce((max, tx) => Math.max(max, tx.id), 0) + 1;
   }
 
   getBalance(): RfAmount { return this.balance; }

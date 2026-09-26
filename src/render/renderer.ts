@@ -27,8 +27,22 @@ type Ember = { x: number; y: number; vx: number; vy: number; life: number; color
 type Mote = { x: number; y: number; vx: number; vy: number; phase: number; size: number };
 type Afterimage = { x: number; y: number; sprite: Sprite; life: number; color: string };
 
+/**
+ * Three stacked canvases. The world layer receives the finished world each frame; the Rare Friends grade is a CSS
+ * filter on that layer, so the browser's compositor applies it (on the GPU where there is one) instead of the game
+ * re-filtering every pixel on the main thread. The HUD layer on top keeps its colors, and the CRT scanlines are a
+ * static layer drawn once. The composited result is the same picture as grading and blending on one canvas.
+ */
+export type RenderLayers = { world: HTMLCanvasElement; hud: HTMLCanvasElement; crt: HTMLCanvasElement };
+
 export class Renderer {
+  private readonly base: CanvasRenderingContext2D;
   private readonly ctx: CanvasRenderingContext2D;
+  private readonly canvas: HTMLCanvasElement;
+  private readonly hud: HTMLCanvasElement;
+  private readonly crtLayer: HTMLCanvasElement;
+  private grade = "";
+  private crtShown: boolean | null = null;
   private readonly world = document.createElement("canvas");
   private readonly wctx: CanvasRenderingContext2D;
   private readonly light = document.createElement("canvas");
@@ -36,7 +50,7 @@ export class Renderer {
   private readonly glow = makeGlow();
   private chunks = new Map<string, HTMLCanvasElement>();
   private scale = 1;
-  private crt: HTMLCanvasElement | null = null;
+  private crtDrawn = false;
   private embers: Ember[] = [];
   private lights: Light[] = [];
   /** Drawn after the lighting overlay, in world space, so glows stay bright in the dark. */
@@ -47,8 +61,10 @@ export class Renderer {
   private afterimages: Afterimage[] = [];
   private scoreCache = { at: -1, text: "" };
 
-  constructor(private readonly canvas: HTMLCanvasElement, private readonly game: Game) {
-    this.ctx = canvas.getContext("2d", { alpha: false })!;
+  constructor(layers: RenderLayers, private readonly game: Game) {
+    this.canvas = layers.world; this.hud = layers.hud; this.crtLayer = layers.crt;
+    this.base = layers.world.getContext("2d", { alpha: false })!;
+    this.ctx = layers.hud.getContext("2d")!;
     this.world.width = W; this.world.height = H;
     this.wctx = this.world.getContext("2d", { alpha: false })!;
     this.light.width = LW; this.light.height = LH;
@@ -58,9 +74,8 @@ export class Renderer {
 
   setScale(k: number) {
     this.scale = k;
-    this.canvas.width = W * k;
-    this.canvas.height = H * k;
-    this.crt = null;
+    for (const layer of [this.canvas, this.hud, this.crtLayer]) { layer.width = W * k; layer.height = H * k; }
+    this.crtDrawn = false;
   }
 
   floorChanged() { this.chunks.clear(); this.motes = []; this.afterimages = []; }
@@ -77,16 +92,20 @@ export class Renderer {
     else if (g.screen === "camp") this.drawCamp(dt);
     else if (g.screen === "summary") this.drawSummary(dt);
     else this.drawTitle(dt);
+    const base = this.base;
+    base.setTransform(1, 0, 0, 1, 0, 0);
+    base.imageSmoothingEnabled = false;
+    base.drawImage(this.world, 0, 0, W * k, H * k);
+    // The Rare Friends look grades the whole world toward black and white; the HUD layer keeps its accents.
+    const grade = g.settings.faded ? FADED_FILTER : "none";
+    if (grade !== this.grade) { this.grade = grade; this.canvas.style.filter = grade; }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W * k, H * k);
     ctx.imageSmoothingEnabled = false;
-    // The Rare Friends look grades the whole world toward black and white; the HUD keeps its accents.
-    if (g.settings.faded) ctx.filter = FADED_FILTER;
-    ctx.drawImage(this.world, 0, 0, W * k, H * k);
-    ctx.filter = "none";
     ctx.setTransform(k, 0, 0, k, 0, 0);
     if ((g.screen === "run" || g.screen === "camp") && g.floor) this.drawWorldOverlays();
     if (g.screen === "run" && g.floor) this.drawHud();
-    if (g.settings.crt) this.drawCrt();
+    this.drawCrt(g.settings.crt);
   }
 
   // ─── Run ───────────────────────────────────────────────────────────────────
@@ -754,16 +773,20 @@ export class Renderer {
           if (!used) {
             this.emissive.push(() => {
               cracks();
+              const spark = (i: number, a: number) => {
+                w.fillStyle = i % 2 ? "#ff3d7f" : "#ccff00";
+                w.fillRect(x + Math.cos(a) * 72 - 3, y - 60 + Math.sin(a) * 28 - 3, 6, 6);
+              };
+              // The floor ring and the far half of the orbit pass behind the monolith: clip its shape out of them.
               w.save();
+              w.beginPath(); w.rect(x - 200, y - 200, 400, 260); w.rect(x - 30, y - 122, 60, 130); w.clip("evenodd");
               w.globalAlpha = 0.55 + 0.25 * Math.sin(t * 2);
               w.strokeStyle = "#ff3d7f"; w.lineWidth = 2;
               w.beginPath(); w.ellipse(x, y + 2, 64, 22, 0, 0, TAU); w.stroke();
+              w.globalAlpha = 1;
+              for (let i = 0; i < 12; i++) { const a = t * 0.8 + (i / 12) * TAU; if (Math.sin(a) < 0) spark(i, a); }
               w.restore();
-              for (let i = 0; i < 12; i++) {
-                const a = t * 0.8 + (i / 12) * TAU;
-                w.fillStyle = i % 2 ? "#ff3d7f" : "#ccff00";
-                w.fillRect(x + Math.cos(a) * 72 - 3, y - 60 + Math.sin(a) * 28 - 3, 6, 6);
-              }
+              for (let i = 0; i < 12; i++) { const a = t * 0.8 + (i / 12) * TAU; if (Math.sin(a) >= 0) spark(i, a); }
             });
             this.glowAt(x, y - 60, 150, "#ff3d7f", 0.45 * pulse);
             this.glowAt(x, y - 10, 90, "#ccff00", 0.15);
@@ -1461,21 +1484,19 @@ export class Renderer {
     w.beginPath(); w.moveTo(x - 6 * size, y); w.quadraticCurveTo(x + Math.sin(t * 7) * 3, y - h * 1.5, x + 6 * size, y); w.fill();
   }
 
-  private drawCrt() {
-    const ctx = this.ctx, k = this.scale;
-    if (!this.crt) {
-      const c = document.createElement("canvas");
-      c.width = W * k; c.height = H * k;
-      const x = c.getContext("2d")!;
+  /** The scanlines and vignette never change, so they are drawn once onto their own layer and only shown or hidden. */
+  private drawCrt(on: boolean) {
+    if (on && !this.crtDrawn) {
+      const c = this.crtLayer, x = c.getContext("2d")!, k = this.scale;
+      x.clearRect(0, 0, c.width, c.height);
       x.fillStyle = "rgba(0,0,0,0.13)";
       for (let y = 0; y < c.height; y += 3 * Math.max(1, Math.round(k))) x.fillRect(0, y, c.width, Math.max(1, Math.round(k)));
       const grad = x.createRadialGradient(c.width / 2, c.height / 2, c.height * 0.45, c.width / 2, c.height / 2, c.width * 0.72);
       grad.addColorStop(0, "rgba(0,0,0,0)"); grad.addColorStop(1, "rgba(0,0,0,0.55)");
       x.fillStyle = grad; x.fillRect(0, 0, c.width, c.height);
-      this.crt = c;
+      this.crtDrawn = true;
     }
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(this.crt, 0, 0);
+    if (on !== this.crtShown) { this.crtShown = on; this.crtLayer.style.visibility = on ? "visible" : "hidden"; }
   }
 }
 

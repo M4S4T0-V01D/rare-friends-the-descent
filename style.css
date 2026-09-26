@@ -26,6 +26,7 @@ html, body, #root { background: var(--dx-bg); }
 .dx-stage { position: absolute; left: 0; top: 0; width: 960px; height: 640px; transform-origin: 0 0; overflow: hidden; }
 .dx-canvas { position: absolute; inset: 0; width: 960px; height: 640px; image-rendering: pixelated; display: block; }
 .dx-canvas.dx-smooth { image-rendering: auto; }
+.dx-layer { pointer-events: none; }
 .dx-overlay { position: absolute; inset: 0; pointer-events: none; }
 .dx-overlay > * { pointer-events: auto; }
 .dx-overlay .dx-toasts, .dx-overlay .dx-banner { pointer-events: none; }
@@ -69,6 +70,7 @@ kbd { font: 15px var(--dx-ui); border: 1px solid currentColor; border-radius: 2p
 .dx-title .dx-btn-big { margin-top: 6px; }
 .dx-hint { font-size: 16px; color: var(--dx-dim); margin-top: 8px; }
 .dx-sim-line { position: absolute; bottom: 64px; font-size: 17px; color: var(--dx-dim); }
+.dx-save-line { position: absolute; bottom: 38px; font-size: 16px; color: var(--dx-dim); margin: 0; padding: 1px 8px; background: rgba(7, 5, 11, 0.8); }
 .dx-sim-tag { display: inline-block; font: 14px/1 var(--dx-ui); letter-spacing: 1px; color: #0b0b0b; background: var(--dx-gold); padding: 2px 5px; vertical-align: middle; }
 
 /* Camp */

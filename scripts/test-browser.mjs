@@ -48,7 +48,16 @@ async function harness({ page }) {
     }
     throw new Error("Could not clear the room");
   };
-  return { consoleErrors, child, st, call, shot, press, waitFor, teleport, lastTx, focusGame, clearRoom };
+  const saveKeys = () => page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith("descent:save:")));
+  const waitForSaveKey = async () => {
+    for (let i = 0; i < 60; i++) { const keys = await saveKeys(); if (keys.length) { assert.equal(keys.length, 1, "one save for the one Friend"); return keys[0]; } await page.waitForTimeout(100); }
+    throw new Error("no save was written");
+  };
+  const waitForSaved = async (key, balance) => {
+    for (let i = 0; i < 60; i++) { if (await page.evaluate(k => JSON.parse(localStorage.getItem(k) ?? "null")?.balance, key) === balance) return; await page.waitForTimeout(100); }
+    throw new Error("the latest balance was not saved");
+  };
+  return { consoleErrors, child, st, call, shot, press, waitFor, teleport, lastTx, focusGame, clearRoom, waitForSaveKey, waitForSaved };
 }
 
 await testSite({
@@ -66,9 +75,9 @@ await testSite({
       await page.screenshot({ path: `${OUT}/00-picker.png` });
     });
   },
-  check: async ({ page, game }) => {
+  check: async ({ page, game, fixture }) => {
     const h = await harness({ page, game });
-    const { st, call, shot, press, waitFor, teleport, lastTx, focusGame, clearRoom } = h;
+    const { st, call, shot, press, waitFor, teleport, lastTx, focusGame, clearRoom, waitForSaveKey, waitForSaved } = h;
 
     await step("title shows the verified Friend and the simulated label", async () => {
       await game.getByRole("heading", { name: "The Descent" }).waitFor();
@@ -575,15 +584,49 @@ await testSite({
       await page.locator("iframe").waitFor({ timeout: 10000 });
     });
 
-    await step("browser refresh starts a fresh session behind the ownership gate", async () => {
+    await step("the save relay answers only the game frame, and only for the Friend in play", async () => {
+      await game.getByRole("button", { name: /Begin/ }).waitFor({ timeout: 20000 });
+      await h.child().waitForFunction(() => window.__descent);
+      await call("g.autosave()");
+      const key = await waitForSaveKey();
+      const stored = () => page.evaluate(k => JSON.parse(localStorage.getItem(k)), key);
+      const balance = (await stored()).balance;
+      // A message from the host page itself, not the game frame, is ignored.
+      await page.evaluate(() => window.postMessage({ type: "descent:save", id: "forged", data: JSON.stringify({ v: 1, friendId: "7730", balance: 999999 }) }, "*"));
+      // From the game frame, a save that names another Friend is refused.
+      const refused = await h.child().evaluate(() => new Promise(done => {
+        const listen = e => { if (e.data?.id === "other") { removeEventListener("message", listen); done(e.data.ok); } };
+        addEventListener("message", listen);
+        parent.postMessage({ type: "descent:save", id: "other", data: JSON.stringify({ v: 1, friendId: "1", balance: 999999 }) }, "*");
+      }));
+      await page.waitForTimeout(300);
+      assert.equal(refused, false, "a save for another Friend is refused");
+      assert.equal((await stored()).balance, balance, "forged saves change nothing");
+    });
+
+    await step("progress is saved to the Friend's wallet and survives a browser refresh behind the ownership gate", async () => {
+      await call("g.autosave()");
+      const key = await waitForSaveKey();
+      assert.match(key, /^descent:save:v1:4663:0x[0-9a-f]{40}$/, "filed under the Friend's canonical wallet on Robinhood");
+      const before = await st();
+      const reads = fixture.ownerReads;
+      await waitForSaved(key, before.balance);
       await page.reload();
       await page.getByRole("button", { name: /^Connect (wallet|Browser wallet)$/ }).click();
       await page.getByRole("button", { name: /^Friend #7730\b/ }).click();
       const frame = page.frameLocator("iframe");
       await frame.getByRole("button", { name: /Begin/ }).waitFor({ timeout: 20000 });
+      assert(fixture.ownerReads > reads, "the ownership gate re-verified before the save loaded");
+      await frame.getByText(/Progress saves automatically to .*'s wallet 0x/).waitFor();
       const s = await st();
-      assert.equal(s.balance, 25);
-      assert.equal(s.stash, 0, "session state resets on reload (SDK sandbox has no storage)");
+      assert.equal(s.balance, before.balance, "simulated RF restored");
+      assert.equal(s.stash, before.stash, "stash restored");
+      assert.deepEqual(s.owned.sort(), before.owned.sort(), "bought cosmetics restored");
+      assert.deepEqual(s.worn, before.worn, "worn looks restored");
+      assert.deepEqual(s.bestiary.sort(), before.bestiary.sort(), "bestiary restored");
+      assert.equal(s.lifetimeScore, before.lifetimeScore, "lifetime score restored");
+      assert.equal(s.history.filter(tx => tx.reason === "Starting balance (simulated)").length, 1, "the 25 RF start is granted once, ever");
+      await shot("26-restored-after-refresh");
     });
   },
 });

@@ -6,6 +6,7 @@ import { readOwnedFriends, type OwnedFriend } from "@rarefriends/friendsdk/owned
 import { ConnectedGameHost } from "@rarefriends/friendsdk/runtime";
 import { createFriendReader, type GenerationSprites } from "@rarefriends/friendsdk/sprites";
 import { createFriendPublicClient, createFriendWalletSession, type FriendWalletSession } from "@rarefriends/friendsdk/wallet";
+import { setSaveTarget } from "./saveRelay";
 
 /**
  * Trusted host page for The Descent.
@@ -52,6 +53,12 @@ export function DescentHost({ definition, frameUrl }: { definition: ChanceGameDe
   }, [failed, current]);
   // Any account, network or provider change ends the locked session; the SDK re-verifies on re-entry.
   const lockValid = locked && wallet.status === "connected" && wallet.account?.toLowerCase() === locked.account.toLowerCase() && wallet.revision === locked.revision;
+  // Saves go to the Friend in play (keyed by its canonical wallet), and to nobody once the lock drops.
+  const saveFriend = lockValid ? locked.friend : null;
+  useEffect(() => {
+    setSaveTarget(saveFriend && wallet.chainId ? { friendId: String(saveFriend.id), wallet: saveFriend.walletAddress, chainId: wallet.chainId } : null);
+    return () => setSaveTarget(null);
+  }, [saveFriend, wallet.chainId]);
   if (lockValid) {
     return <ConnectedGameHost definition={definition} frameUrl={frameUrl}
       selectedFriend={{ id: locked.friend.id, label: locked.friend.label, kind: "owned", walletAddress: locked.friend.walletAddress }}
