@@ -3,7 +3,7 @@
  * instruments (music box, harpsichord, chip lead, bell, organ, plucked bass, soft drums).
  * Notes are scheduled ahead on the Web Audio clock, so timing stays tight.
  */
-export type PlaceSong = "camp" | "crypt" | "tech" | "flesh" | "void" | "boss";
+export type PlaceSong = "camp" | "crypt" | "tech" | "flesh" | "frost" | "ember" | "rot" | "sunken" | "clock" | "mirror" | "void" | "boss" | "finale";
 /** Songs for special rooms. They fade in over the floor's tune while you stand in the room. */
 export type RoomSong = "shrine" | "voidShrine" | "corpse" | "lostFriend" | "mystery" | "merchant" | "gambler" | "treasure" | "secret";
 export type SongId = PlaceSong | RoomSong;
@@ -104,6 +104,102 @@ const SONGS: Record<SongId, Song> = {
       ] },
       { inst: "musicbox", level: 0.04, bars: ["c4 - e4 - g#4 - e4 - c4 - e4 - g#4 - e4 -", "d4 - f#4 - a#4 - f#4 - d4 - f#4 - a#4 - f#4 -", "e4 - g#4 - c5 - g#4 - e4 - g#4 - c5 - g#4 -", "f#4 - a#4 - d5 - a#4 - f#4 - a#4 - d5 - a#4 -"] },
       { inst: "pluck", level: 0.07, bars: ["c2 - - - - - - - - - - - - - - -", "d2 - - - - - - - - - - - - - - -", "e2 - - - - - - - - - - - - - - -", "f#2 - - - - - - - - - - - - - - -"] },
+    ],
+  },
+  // The Frozen Archive: a glassy music box over a cold bell pad. E minor: Em, C, Am, B.
+  frost: {
+    bpm: 76, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "chime", chance: 0.035 },
+    tracks: [
+      { inst: "musicbox", level: 0.1, octaveUpOnSection3: false, mutedOnSection1: true, bars: [
+        "b5 - - - g5 - e5 - - - f#5 - g5 - - -", "e5 - - - c5 - - - g4 - - - c5 - - -",
+        "a4 - c5 - e5 - - - a5 - g5 - e5 - - -", "d#5 - - - f#5 - - - b4 - - - - - - -",
+        "g5 - - - b5 - - - e6 - d6 - b5 - - -", "c6 - - - g5 - - - e5 - - - g5 - - -",
+        "a5 - - - e5 - c5 - e5 - a5 - c6 - - -", "b5 - a5 - f#5 - d#5 - b4 - - - - - - -",
+      ] },
+      { inst: "bell", level: 0.045, bars: ["e5 - - - - - - - b4 - - - - - - -", "c5 - - - - - - - g4 - - - - - - -", "a4 - - - - - - - e5 - - - - - - -", "b4 - - - - - - - d#5 - - - - - - -"] },
+      { inst: "pluck", level: 0.08, bars: ["e2 - - - - - - - b1 - - - - - - -", "c2 - - - - - - - g2 - - - - - - -", "a1 - - - - - - - e2 - - - - - - -", "b1 - - - - - - - f#2 - - - - - - -"] },
+    ],
+  },
+  // The Ember Forge: a hammering forge song, anvil drums and a nasal chip lead. D phrygian: Dm, Eb, Dm, C.
+  ember: {
+    bpm: 96, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "crackle", chance: 0.12 },
+    drums: ["k - - h s - h - k k - h s - h -"], drumLevel: 0.6,
+    tracks: [
+      { inst: "chip", level: 0.06, mutedOnSection1: true, octaveUpOnSection3: true, bars: [
+        "d5 - eb5 - d5 - - - a4 - - - c5 - bb4 -", "a4 - - - g4 - - - a4 - bb4 - a4 - - -",
+        "d5 - eb5 - f5 - - - g5 - f5 - eb5 - d5 -", "c5 - - - bb4 - - - a4 - - - - - - -",
+      ] },
+      { inst: "organ", level: 0.045, bars: ["- - d4 - - - f4 - - - a4 - - - f4 -", "- - eb4 - - - g4 - - - bb4 - - - g4 -", "- - d4 - - - f4 - - - a4 - - - d4 -", "- - c4 - - - e4 - - - g4 - - - a4 -"] },
+      { inst: "pluck", level: 0.12, bars: ["d2 - d2 - - - d3 - d2 - - - d2 - a1 -", "eb2 - eb2 - - - eb3 - eb2 - - - eb2 - bb1 -", "d2 - d2 - - - d3 - d2 - - - f2 - a2 -", "c2 - c2 - - - c3 - a1 - - - a1 - - -"] },
+    ],
+  },
+  // The Rot Garden: a woozy, overripe waltz on harp. F# minor in 3/4: F#m, D, Bm, C#.
+  rot: {
+    bpm: 84, stepsPerBeat: 4, stepsPerBar: 12, ambience: { kind: "squelch", chance: 0.03 },
+    drums: ["k - - - - - h - - - h -"], drumLevel: 0.35,
+    tracks: [
+      { inst: "harp", level: 0.09, mutedOnSection1: true, octaveUpOnSection3: true, bars: [
+        "f#5 - - - a5 - - - g5 - f#5 -", "e5 - - - c#5 - - - d5 - - -", "b4 - d5 - f#5 - - - e5 - d5 -", "c#5 - - - - - f4 - g#4 - c#5 -",
+      ] },
+      { inst: "organ", level: 0.04, bars: ["- - - - f#3 - - - a3 - - -", "- - - - d3 - - - f#3 - - -", "- - - - b2 - - - d3 - - -", "- - - - c#3 - - - g#3 - - -"] },
+      { inst: "pluck", level: 0.1, bars: ["f#2 - - - - - c#2 - - - - -", "d2 - - - - - a1 - - - - -", "b1 - - - - - f#2 - - - - -", "c#2 - - - - - g#1 - - - - -"] },
+    ],
+  },
+  // The Sunken Choir: a slow drowned hymn, choir and bells under the water. A minor: Am, G/Em, F/Dm, E.
+  sunken: {
+    bpm: 66, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "drip", chance: 0.05 },
+    tracks: [
+      { inst: "choir", level: 0.07, mutedOnSection1: true, bars: [
+        "a4 - - - - - - - c5 - - - b4 - - -", "g4 - - - - - - - e4 - - - - - - -", "f4 - - - a4 - - - c5 - - - d5 - - -", "e5 - - - - - - - d5 - c5 - b4 - - -",
+      ] },
+      { inst: "bell", level: 0.05, bars: ["e6 - - - - - - - - - - - a5 - - -", "- - - - d6 - - - - - - - - - - -", "c6 - - - - - - - f5 - - - - - - -", "- - - - b5 - - - - - - - g#5 - - -"] },
+      { inst: "harp", level: 0.045, bars: ["a3 - e4 - a4 - c5 - a3 - e4 - a4 - c5 -", "g3 - d4 - g4 - b4 - e3 - b3 - e4 - g4 -", "f3 - c4 - f4 - a4 - d3 - a3 - d4 - f4 -", "e3 - b3 - e4 - g#4 - e3 - b3 - e4 - g#4 -"] },
+      { inst: "pluck", level: 0.08, bars: ["a1 - - - - - - - - - - - - - - -", "g1 - - - - - - - e1 - - - - - - -", "f1 - - - - - - - d2 - - - - - - -", "e1 - - - - - - - - - - - - - - -"] },
+    ],
+  },
+  // The Clockwork Tomb: a ticking harpsichord ostinato and a slow bell tune over tick-tock drums. C minor: Cm, Ab, Fm, G.
+  clock: {
+    bpm: 120, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "blip", chance: 0.015 },
+    drums: ["h - - - k - - - h - - - k - - -"], drumLevel: 0.45,
+    tracks: [
+      { inst: "harpsi", level: 0.07, bars: [
+        "c5 g4 eb5 g4 c5 g4 eb5 g4 c5 g4 eb5 g4 d5 g4 eb5 g4", "ab4 eb4 c5 eb4 ab4 eb4 c5 eb4 ab4 eb4 c5 eb4 bb4 eb4 c5 eb4",
+        "f4 c4 ab4 c4 f4 c4 ab4 c4 f4 c4 ab4 c4 g4 c4 ab4 c4", "g4 d4 b4 d4 g4 d4 b4 d4 g4 d4 b4 d4 d5 d4 b4 d4",
+      ] },
+      { inst: "bell", level: 0.055, mutedOnSection1: true, bars: ["c6 - - - - - - - eb6 - - - d6 - - -", "c6 - - - - - - - g5 - - - - - - -", "ab5 - - - c6 - - - f6 - - - eb6 - - -", "d6 - - - b5 - - - g5 - - - - - - -"] },
+      { inst: "pluck", level: 0.1, bars: ["c2 - - - c2 - - - c2 - - - c2 - - -", "ab1 - - - ab1 - - - ab1 - - - ab1 - - -", "f1 - - - f1 - - - f1 - - - f1 - - -", "g1 - - - g1 - - - g1 - - - b1 - - -"] },
+    ],
+  },
+  // The Mirror Halls: music-box figures that play forwards, then back, like a reflection. B minor.
+  mirror: {
+    bpm: 70, stepsPerBeat: 4, stepsPerBar: 16, ambience: { kind: "chime", chance: 0.02 },
+    tracks: [
+      { inst: "musicbox", level: 0.1, mutedOnSection1: true, bars: [
+        "b5 - d6 - f#6 - d6 - b5 - - - - - - -", "a5 - c#6 - e6 - c#6 - a5 - - - - - - -", "g5 - b5 - d6 - b5 - g5 - - - - - - -", "f#5 - a#5 - c#6 - a#5 - f#5 - - - - - - -",
+      ] },
+      { inst: "harp", level: 0.045, bars: ["b3 - d4 - f#4 - b4 - b4 - f#4 - d4 - b3 -", "a3 - c#4 - e4 - a4 - a4 - e4 - c#4 - a3 -", "g3 - b3 - d4 - g4 - g4 - d4 - b3 - g3 -", "f#3 - a#3 - c#4 - f#4 - f#4 - c#4 - a#3 - f#3 -"] },
+      { inst: "bell", level: 0.035, bars: ["- - - - - - - - f#5 - - - - - - -", "- - - - - - - - e5 - - - - - - -", "- - - - - - - - d5 - - - - - - -", "- - - - - - - - c#5 - - - - - - -"] },
+      { inst: "pluck", level: 0.08, bars: ["b1 - - - - - - - f#2 - - - - - - -", "a1 - - - - - - - e2 - - - - - - -", "g1 - - - - - - - d2 - - - - - - -", "f#1 - - - - - - - c#2 - - - - - - -"] },
+    ],
+  },
+  // The First Friend: the last fight. Organ, choir and a racing lead. C minor: Cm, Ab, Eb, G.
+  finale: {
+    bpm: 132, stepsPerBeat: 4, stepsPerBar: 16,
+    drums: ["k - h - s - h - k - h - s - h s"], drumLevel: 0.75,
+    tracks: [
+      { inst: "organ", level: 0.06, bars: [
+        "c4 - eb4 - g4 - c5 - eb5 - c5 - g4 - eb4 -", "ab3 - c4 - eb4 - ab4 - c5 - ab4 - eb4 - c4 -",
+        "eb4 - g4 - bb4 - eb5 - g5 - eb5 - bb4 - g4 -", "g3 - b3 - d4 - g4 - b4 - g4 - d4 - b3 -",
+      ] },
+      { inst: "choir", level: 0.07, mutedOnSection1: true, bars: ["g5 - - - - - - - c6 - - - bb5 - - -", "ab5 - - - - - - - g5 - f5 - eb5 - - -", "g5 - - - bb5 - - - eb6 - - - d6 - - -", "d6 - - - b5 - - - g5 - - - - - - -"] },
+      { inst: "chip", level: 0.045, octaveUpOnSection3: true, bars: [
+        "c5 - eb5 g5 c6 - g5 eb5 c5 - eb5 g5 c6 - d6 -", "ab4 - c5 eb5 ab5 - eb5 c5 ab4 - c5 eb5 ab5 - g5 -",
+        "bb4 - eb5 g5 bb5 - g5 eb5 bb4 - eb5 g5 bb5 - c6 -", "b4 - d5 g5 b5 - g5 d5 b4 - d5 f5 g5 - - -",
+      ] },
+      { inst: "pluck", level: 0.12, bars: [
+        "c2 c2 c3 c2 c2 c2 c3 c2 c2 c2 c3 c2 eb2 c2 c3 c2", "ab1 ab1 ab2 ab1 ab1 ab1 ab2 ab1 ab1 ab1 ab2 ab1 c2 ab1 ab2 ab1",
+        "eb2 eb2 eb3 eb2 eb2 eb2 eb3 eb2 eb2 eb2 eb3 eb2 g2 eb2 eb3 eb2", "g1 g1 g2 g1 g1 g1 g2 g1 b1 b1 b2 b1 d2 d2 g2 d2",
+      ] },
     ],
   },
   // Boss: driving and menacing. D minor.

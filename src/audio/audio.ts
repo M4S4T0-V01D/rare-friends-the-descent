@@ -6,7 +6,7 @@ import { createFriendSoundKit, type FriendSoundCue, type FriendSoundKit } from "
  * No recordings: everything is synthesized, and nothing plays until a player gesture unlocks audio.
  */
 /** One mood per place: the camp, each floor style, and boss fights. */
-export type MusicMode = "none" | "camp" | "crypt" | "tech" | "flesh" | "void" | "boss";
+export type MusicMode = "none" | "camp" | "crypt" | "tech" | "flesh" | "frost" | "ember" | "rot" | "sunken" | "clock" | "mirror" | "void" | "boss" | "finale";
 export type { RoomSong } from "./music";
 export type VoiceAction = "greet" | "dodge" | "hurt" | "signature" | "happy" | "heavy";
 

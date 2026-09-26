@@ -169,10 +169,11 @@ export const CURSED_BOX = [
   { id: "cursedItem", chanceBps: 5500 }, { id: "potions", chanceBps: 2000 }, { id: "curse", chanceBps: 1500 }, { id: "epic", chanceBps: 1000 },
 ] as const;
 
-/** Every floor has its own scenery, palette and enemy roster. Depths 10+ are the endless void. */
-export type FloorStyle = "crypt" | "tech" | "flesh" | "void";
+/** Every floor has its own scenery, palette and enemy roster. Ten acts of three floors; past depth 30 lies the endless void. */
+export type FloorStyle = "crypt" | "tech" | "flesh" | "frost" | "ember" | "rot" | "sunken" | "clock" | "mirror" | "void";
 export type RosterKind = "cursed" | "crawler" | "wisp" | "gunner" | "drone" | "turret" | "mite" | "spitter" | "eyestalk" | "bloodling" | "shade"
-  | "bomber" | "lancer" | "hexer" | "sniper" | "brute" | "hive" | "wraith" | "prism";
+  | "bomber" | "lancer" | "hexer" | "sniper" | "brute" | "hive" | "wraith" | "prism"
+  | "frostmoth" | "rimeknight" | "cinderimp" | "slaggolem" | "sporeling" | "thorn" | "belldiver" | "eel" | "cog" | "pendulum" | "shardling" | "mirror" | "seraph";
 export type FloorTheme = Readonly<{
   name: string; area: string; style: FloorStyle;
   floor: string; floorAlt: string; wall: string; wallTop: string; accent: string; torch: string; bullet: string;
@@ -184,6 +185,12 @@ const CRYPT_DECOR = [["bones", 3], ["skull", 3], ["candles", 3], ["chains", 2], 
 const TECH_DECOR = [["terminal", 3], ["cables", 3], ["serverRack", 3], ["pipe", 2], ["screen", 2], ["crystal", 1], ["rubble", 1]] as const;
 const FLESH_DECOR = [["tendril", 3], ["fleshPool", 2], ["ribcage", 2], ["eyeball", 2], ["skull", 1], ["bones", 1], ["candles", 1]] as const;
 const VOID_DECOR = [["voidShard", 3], ["glitch", 3], ["runeCircle", 2], ["crystal", 2], ["terminal", 1], ["tendril", 1]] as const;
+const FROST_DECOR = [["icicle", 3], ["frozenFriend", 2], ["shelf", 3], ["crystal", 2], ["bones", 1], ["candles", 1]] as const;
+const EMBER_DECOR = [["anvil", 2], ["lavaCrack", 3], ["brazier", 3], ["chains", 2], ["rubble", 2]] as const;
+const ROT_DECOR = [["mushroom", 4], ["thornVine", 3], ["sporePod", 2], ["bones", 1], ["skull", 1]] as const;
+const SUNKEN_DECOR = [["puddle", 4], ["bell", 2], ["kelp", 3], ["candles", 1], ["coffin", 1]] as const;
+const CLOCK_DECOR = [["gear", 4], ["clockface", 2], ["pendulumClock", 2], ["pipe", 1], ["rubble", 1]] as const;
+const MIRROR_DECOR = [["mirrorPane", 4], ["glassShard", 3], ["candelabra", 2], ["crystal", 1]] as const;
 
 export const FLOOR_THEMES: readonly FloorTheme[] = [
   { name: "THE UPPER CRYPTS", area: "Ossuary", style: "crypt", floor: "#1a1622", floorAlt: "#1f1a29", wall: "#2c2440", wallTop: "#3d3357", accent: "#8f6fd8", torch: "#ff9a3c", bullet: "#c9b8ff",
@@ -204,12 +211,62 @@ export const FLOOR_THEMES: readonly FloorTheme[] = [
     decor: [["eyeball", 5], ...FLESH_DECOR], roster: [["bloodling", 3], ["spitter", 2], ["eyestalk", 2], ["gunner", 1], ["brute", 2], ["hive", 1.5], ["wraith", 1.5]] },
   { name: "THE HOLLOW DEEP", area: "The Beast's Heart", style: "flesh", floor: "#1f0f10", floorAlt: "#271315", wall: "#451a1c", wallTop: "#62262a", accent: "#ccff00", torch: "#ff5a3c", bullet: "#ff9a3c",
     decor: [["tendril", 6], ["ribcage", 4], ...FLESH_DECOR], roster: [["bloodling", 3], ["spitter", 2.5], ["eyestalk", 2], ["drone", 1], ["brute", 2.5], ["hexer", 1.5], ["bomber", 1.5]] },
+  // Act 4: the Frozen Archive, where the dungeon keeps what it has taken, under ice.
+  { name: "THE FROZEN ARCHIVE", area: "Hoarfrost Stacks", style: "frost", floor: "#141a24", floorAlt: "#18202c", wall: "#233246", wallTop: "#34496a", accent: "#8fe3ff", torch: "#bfe8ff", bullet: "#bfe8ff",
+    decor: FROST_DECOR, roster: [["frostmoth", 3], ["rimeknight", 1.5], ["wisp", 1.5], ["cursed", 1.5], ["crawler", 1]] },
+  { name: "THE FROZEN ARCHIVE", area: "The Silent Index", style: "frost", floor: "#15172a", floorAlt: "#191c32", wall: "#262a4a", wallTop: "#373d66", accent: "#b9c8ff", torch: "#c9d6ff", bullet: "#d9e2ff",
+    decor: [["shelf", 6], ...FROST_DECOR], roster: [["frostmoth", 2.5], ["rimeknight", 2], ["sniper", 1.5], ["hexer", 1.5], ["wraith", 1]] },
+  { name: "THE FROZEN ARCHIVE", area: "The Archivist's Vault", style: "frost", floor: "#121822", floorAlt: "#161e2a", wall: "#1f2e40", wallTop: "#2d4460", accent: "#e9f6ff", torch: "#8fe3ff", bullet: "#bfe8ff",
+    decor: [["frozenFriend", 5], ...FROST_DECOR], roster: [["frostmoth", 2], ["rimeknight", 2.5], ["lancer", 1.5], ["gunner", 1.5], ["wraith", 1.5]] },
+  // Act 5: the Ember Forge, where the dungeon's chains and cages are made.
+  { name: "THE EMBER FORGE", area: "Slag Channels", style: "ember", floor: "#1e1410", floorAlt: "#251812", wall: "#3a2418", wallTop: "#553321", accent: "#ff9a3c", torch: "#ffb347", bullet: "#ffb347",
+    decor: EMBER_DECOR, roster: [["cinderimp", 3], ["slaggolem", 1.5], ["bomber", 2], ["drone", 1], ["brute", 1]] },
+  { name: "THE EMBER FORGE", area: "Anvil Halls", style: "ember", floor: "#1c1510", floorAlt: "#231a13", wall: "#3a2a1a", wallTop: "#553d24", accent: "#ffd23c", torch: "#ffd23c", bullet: "#ffe38a",
+    decor: [["anvil", 5], ...EMBER_DECOR], roster: [["cinderimp", 2.5], ["slaggolem", 2], ["turret", 1.5], ["gunner", 1.5], ["bomber", 1.5]] },
+  { name: "THE EMBER FORGE", area: "The Crucible", style: "ember", floor: "#20110e", floorAlt: "#291510", wall: "#442015", wallTop: "#62301d", accent: "#ff5a3c", torch: "#ff5a3c", bullet: "#ff9a3c",
+    decor: [["lavaCrack", 6], ...EMBER_DECOR], roster: [["cinderimp", 2.5], ["slaggolem", 2.5], ["hive", 1], ["sniper", 1.5], ["brute", 1.5]] },
+  // Act 6: the Rot Garden, where something planted Friends and waited.
+  { name: "THE ROT GARDEN", area: "Spore Beds", style: "rot", floor: "#121a12", floorAlt: "#162016", wall: "#1f331f", wallTop: "#2c4a2a", accent: "#b9ff6b", torch: "#d4ff8a", bullet: "#b9ff6b",
+    decor: ROT_DECOR, roster: [["sporeling", 3], ["thorn", 1.5], ["bloodling", 2], ["spitter", 1.5], ["mite", 1]] },
+  { name: "THE ROT GARDEN", area: "Thorn Maze", style: "rot", floor: "#111812", floorAlt: "#151e16", wall: "#1c2e1e", wallTop: "#284429", accent: "#6ee07a", torch: "#b9ff6b", bullet: "#9dff8a",
+    decor: [["thornVine", 6], ...ROT_DECOR], roster: [["sporeling", 2.5], ["thorn", 2.5], ["hive", 1.5], ["spitter", 1.5], ["wraith", 1]] },
+  { name: "THE ROT GARDEN", area: "The Blooming Heart", style: "rot", floor: "#18121a", floorAlt: "#1e1620", wall: "#2e1f33", wallTop: "#432c4a", accent: "#ff8fb3", torch: "#b9ff6b", bullet: "#ffb3cc",
+    decor: [["sporePod", 5], ...ROT_DECOR], roster: [["sporeling", 2.5], ["thorn", 2], ["brute", 1.5], ["eyestalk", 1.5], ["hexer", 1]] },
+  // Act 7: the Sunken Choir, a cathedral the dungeon drowned mid-hymn.
+  { name: "THE SUNKEN CHOIR", area: "Drowned Nave", style: "sunken", floor: "#0f1820", floorAlt: "#122030", wall: "#1a2d40", wallTop: "#25415a", accent: "#7fd4ff", torch: "#7fd4ff", bullet: "#a8e6ff",
+    decor: SUNKEN_DECOR, roster: [["belldiver", 3], ["eel", 2], ["wisp", 2], ["crawler", 1], ["shade", 1]] },
+  { name: "THE SUNKEN CHOIR", area: "Bell Cisterns", style: "sunken", floor: "#101622", floorAlt: "#131b2c", wall: "#1d2842", wallTop: "#2a3a5e", accent: "#c9b8ff", torch: "#a8e6ff", bullet: "#c9b8ff",
+    decor: [["bell", 5], ...SUNKEN_DECOR], roster: [["belldiver", 2.5], ["eel", 2.5], ["wisp", 1.5], ["sniper", 1.5], ["frostmoth", 1]] },
+  { name: "THE SUNKEN CHOIR", area: "The Tidal Chancel", style: "sunken", floor: "#0d1a1e", floorAlt: "#10222a", wall: "#163340", wallTop: "#204a5c", accent: "#3ef0ff", torch: "#3ef0ff", bullet: "#8ff5ff",
+    decor: [["kelp", 5], ...SUNKEN_DECOR], roster: [["belldiver", 2.5], ["eel", 2.5], ["hexer", 1.5], ["eyestalk", 1.5], ["rimeknight", 1]] },
+  // Act 8: the Clockwork Tomb, which counts down to something.
+  { name: "THE CLOCKWORK TOMB", area: "Gear Galleries", style: "clock", floor: "#19160f", floorAlt: "#1f1b12", wall: "#33291a", wallTop: "#4a3b24", accent: "#ffd23c", torch: "#ffb347", bullet: "#ffe38a",
+    decor: CLOCK_DECOR, roster: [["cog", 2.5], ["pendulum", 2], ["drone", 2], ["mite", 1.5], ["turret", 1]] },
+  { name: "THE CLOCKWORK TOMB", area: "Pendulum Crypts", style: "clock", floor: "#18150f", floorAlt: "#1e1a13", wall: "#30281c", wallTop: "#463a28", accent: "#e8c07a", torch: "#ffd23c", bullet: "#f3d9a0",
+    decor: [["pendulumClock", 5], ...CLOCK_DECOR], roster: [["cog", 2.5], ["pendulum", 2.5], ["lancer", 1.5], ["sniper", 1.5], ["slaggolem", 1]] },
+  { name: "THE CLOCKWORK TOMB", area: "The Hour Engine", style: "clock", floor: "#16160f", floorAlt: "#1c1c13", wall: "#2e2e1a", wallTop: "#434324", accent: "#ccff00", torch: "#ffd23c", bullet: "#e6ff8a",
+    decor: [["clockface", 5], ...CLOCK_DECOR], roster: [["cog", 2.5], ["pendulum", 2.5], ["prism", 1], ["gunner", 1.5], ["cinderimp", 1.5]] },
+  // Act 9: the Mirror Halls, where every Friend meets itself.
+  { name: "THE MIRROR HALLS", area: "Silver Corridors", style: "mirror", floor: "#16151c", floorAlt: "#1b1a22", wall: "#2a2936", wallTop: "#3d3c4e", accent: "#e9e4ff", torch: "#c9c2e6", bullet: "#f3eeff",
+    decor: MIRROR_DECOR, roster: [["shardling", 3], ["mirror", 1.5], ["wraith", 1.5], ["shade", 1.5], ["eel", 1]] },
+  { name: "THE MIRROR HALLS", area: "Hall of Faces", style: "mirror", floor: "#1a141a", floorAlt: "#201820", wall: "#302430", wallTop: "#463446", accent: "#ff8fb3", torch: "#e9e4ff", bullet: "#ffc9dc",
+    decor: [["mirrorPane", 6], ...MIRROR_DECOR], roster: [["shardling", 2.5], ["mirror", 2], ["hexer", 1.5], ["sporeling", 1], ["sniper", 1.5]] },
+  { name: "THE MIRROR HALLS", area: "The Last Reflection", style: "mirror", floor: "#15121c", floorAlt: "#1a1624", wall: "#272038", wallTop: "#382e52", accent: "#bb66ff", torch: "#e9e4ff", bullet: "#dcb8ff",
+    decor: [["candelabra", 4], ...MIRROR_DECOR], roster: [["shardling", 2.5], ["mirror", 2.5], ["prism", 1.5], ["belldiver", 1], ["pendulum", 1]] },
+  // Act 10: the Null Throne, the bottom of the Descent.
+  { name: "THE NULL THRONE", area: "The Unlit Stair", style: "void", floor: "#0f0d17", floorAlt: "#141021", wall: "#261b3b", wallTop: "#35264f", accent: "#ccff00", torch: "#ff3d7f", bullet: "#ff3d7f",
+    decor: VOID_DECOR, roster: [["seraph", 2.5], ["shade", 2.5], ["prism", 2], ["frostmoth", 1], ["cinderimp", 1], ["thorn", 1]] },
+  { name: "THE NULL THRONE", area: "Choir of Nothing", style: "void", floor: "#100c14", floorAlt: "#150f1c", wall: "#2a1833", wallTop: "#3c2249", accent: "#ff3d7f", torch: "#bb66ff", bullet: "#ff8fb3",
+    decor: [["glitch", 5], ...VOID_DECOR], roster: [["seraph", 3], ["shade", 2], ["prism", 2], ["shardling", 1], ["cog", 1], ["belldiver", 1]] },
+  { name: "THE NULL THRONE", area: "The Null Throne", style: "void", floor: "#0c0b12", floorAlt: "#110f19", wall: "#201a33", wallTop: "#2e2549", accent: "#ffffff", torch: "#ccff00", bullet: "#e9e4ff",
+    decor: [["voidShard", 5], ...VOID_DECOR], roster: [["seraph", 3], ["shade", 2], ["prism", 2.5], ["rimeknight", 1], ["slaggolem", 1], ["mirror", 1]] },
 ];
 
 export const VOID_THEME: FloorTheme = {
   name: "THE ENDLESS VOID", area: "Stratum", style: "void", floor: "#0f0d17", floorAlt: "#141021", wall: "#261b3b", wallTop: "#35264f", accent: "#ccff00", torch: "#ff3d7f", bullet: "#ff3d7f",
-  decor: VOID_DECOR, roster: [["shade", 3], ["prism", 2.5], ["drone", 1.5], ["turret", 1.2], ["spitter", 1.5], ["eyestalk", 1.2], ["bloodling", 1.5], ["wisp", 1.5],
-    ["gunner", 1.5], ["mite", 1], ["bomber", 1.2], ["lancer", 1.2], ["hexer", 1.2], ["sniper", 1.2], ["brute", 1.5], ["hive", 1], ["wraith", 1.5]],
+  decor: VOID_DECOR, roster: [["shade", 3], ["prism", 2.5], ["seraph", 2], ["drone", 1], ["turret", 1], ["spitter", 1], ["eyestalk", 1], ["bloodling", 1], ["wisp", 1],
+    ["gunner", 1], ["bomber", 1], ["lancer", 1], ["hexer", 1], ["sniper", 1], ["brute", 1], ["hive", 1], ["wraith", 1],
+    ["frostmoth", 1], ["rimeknight", 1], ["cinderimp", 1], ["slaggolem", 1], ["sporeling", 1], ["thorn", 1], ["belldiver", 1], ["eel", 1], ["cog", 1], ["pendulum", 1], ["shardling", 1], ["mirror", 1]],
 };
 
 export function bandForFloor(depth: number): FloorTheme {
@@ -218,7 +275,20 @@ export function bandForFloor(depth: number): FloorTheme {
 }
 
 export const BOSS_FLOORS = (floor: number) => floor % 3 === 0;
-export const FINAL_FLOOR = 9;
+/** Beating the boss of depth 30 conquers the Descent. The endless void below is optional. */
+export const FINAL_FLOOR = 30;
+
+export type ActBoss = "warden" | "beast" | "archivist" | "forgemaster" | "bloom" | "cantor" | "hourengine" | "reflection" | "firstfriend";
+/** The boss waiting on each third floor: ten bosses, one per act. Past depth 30 the void sends old foes back up. */
+export const ACT_BOSSES: readonly ActBoss[] = ["warden", "warden", "beast", "archivist", "forgemaster", "bloom", "cantor", "hourengine", "reflection", "firstfriend"];
+export function bossForDepth(depth: number): ActBoss {
+  const act = Math.max(1, Math.floor(depth / 3));
+  return act <= ACT_BOSSES.length ? ACT_BOSSES[act - 1] : ACT_BOSSES[(act - 1) % (ACT_BOSSES.length - 1)];
+}
+/** Boss colors for banners and health bars. */
+export const BOSS_COLOR: Readonly<Record<ActBoss, string>> = {
+  warden: "#ff2e4d", beast: "#ccff00", archivist: "#8fe3ff", forgemaster: "#ff9a3c", bloom: "#b9ff6b", cantor: "#7fd4ff", hourengine: "#ffd23c", reflection: "#e9e4ff", firstfriend: "#ffffff",
+};
 
 /**
  * Wardrobe cosmetics, bought with (simulated) RF at the camp's Dye Altar. They only recolor your

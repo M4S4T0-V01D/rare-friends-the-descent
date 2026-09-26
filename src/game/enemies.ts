@@ -3,6 +3,8 @@ import type { Rect } from "./dungeon";
 import { angleTo, dist, fromAngle, inCone, normalize, TAU, type Vec } from "./math";
 import type { Rng } from "./rng";
 import { updateBestiary } from "./bestiary";
+import { updateBoss } from "./bosses";
+import { updateDepths } from "./depths";
 
 /** What enemy AI may ask of the world. The Game implements it. */
 export interface World {
@@ -27,6 +29,8 @@ export interface World {
   sound(name: string): void;
   dropGoblinCoin(enemy: Enemy): void;
   toast(text: string, color?: string): void;
+  /** The Friend's bolt style and signature, which the Reflection copies. */
+  readonly mirrorKit: { bolt: string; signature: string };
 }
 
 export type SpawnOptions = { elite?: boolean; champion?: boolean; mods?: Modifier[]; variant?: number; minion?: boolean; guardian?: boolean };
@@ -37,6 +41,9 @@ export const GUARDIAN_TITLES: Readonly<Partial<Record<EnemyKind, string>>> = {
   turret: "RELAY BASTION", spitter: "THE GREAT MAW", eyestalk: "ALL-SEEING STALK", bloodling: "THE CLOT", shade: "NULL SOVEREIGN",
   bomber: "THE DEMOLISHER", lancer: "BONE CHAMPION", hexer: "HIGH HEXER", sniper: "DEADEYE RELAY", brute: "THE BUTCHER",
   hive: "HIVE QUEEN", wraith: "THE PALE WIDOW", prism: "THE SHATTERED PRISM",
+  frostmoth: "THE WINTER MOTH", rimeknight: "KNIGHT OF THE LONG FROST", cinderimp: "THE EMBER KING", slaggolem: "THE SLAG COLOSSUS",
+  sporeling: "THE ROT MOTHER", thorn: "THE BRIAR", belldiver: "THE DEEP BELL", eel: "THE CHOIR SERPENT", cog: "THE GREAT GEAR",
+  pendulum: "THE LAST SWING", shardling: "THE BROKEN PANE", mirror: "THE SILVER WARDEN", seraph: "THE NULL HERALD",
 };
 
 export const MODIFIER_INFO: Readonly<Record<Modifier, { label: string; color: string }>> = {
@@ -79,18 +86,51 @@ const BASE: Readonly<Record<EnemyKind, { name: string; hp: number; dmg: number; 
   hive: { name: "HIVE MOTHER", hp: 115, dmg: 7, speed: 0, radius: 18, xp: 16 },
   wraith: { name: "GRAVE WRAITH", hp: 46, dmg: 15, speed: 140, radius: 13, xp: 11 },
   prism: { name: "VOID PRISM", hp: 95, dmg: 11, speed: 60, radius: 15, xp: 16 },
+  frostmoth: { name: "FROST MOTH", hp: 30, dmg: 8, speed: 150, radius: 11, xp: 9 },
+  rimeknight: { name: "RIME KNIGHT", hp: 95, dmg: 17, speed: 95, radius: 16, xp: 16 },
+  cinderimp: { name: "CINDER IMP", hp: 26, dmg: 10, speed: 185, radius: 10, xp: 8 },
+  slaggolem: { name: "SLAG GOLEM", hp: 190, dmg: 24, speed: 62, radius: 22, xp: 24 },
+  sporeling: { name: "SPORELING", hp: 34, dmg: 7, speed: 75, radius: 12, xp: 9 },
+  thorn: { name: "THORN CRAWLER", hp: 62, dmg: 14, speed: 150, radius: 13, xp: 12 },
+  belldiver: { name: "BELL DIVER", hp: 58, dmg: 11, speed: 120, radius: 14, xp: 13 },
+  eel: { name: "CHOIR EEL", hp: 42, dmg: 8, speed: 130, radius: 12, xp: 11 },
+  cog: { name: "COG SENTRY", hp: 88, dmg: 7, speed: 0, radius: 16, xp: 13 },
+  pendulum: { name: "PENDULUM KNIGHT", hp: 110, dmg: 19, speed: 100, radius: 17, xp: 17 },
+  shardling: { name: "GLASS SHARDLING", hp: 20, dmg: 9, speed: 170, radius: 10, xp: 6 },
+  mirror: { name: "MIRROR SENTINEL", hp: 95, dmg: 10, speed: 45, radius: 16, xp: 16 },
+  seraph: { name: "NULL SERAPH", hp: 120, dmg: 12, speed: 90, radius: 16, xp: 20 },
+  archivist: { name: "THE ARCHIVIST", hp: 19000, dmg: 30, speed: 90, radius: 44, xp: 900 },
+  forgemaster: { name: "THE FORGEMASTER", hp: 25000, dmg: 32, speed: 95, radius: 46, xp: 1000 },
+  bloom: { name: "THE MOTHER BLOOM", hp: 70000, dmg: 30, speed: 0, radius: 54, xp: 1100 },
+  cantor: { name: "THE DROWNED CANTOR", hp: 75000, dmg: 32, speed: 105, radius: 42, xp: 1200 },
+  hourengine: { name: "THE HOUR ENGINE", hp: 55000, dmg: 34, speed: 0, radius: 52, xp: 1300 },
+  reflection: { name: "THE REFLECTION", hp: 90000, dmg: 34, speed: 150, radius: 30, xp: 1400 },
+  firstfriend: { name: "THE FIRST FRIEND", hp: 140000, dmg: 36, speed: 110, radius: 48, xp: 2500 },
   target: { name: "RUNE", hp: 1, dmg: 0, speed: 0, radius: 15, xp: 0 },
 };
 
-export const hpScale = (depth: number) => 1 + 0.45 * (depth - 1) + 0.07 * (depth - 1) ** 2;
+const hpCurve = (depth: number) => 1 + 0.45 * (depth - 1) + 0.07 * (depth - 1) ** 2;
+const dmgCurve = (depth: number) => 1.2 * (1 + 0.36 * (depth - 1));
+/**
+ * Enemy health and damage by depth. The first three acts climb steeply; below depth 9 the curves ease to a steady
+ * climb that keeps pace with the Friend's levels and gear, so depth 30 is brutal but beatable.
+ */
+export const hpScale = (depth: number) => depth <= 9 ? hpCurve(depth) : hpCurve(9) * (1 + 0.1 * (depth - 9));
 /** Enemies hit hard from the first floor and keep pace with the Friend's gear as you descend. */
-export const dmgScale = (depth: number) => 1.2 * (1 + 0.36 * (depth - 1));
+export const dmgScale = (depth: number) => depth <= 9 ? dmgCurve(depth) : dmgCurve(9) * (1 + 0.055 * (depth - 9));
+
+/** Every boss, and the depth each one is balanced for (deeper visits in the endless void scale up). */
+export const BOSS_KINDS: Readonly<Partial<Record<EnemyKind, number>>> = {
+  warden: 3, beast: 9, unminted: 0, archivist: 12, forgemaster: 15, bloom: 18, cantor: 21, hourengine: 24, reflection: 27, firstfriend: 30,
+};
+const DEPTH_ENEMIES: ReadonlySet<EnemyKind> = new Set(["frostmoth", "rimeknight", "cinderimp", "slaggolem", "sporeling", "thorn", "belldiver", "eel", "cog", "pendulum", "shardling", "mirror", "seraph"]);
 
 let nextEnemyId = 1;
 export function createEnemy(kind: EnemyKind, pos: Vec, depth: number, roomId: number, rng: Rng, options: SpawnOptions = {}): Enemy {
   const base = BASE[kind];
-  const boss = kind === "warden" || kind === "beast" || kind === "unminted";
+  const boss = kind in BOSS_KINDS && !options.minion;
   let hp = base.hp, dmg = base.dmg * dmgScale(depth), speed = base.speed, name = base.name, radius = base.radius;
+  const home = BOSS_KINDS[kind] ?? 0;
   if (kind === "warden") {
     hp = depth >= 6 ? 4200 : 1600;
     if (depth >= 6) name = "WARDEN OF THE DEEP";
@@ -99,6 +139,11 @@ export function createEnemy(kind: EnemyKind, pos: Vec, depth: number, roomId: nu
     if (depth > 9) hp *= hpScale(depth) / hpScale(9);
   } else if (kind === "unminted") {
     hp = 1200 + 600 * depth;
+  } else if (home > 9) {
+    // The lower acts' bosses are tuned for their own depth; in the endless void they grow with it.
+    if (depth > home) hp *= hpScale(depth) / hpScale(home);
+    // The Reflection's false images break in a few hits.
+    if (options.minion) { hp *= 0.025; name = "FALSE REFLECTION"; radius = Math.round(radius * 0.8); }
   } else if (kind !== "target") hp *= hpScale(depth);
   const mods = [...(options.mods ?? [])];
   const guardian = Boolean(options.guardian);
@@ -189,7 +234,10 @@ export function updateEnemy(e: Enemy, w: World, dt: number) {
     case "warden": return warden(e, w, dt);
     case "beast": return beast(e, w, dt);
     case "unminted": return unminted(e, w, dt);
-    default: return updateBestiary(e, w, dt);
+    default:
+      if (DEPTH_ENEMIES.has(e.kind)) return updateDepths(e, w, dt);
+      if (e.kind in BOSS_KINDS) return updateBoss(e, w, dt);
+      return updateBestiary(e, w, dt);
   }
   void p;
 }
@@ -330,7 +378,7 @@ function corrupted(e: Enemy, w: World, dt: number) {
   melee(e, w, dt, 0.45, 110, 58);
 }
 
-function bossPhase(e: Enemy, w: World, thresholds: number[]) {
+export function bossPhase(e: Enemy, w: World, thresholds: number[]) {
   const ratio = e.hp / e.maxHp;
   const next = thresholds.filter(t => ratio <= t).length + 1;
   if (next > e.phase) {
@@ -444,7 +492,7 @@ function warden(e: Enemy, w: World, dt: number) {
 }
 
 /** A tiny scheduler for "telegraph, then act" transitions without extra state names. */
-function setStateAfter(e: Enemy, next: string, delay: number) {
+export function setStateAfter(e: Enemy, next: string, delay: number) {
   e.cd2 = delay;
   e.target = undefined;
   (e as Enemy & { pending?: string }).pending = next;

@@ -7,6 +7,7 @@ import {
 import type { FriendArt } from "../render/sprites";
 import {
   CURSED_BOX, DEFAULT_COSMETICS, EVENTS, GATES, type CosmeticSlot, type RosterKind, GOLDEN_DOOR_RARITIES, LEGENDARY_GAMBLE, MERCHANT, SHRINES, bandForFloor, cosmetic,
+  BOSS_COLOR, bossForDepth, FINAL_FLOOR,
 } from "./content";
 import { generateArena, generateFloor, roomAt, roomCenter, TILE, T, type Floor, type Rect, type Room } from "./dungeon";
 import { createEnemy, dmgScale, GUARDIAN_TITLES, rollModifiers, updateEnemy, type SpawnOptions, type World } from "./enemies";
@@ -42,7 +43,7 @@ export type BestiaryRecord = { kills: number; guardians: string[] };
 type RunState = {
   seed: number; started: number; kills: number; elites: number; bosses: string[]; rarest: Item | null;
   rfStart: number; rfEarned: number; rfSpent: number; firstTx: number; maxDepth: number;
-  firstLootGiven: boolean; combatRoomsCleared: number; nextChestMin: Rarity | null; beastDefeated: boolean; guardians: number;
+  firstLootGiven: boolean; combatRoomsCleared: number; nextChestMin: Rarity | null; conquered: boolean; guardians: number;
 };
 
 const PLAYER_RADIUS = 14;
@@ -50,9 +51,11 @@ const PLAYER_RADIUS = 14;
 const ENEMY_COST: Readonly<Record<RosterKind, number>> = {
   cursed: 1, crawler: 1.3, wisp: 1.2, gunner: 1.4, drone: 1.4, turret: 1.8, mite: 2, spitter: 1.6, eyestalk: 1.6, bloodling: 1.1, shade: 2,
   bomber: 1.1, lancer: 1.4, hexer: 1.8, sniper: 1.6, brute: 2.4, hive: 2.6, wraith: 1.5, prism: 2.4,
+  frostmoth: 1.3, rimeknight: 2.2, cinderimp: 1.2, slaggolem: 2.8, sporeling: 1.6, thorn: 1.8, belldiver: 1.9, eel: 1.6, cog: 2, pendulum: 2.4,
+  shardling: 1, mirror: 2.2, seraph: 2.6,
 };
 /** Kinds that never move; each wave holds at most two of them. */
-const STATIONARY: ReadonlySet<RosterKind> = new Set(["turret", "eyestalk", "hive"]);
+const STATIONARY: ReadonlySet<RosterKind> = new Set(["turret", "eyestalk", "hive", "cog"]);
 const BAG_LIMIT = 10;
 const STASH_LIMIT = 12;
 const MAX_PARTICLES = 700;
@@ -310,6 +313,8 @@ export class Game implements World {
 
   /** The mood for where the Friend stands: the camp or this floor's style. */
   private placeMusic(): MusicMode { return this.screen === "camp" || !this.floor ? "camp" : this.floor.band.style; }
+  /** Boss fights share one driving tune; the First Friend has its own. */
+  private bossMusic(): MusicMode { return this.boss?.kind === "firstfriend" ? "finale" : "boss"; }
 
   /** Special rooms have their own tune, which fades in over the floor's while you stand inside. */
   roomSongFor(room: Room | null): RoomSong | null {
@@ -424,7 +429,7 @@ export class Game implements World {
     this.run = {
       seed, started: performance.now(), kills: 0, elites: 0, bosses: [], rarest: null,
       rfStart: wholeRf(this.economy.getBalance()), rfEarned: 0, rfSpent: 0, firstTx: this.economy.getHistory().length,
-      maxDepth: 1, firstLootGiven: false, combatRoomsCleared: 0, nextChestMin: null, beastDefeated: false, guardians: 0,
+      maxDepth: 1, firstLootGiven: false, combatRoomsCleared: 0, nextChestMin: null, conquered: false, guardians: 0,
     };
     this.level = 1;
     this.boons.clear();
@@ -1073,6 +1078,15 @@ export class Game implements World {
         child.spawnT = 0.2;
       }
     }
+    if (e.kind === "slaggolem") {
+      // A dead golem breaks open into two Cinder Imps.
+      for (let i = 0; i < 2; i++) this.spawn("cinderimp", { x: e.pos.x + (i ? 18 : -18), y: e.pos.y }, e.roomId, { minion: true }).spawnT = 0.2;
+    }
+    if (e.kind === "shardling") {
+      // Glass shardlings shatter into a ring of shards: kill them at range.
+      const off = Math.random() * TAU;
+      for (let i = 0; i < 6; i++) this.fire({ pos: { ...e.pos }, vel: fromAngle(off + (i / 6) * TAU, 220), radius: 6, dmg: e.dmg * 0.6, owner: "enemy", life: 1.6, color: "#f3eeff", kind: "shard", source: e });
+    }
     if (e.kind === "bloodling" && !e.minion) {
       for (let i = 0; i < 2; i++) {
         const child = this.spawn("bloodling", { x: e.pos.x + (i ? 14 : -14), y: e.pos.y }, e.roomId, { minion: true });
@@ -1233,12 +1247,12 @@ export class Game implements World {
     this.sfx("doorLock");
     this.shake(3);
     if (room.type === "boss") {
-      const kind: EnemyKind = this.depth % 9 === 0 ? "beast" : "warden";
+      const kind = bossForDepth(this.depth);
       const boss = this.spawn(kind, { x: roomCenter(room).x, y: roomCenter(room).y - 60 }, room.id);
       this.boss = boss;
-      this.audio.setMusicMode("boss");
+      this.audio.setMusicMode(this.bossMusic());
       this.sfx("roar");
-      this.banner(boss.name, `${this.friend.label} vs ${boss.name}`, kind === "beast" ? "#ccff00" : "#ff2e4d", "boss");
+      this.banner(boss.name, `${this.friend.label} vs ${boss.name}`, BOSS_COLOR[kind], "boss");
       encounter.waves = [];
     } else {
       this.spawnWave(encounter);
@@ -1488,10 +1502,16 @@ export class Game implements World {
       void this.grant(RF_REWARDS.secretBoss, "Secret boss: The Unminted", "secret-boss");
       this.dropItem(center, generateItem(this.rng, this.depth, { rarity: this.rng.chance(0.4) ? "mythic" : "legendary" }));
       this.addInteractable({ kind: "stairs", pos: { x: center.x, y: center.y + 90 }, radius: 34, roomId: room.id, label: "RETURN THROUGH THE RIFT" });
-    } else if (e.kind === "beast") {
-      run.beastDefeated = true;
-      void this.grant(RF_REWARDS.boss, "Boss: The Rare Beast", "boss");
-      this.dropItem(center, generateItem(this.rng, this.depth, { rarity: this.rng.chance(0.3) ? "mythic" : "legendary" }));
+    } else if (e.kind === "firstfriend" && this.depth === FINAL_FLOOR) {
+      // The bottom of the Descent: the run is conquered once your Friend escapes with it.
+      run.conquered = true;
+      void this.grant(RF_REWARDS.finalBoss, "Final boss: The First Friend", "boss");
+      this.dropItem(center, generateItem(this.rng, this.depth, { rarity: "mythic" }));
+      this.dropItem({ x: center.x + 40, y: center.y }, generateItem(this.rng, this.depth, { rarity: "legendary" }));
+      this.banner("THE DESCENT CONQUERED", `${this.friend.label} reached the bottom of the stairs`, "#ffffff", "boss");
+    } else if (e.kind !== "warden") {
+      void this.grant(RF_REWARDS.boss, `Boss: ${titleCase(e.name)}`, "boss");
+      this.dropItem(center, generateItem(this.rng, this.depth, { rarity: this.rng.chance(0.2 + this.depth * 0.005) ? "mythic" : "legendary" }));
     } else {
       void this.grant(RF_REWARDS.miniBoss, `Mini-boss: ${titleCase(e.name)}`, "boss");
       this.dropItem(center, generateItem(this.rng, this.depth, { rarity: rollRarity(this.rng, 1.2 + this.depth * 0.1, "epic") }));
@@ -1567,6 +1587,15 @@ export class Game implements World {
           if (e.dead || e.spawnT > 0 || proj.hit.has(e.id)) continue;
           if (dist(proj.pos, e.pos) <= proj.radius + e.radius) {
             proj.hit.add(e.id);
+            // A Mirror Sentinel sends bolts that strike its face straight back at you.
+            if (e.kind === "mirror" && Math.abs(angleDiff(angleTo(e.pos, proj.pos), e.aim)) < 1.1) {
+              proj.owner = "enemy"; proj.kind = "shard"; proj.color = "#f3eeff"; proj.dmg = e.dmg * 0.9; proj.source = e; proj.pierce = 0; proj.hit.clear();
+              proj.vel = fromAngle(angleTo(proj.pos, p.pos), Math.hypot(proj.vel.x, proj.vel.y) * 0.8);
+              proj.life = Math.max(proj.life, 1.2);
+              this.floater(e.pos.x, e.pos.y - e.radius - 20, "REFLECTED", "#f3eeff", 13);
+              this.sfx("snipe", 0.6);
+              break;
+            }
             this.dealDamage(e, proj.dmg, { source: proj.kind === "wave" ? "wave" : "bolt", knock: 90, from: { x: proj.pos.x - proj.vel.x, y: proj.pos.y - proj.vel.y } });
             if (proj.pierce-- <= 0) { proj.life = 0; break; }
           }
@@ -2197,7 +2226,7 @@ export class Game implements World {
     this.particle({ x: p.pos.x, y: p.pos.y - 10, vx: 0, vy: 0, life: 0.6, size: 260, color: "#ccff00", kind: "ring", drag: 0, gravity: 0 });
     this.burst(p.pos.x, p.pos.y - 16, "#ccff00", 60, 320);
     this.audio.cue("reveal-rare");
-    this.audio.setMusicMode(this.boss ? "boss" : this.placeMusic());
+    this.audio.setMusicMode(this.boss ? this.bossMusic() : this.placeMusic());
     this.refreshRoomMusic();
     this.setModal({ kind: "none" });
     this.toast(kind === "full" ? "FULL REVIVAL" : "REVIVED", "#ccff00");
@@ -2208,8 +2237,10 @@ export class Game implements World {
 
   waystoneDescend() { if (this.modal.kind === "waystone") { this.setModal({ kind: "none" }); this.nextFloor(); } }
   /** How escaping right now would be scored. */
-  get escapeOutcome(): ScoreOutcome { return this.run?.beastDefeated ? "conquered" : "escaped"; }
-  waystoneEscape() { if (this.modal.kind === "waystone") this.endRun(this.run?.beastDefeated ? "conquered" : "escaped"); }
+  get escapeOutcome(): ScoreOutcome { return this.run?.conquered ? "conquered" : "escaped"; }
+  waystoneEscape() { if (this.modal.kind === "waystone") this.endRun(this.run?.conquered ? "conquered" : "escaped"); }
+  /** The Friend's bolt style and signature, for the Reflection to copy. */
+  get mirrorKit() { return { bolt: this.kit.bolt.id, signature: this.kit.signature.id }; }
 
   private secureLoot() {
     let count = 0;
@@ -2515,6 +2546,13 @@ export class Game implements World {
   debugXp(amount: number) { this.gainXp(amount); }
   debugGiveItems(count: number) {
     for (let i = 0; i < count; i++) this.acquireItem(generateItem(this.rng, this.depth + 2, { slot: SLOTS[i % SLOTS.length], rarity: RARITIES[Math.min(5, (i * 7) % 6)], cursed: i === 7 }), "debug", true);
+  }
+  /** Balance probes: a Friend of a given level, wearing one item per slot of the given rarity, at full health. */
+  debugOutfit(level: number, rarity: Rarity) {
+    this.level = level;
+    for (const slot of SLOTS) this.equipment[slot] = generateItem(this.rng, this.depth, { slot, rarity });
+    this.refreshStats();
+    this.player.hp = this.stats.maxHp; this.player.energy = this.stats.energyMax;
   }
   debugGrant(amount: number) { return this.economy.reward(rf(amount), "Test grant (automated test)", "stipend"); }
   /** Showcase recordings: cast another family's signature (and hear its voice) on this Friend. */

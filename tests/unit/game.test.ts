@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { bandForFloor, FLOOR_THEMES, CURSED_BOX, EVENTS, GATES, GOLDEN_DOOR_RARITIES, LEGENDARY_GAMBLE, MERCHANT, SHRINES } from "../../src/game/content.ts";
+import { BOSS_FLOORS, bandForFloor, bossForDepth, FINAL_FLOOR, FLOOR_THEMES, CURSED_BOX, EVENTS, GATES, GOLDEN_DOOR_RARITIES, LEGENDARY_GAMBLE, MERCHANT, SHRINES } from "../../src/game/content.ts";
 import { generateArena, generateFloor, T, TILE } from "../../src/game/dungeon.ts";
 import { generateItem, itemScore, RARITIES, rollRarity, SLOTS } from "../../src/game/items.ts";
 import { Rng } from "../../src/game/rng.ts";
@@ -8,7 +8,7 @@ import { BASE_ATK, BASE_HP, BOONS, computeStats, FAMILY_TRAITS, HP_PER_LEVEL, xp
 import { COIN_DASH, GALLERY_PAYOUTS, RF_COSTS, RF_DENOMINATIONS, SHELL_GAME } from "../../src/economy/terms.ts";
 import { BESTIARY_ORDER, LORE } from "../../src/game/lore.ts";
 import { COSMETICS, DEFAULT_COSMETICS } from "../../src/game/content.ts";
-import { dmgScale, GUARDIAN_TITLES } from "../../src/game/enemies.ts";
+import { dmgScale, GUARDIAN_TITLES, hpScale } from "../../src/game/enemies.ts";
 import { generateCamp } from "../../src/game/camp.ts";
 import { OUTCOME_MULTIPLIER, RARITY_POINTS, scoreRun } from "../../src/game/score.ts";
 
@@ -90,19 +90,43 @@ test("deeper floors are larger and more complex, with every tile still reachable
 
 test("every floor has its own scenery and enemy roster", () => {
   const areas = new Set(FLOOR_THEMES.map(t => t.area));
-  assert.equal(areas.size, 9, "nine distinct floors before the endless void");
-  assert.deepEqual([...new Set(FLOOR_THEMES.map(t => t.style))], ["crypt", "tech", "flesh"]);
-  assert.equal(bandForFloor(12).style, "void");
-  assert.equal(bandForFloor(12).area, "Stratum 3");
+  assert.equal(FLOOR_THEMES.length, 30, "thirty floors to conquer");
+  assert.equal(areas.size, 30, "every floor is its own place");
+  assert.deepEqual([...new Set(FLOOR_THEMES.map(t => t.style))], ["crypt", "tech", "flesh", "frost", "ember", "rot", "sunken", "clock", "mirror", "void"], "ten acts, in order");
+  for (let act = 0; act < 10; act++) assert.equal(new Set(FLOOR_THEMES.slice(act * 3, act * 3 + 3).map(t => t.name)).size, 1, `act ${act + 1} keeps one name`);
+  assert.equal(bandForFloor(33).style, "void");
+  assert.equal(bandForFloor(33).area, "Stratum 3", "past depth 30 lies the endless void");
   const seen = new Set<string>();
-  for (let depth = 1; depth <= 10; depth++) for (const [kind] of bandForFloor(depth).roster) seen.add(kind);
-  for (const kind of ["wisp", "gunner", "drone", "turret", "mite", "spitter", "eyestalk", "bloodling", "shade", "bomber", "lancer", "hexer", "sniper", "brute", "hive", "wraith", "prism"]) {
+  for (let depth = 1; depth <= 30; depth++) for (const [kind] of bandForFloor(depth).roster) seen.add(kind);
+  for (const kind of ["wisp", "gunner", "drone", "turret", "mite", "spitter", "eyestalk", "bloodling", "shade", "bomber", "lancer", "hexer", "sniper", "brute", "hive", "wraith", "prism",
+    "frostmoth", "rimeknight", "cinderimp", "slaggolem", "sporeling", "thorn", "belldiver", "eel", "cog", "pendulum", "shardling", "mirror", "seraph"]) {
     assert.ok(seen.has(kind), `${kind} appears on some floor`);
   }
   // New enemy types are introduced as you descend, not all at once.
   assert.ok(!bandForFloor(1).roster.some(([kind]) => kind === "drone" || kind === "spitter"));
   assert.ok(bandForFloor(4).roster.some(([kind]) => kind === "drone"));
   assert.ok(bandForFloor(7).roster.some(([kind]) => kind === "spitter"));
+  for (const [depth, kind] of [[10, "frostmoth"], [13, "cinderimp"], [16, "sporeling"], [19, "belldiver"], [22, "cog"], [25, "shardling"], [28, "seraph"]] as const) {
+    assert.ok(bandForFloor(depth).roster.some(([k]) => k === kind), `${kind} arrives at depth ${depth}`);
+    assert.ok(!bandForFloor(depth - 1).roster.some(([k]) => k === kind), `${kind} is new at depth ${depth}`);
+  }
+});
+
+test("ten bosses, one per act; the First Friend at depth 30 is the end", () => {
+  assert.equal(FINAL_FLOOR, 30);
+  const bosses = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30].map(bossForDepth);
+  assert.deepEqual(bosses, ["warden", "warden", "beast", "archivist", "forgemaster", "bloom", "cantor", "hourengine", "reflection", "firstfriend"]);
+  assert.equal(new Set(bosses).size, 9, "nine different bosses (the Warden returns at depth 6 as the Warden of the Deep)");
+  assert.notEqual(bossForDepth(33), "firstfriend", "the endless void sends earlier bosses back up");
+  for (let depth = 3; depth <= 30; depth += 3) assert.ok(BOSS_FLOORS(depth));
+  assert.ok(scoreRun({ depth: 30, kills: 0, elites: 0, bosses: ["THE FIRST FRIEND"], level: 1, items: [], rfEarned: 0, outcome: "conquered" }).total
+    > scoreRun({ depth: 30, kills: 0, elites: 0, bosses: ["DUNGEON WARDEN"], level: 1, items: [], rfEarned: 0, outcome: "conquered" }).total, "the final boss is worth the most");
+});
+
+test("enemies keep scaling below depth 9, but gently enough to beat depth 30", () => {
+  for (let d = 10; d <= 30; d++) { assert.ok(hpScale(d) > hpScale(d - 1)); assert.ok(dmgScale(d) > dmgScale(d - 1)); }
+  assert.ok(hpScale(30) < 40, `health at depth 30 stays within reach (${hpScale(30).toFixed(1)}×)`);
+  assert.ok(dmgScale(30) < 12, `damage at depth 30 stays within reach (${dmgScale(30).toFixed(1)}×)`);
 });
 
 test("arenas are single closed rooms", () => {
@@ -194,7 +218,9 @@ test("every floor without a boss ends its main path at a guardian, from depth 2"
 
 test("the bestiary has a page, lore and attacks for every creature", () => {
   const kinds = ["cursed", "crawler", "goblin", "corrupted", "warden", "beast", "unminted", "wisp", "gunner", "drone", "turret", "mite", "spitter", "eyestalk", "bloodling", "shade",
-    "bomber", "lancer", "hexer", "sniper", "brute", "hive", "wraith", "prism"];
+    "bomber", "lancer", "hexer", "sniper", "brute", "hive", "wraith", "prism",
+    "frostmoth", "rimeknight", "cinderimp", "slaggolem", "sporeling", "thorn", "belldiver", "eel", "cog", "pendulum", "shardling", "mirror", "seraph",
+    "archivist", "forgemaster", "bloom", "cantor", "hourengine", "reflection", "firstfriend"];
   assert.deepEqual([...BESTIARY_ORDER].sort(), [...kinds].sort());
   for (const kind of BESTIARY_ORDER) { assert.ok(LORE[kind].lore.length > 20); assert.ok(LORE[kind].attacks.length >= 1); }
 });

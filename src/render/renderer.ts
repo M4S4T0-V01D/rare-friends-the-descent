@@ -10,6 +10,8 @@ import { xpForLevel } from "../game/stats";
 import { CHUNK, makeGlow, paintChunk, shade, tintedGlow } from "./world";
 import { drawSprite, flashSprite, MASKS, maskSprite, type FriendArt, type FriendLook, type Sprite } from "./sprites";
 import { BEAST_BODY, BEAST_EYES, beastPalette, WARDEN_BODY, WARDEN_LEG, wardenPalette } from "./bossArt";
+import { ARCHIVIST_BODY, BLOOM_BODY, BOSS_PALETTES, CANTOR_BODY, DEPTH_MASKS, DEPTH_PALETTE, FIRSTFRIEND_BODY, FORGEMASTER_BODY, HOURENGINE_BODY } from "./depthArt";
+import { BOSS_COLOR, type ActBoss } from "../game/content";
 import { formatScore } from "../game/score";
 
 const W = 960, H = 640;
@@ -19,6 +21,25 @@ const LIGHT_SCALE = 4, LW = W / LIGHT_SCALE, LH = H / LIGHT_SCALE;
 const FADED_FILTER = "saturate(0.5) contrast(1.06) brightness(1.08)";
 /** Screen areas owned by the run HUD: player panel and buffs, the right column, the action bar. */
 const HUD_RECTS: readonly (readonly [number, number, number, number])[] = [[10, 10, 336, 140], [734, 10, 216, 322], [426, 540, 342, 98]];
+/** Bodies for the lower acts' bosses (the Reflection is drawn from your own Friend instead). */
+const ACT_BOSS_ART: Readonly<Record<string, readonly string[]>> = {
+  archivist: ARCHIVIST_BODY, forgemaster: FORGEMASTER_BODY, bloom: BLOOM_BODY, cantor: CANTOR_BODY, hourengine: HOURENGINE_BODY, firstfriend: FIRSTFRIEND_BODY,
+};
+/** Ambient motes per floor style: [vertical speed, random extra speed] and color. Snow falls, embers and bubbles rise. */
+const MOTE_DRIFT: Readonly<Record<string, [number, number]>> = {
+  tech: [-18, -20], flesh: [-6, -8], frost: [14, 14], ember: [-24, -26], rot: [-3, -5], sunken: [-10, -12], clock: [6, 6], mirror: [0, 0],
+};
+const MOTE_COLOR: Readonly<Record<string, string>> = {
+  flesh: "#ff4d6d", void: "#ffffff", frost: "#e9f6ff", ember: "#ff9a3c", rot: "#b9ff6b", sunken: "#a8e6ff", clock: "#ffd23c", mirror: "#ffffff",
+};
+/** Props that light the floor around them. */
+const DECOR_LIGHT: Readonly<Record<string, string>> = {
+  brazier: "#ff9a3c", lavaCrack: "#ff5a3c", sporePod: "#b9ff6b", candelabra: "#f3eeff", frozenFriend: "#8fe3ff", clockface: "#ffd23c", mushroom: "#ff8fb3",
+};
+/** Creatures of the lower acts that give off their own light. */
+const DEPTH_GLOW: Readonly<Partial<Record<string, string>>> = {
+  frostmoth: "#bfe8ff", cinderimp: "#ff9a3c", slaggolem: "#ff5a3c", sporeling: "#b9ff6b", eel: "#3ef0ff", cog: "#ffd23c", seraph: "#ff3d7f", shardling: "#f3eeff",
+};
 const FONT_UI = "VT323, ui-monospace, monospace";
 const FONT_DISPLAY = "'Jacquard 24', VT323, serif";
 
@@ -139,6 +160,8 @@ export class Renderer {
     for (const room of floor.rooms) for (const d of room.decor) {
       if (["candles", "crystal", "terminal", "screen", "serverRack", "voidShard", "eyeball"].includes(d.kind) && this.visible(d.x, d.y, 40)) {
         this.lights.push({ x: d.x, y: d.y, r: d.kind === "candles" ? 70 : 60, a: 0.5, color: d.kind === "candles" ? "#ffb347" : d.kind === "eyeball" ? "#c2283f" : floor.band.accent });
+      } else if (d.kind in DECOR_LIGHT && this.visible(d.x, d.y, 40)) {
+        this.lights.push({ x: d.x, y: d.y - 8, r: 75, a: 0.5, color: DECOR_LIGHT[d.kind] });
       }
     }
     for (const h of g.hazards) this.drawHazard(h);
@@ -196,10 +219,11 @@ export class Renderer {
     const w = this.wctx, cam = this.cam;
     const want = camp ? 26 : 38;
     while (this.motes.length < want) {
-      this.motes.push({ x: cam.x + Math.random() * W, y: cam.y + Math.random() * H, vx: (Math.random() - 0.5) * 12, vy: style === "tech" ? -18 - Math.random() * 20 : style === "flesh" ? -6 - Math.random() * 8 : (Math.random() - 0.5) * 8,
+      const drift = MOTE_DRIFT[style] ?? [0, 0];
+      this.motes.push({ x: cam.x + Math.random() * W, y: cam.y + Math.random() * H, vx: (Math.random() - 0.5) * 12, vy: drift[0] + Math.random() * drift[1] + (drift[1] ? 0 : (Math.random() - 0.5) * 8),
         phase: Math.random() * TAU, size: 1 + Math.random() * 2 });
     }
-    const color = camp ? "#ffb347" : style === "tech" ? this.game.floor!.band.accent : style === "flesh" ? "#ff4d6d" : style === "void" ? "#ffffff" : "#b9a8e0";
+    const color = camp ? "#ffb347" : style === "tech" ? this.game.floor!.band.accent : MOTE_COLOR[style] ?? "#b9a8e0";
     w.save();
     w.globalCompositeOperation = "lighter";
     w.fillStyle = color;
@@ -414,6 +438,10 @@ export class Renderer {
     }
     if (e.kind === "warden") { this.drawWarden(e); return; }
     if (e.kind === "beast") { this.drawBeast(e); return; }
+    if (e.kind in ACT_BOSS_ART && !e.minion) { this.drawActBoss(e); return; }
+    if (e.kind === "reflection") { this.drawReflection(e); return; }
+    if (e.kind === "thorn" && e.state === "burrow") { this.drawMound(e); return; }
+    if (e.kind === "belldiver" && e.state === "dive") { this.drawRipples(e); return; }
     const sprite = this.enemySprite(e)!;
     const telegraph = e.state === "windup" || e.state === "aim" || e.state === "chargeAim" || e.state === "blink" || e.state === "tell" || e.state === "gaze" || e.state === "vanish"
       || e.state === "fuse" || e.state === "reveal" || e.state === "lock" || e.state === "pound" || e.state === "cast" || (e.state === "burst" && e.stateT < 0);
@@ -463,6 +491,13 @@ export class Renderer {
     if (e.burnT > 0) drawSprite(w, flashSprite(sprite, "#ff9a3c"), e.pos.x, e.pos.y + 6 + liftAll, flip, 0.25, sx, sy);
     if (e.kind === "prism") { this.glowAt(e.pos.x, e.pos.y - 26 + liftAll, 44, g.floor!.band.bullet, 0.45); this.lights.push({ x: e.pos.x, y: e.pos.y - 20, r: 110, a: 0.55, color: g.floor!.band.bullet }); }
     if (e.kind === "hexer") this.lights.push({ x: e.pos.x, y: e.pos.y - 20, r: 80, a: 0.4, color: "#bb66ff" });
+    const glow = DEPTH_GLOW[e.kind];
+    if (glow) { this.glowAt(e.pos.x, e.pos.y - 20 + liftAll, 36, glow, 0.35); this.lights.push({ x: e.pos.x, y: e.pos.y - 20, r: 90, a: 0.45, color: glow }); }
+    if (e.kind === "mirror") {
+      // The mirror's face turns toward you: that is the side that reflects.
+      w.save(); w.globalAlpha = 0.5; w.strokeStyle = "#f3eeff"; w.lineWidth = 3;
+      w.beginPath(); w.arc(e.pos.x, e.pos.y - 22, 30, e.aim - 1.1, e.aim + 1.1); w.stroke(); w.restore();
+    }
     if (e.kind === "hive") this.glowAt(e.pos.x, e.pos.y - 34, 30, g.floor!.band.accent, 0.3 + 0.2 * Math.sin(this.t * 3));
     if (e.kind === "bomber" && e.state === "fuse") this.glowAt(e.pos.x, e.pos.y - 20, 50, "#ff9a3c", 0.6);
     if (e.kind === "cursed" && e.state === "windup") {
@@ -472,6 +507,117 @@ export class Renderer {
     if (e.kind === "goblin") this.lights.push({ x: e.pos.x, y: e.pos.y, r: 90, a: 0.6, color: "#ccff00" });
     if (e.kind === "crawler") this.lights.push({ x: e.pos.x, y: e.pos.y - 10, r: 50, a: 0.35, color: "#bb66ff" });
     if (e.elite) this.lights.push({ x: e.pos.x, y: e.pos.y - 20, r: 110, a: 0.5, color: "#ff2e4d" });
+  }
+
+  /** The lower acts' bosses: a mirrored pixel body that rises during its entrance, plus each boss's own animated parts. */
+  private drawActBoss(e: Enemy) {
+    const w = this.wctx, g = this.game, t = g.reducedMotion ? 0 : this.t, kind = e.kind;
+    const x = Math.round(e.pos.x), y = Math.round(e.pos.y), flash = e.hitFlash > 0, scale = 4;
+    const pal = flash ? Object.fromEntries(Object.keys(BOSS_PALETTES[kind]).map(k => [k, "#ffffff"])) : BOSS_PALETTES[kind];
+    const body = maskSprite(`boss:${kind}:${flash}`, ACT_BOSS_ART[kind], pal, scale);
+    const intro = e.spawnT > 0 ? 1 - e.spawnT / 1.4 : 1, rise = (1 - intro) * 70;
+    const breathe = g.reducedMotion ? 0 : Math.sin(t * 2 + e.seed) * 2;
+    const color = BOSS_COLOR[kind as ActBoss] ?? "#ffffff";
+    const float = kind === "cantor" || kind === "firstfriend" ? Math.sin(t * 1.6) * 6 - 10 : 0;
+    this.shadow(x, y + 4, e.radius * 1.2);
+    this.lights.push({ x, y: y - e.radius, r: 260, a: 0.75, color });
+    this.glowAt(x, y - e.radius + float, e.radius * 2.6, color, 0.16 + 0.05 * Math.sin(t * 2));
+    const h = ACT_BOSS_ART[kind].length * scale;
+    w.save();
+    if (rise > 0) { w.beginPath(); w.rect(x - 160, y - h - 40, 320, h + 46); w.clip(); }
+    const top = y + 6 + rise + float;
+    // Parts drawn behind the body.
+    if (kind === "bloom") {
+      for (let i = 0; i < 10; i++) {
+        const a = t * 0.25 + (i / 10) * TAU, px = x + Math.cos(a) * 62, py = top - h * 0.66 + Math.sin(a) * 40;
+        w.fillStyle = i % 2 ? "#ff8fb3" : "#ffb3cc"; w.beginPath(); w.ellipse(px, py, 20, 11, a, 0, TAU); w.fill();
+      }
+    }
+    if (kind === "firstfriend") {
+      w.save(); w.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 3; i++) {
+        w.strokeStyle = i % 2 ? "#ffd23c" : "#ffffff"; w.globalAlpha = 0.35 - i * 0.08; w.lineWidth = 2;
+        w.beginPath(); w.ellipse(x, top - h * 0.62, 70 + i * 16, 22 + i * 6, t * (0.4 + i * 0.2), 0, TAU); w.stroke();
+      }
+      w.restore();
+    }
+    drawSprite(w, body, x, top, false, 1, 1, 1 + breathe * 0.004);
+    w.restore();
+    // Parts drawn over the body.
+    if (kind === "archivist") {
+      // Pages torn from the Archive circle it.
+      w.fillStyle = "#e9f6ff";
+      for (let i = 0; i < 6; i++) {
+        const a = t * 0.9 + (i / 6) * TAU;
+        w.globalAlpha = 0.7; w.fillRect(Math.round(x + Math.cos(a) * 70) - 5, Math.round(top - h * 0.55 + Math.sin(a) * 26) - 4, 10, 8);
+      }
+      w.globalAlpha = 1;
+      this.glowAt(x, top - h + 22 * scale, 34, "#e9f6ff", 0.5);
+    } else if (kind === "forgemaster") {
+      // A hammer, raised while it winds up a blow.
+      const raised = e.state === "attack" || e.state === "chargeWait" ? -0.9 : 0.3 + Math.sin(t * 2) * 0.1;
+      const hx = x + 64, hy = top - h * 0.55;
+      w.save(); w.translate(hx, hy); w.rotate(raised);
+      w.fillStyle = "#553321"; w.fillRect(-3, -4, 6, 58);
+      w.fillStyle = "#6a6a6a"; w.fillRect(-18, 46, 36, 20); w.fillStyle = "#ff9a3c"; w.fillRect(-18, 46, 36, 3);
+      w.restore();
+      this.glowAt(x, top - h * 0.45, 40, "#ff5a3c", 0.5 + 0.2 * Math.sin(t * 5));
+    } else if (kind === "cantor") {
+      w.save(); w.strokeStyle = "#7fd4ff"; w.lineWidth = 2;
+      for (let i = 0; i < 3; i++) { const k = ((t * 0.6 + i / 3) % 1); w.globalAlpha = 0.5 * (1 - k); w.beginPath(); w.ellipse(x, y + 4, 40 + k * 80, 12 + k * 24, 0, 0, TAU); w.stroke(); }
+      w.restore();
+      this.glowAt(x, top - h + 22, 30, "#e9f6ff", 0.4);
+    } else if (kind === "hourengine") {
+      // Its face: twelve marks and two hands, the minute hand racing.
+      const cx = x, cy = top - h + 10.5 * scale;
+      w.save(); w.strokeStyle = "#4a3b24"; w.fillStyle = "#4a3b24";
+      for (let i = 0; i < 12; i++) { const a = (i / 12) * TAU; w.fillRect(Math.round(cx + Math.cos(a) * 44) - 2, Math.round(cy + Math.sin(a) * 44) - 2, 4, 4); }
+      w.lineCap = "round";
+      w.lineWidth = 6; w.beginPath(); w.moveTo(cx, cy); w.lineTo(cx + Math.cos(t * 0.3 - 1) * 26, cy + Math.sin(t * 0.3 - 1) * 26); w.stroke();
+      w.strokeStyle = "#8a1c2b"; w.lineWidth = 3; w.beginPath(); w.moveTo(cx, cy); w.lineTo(cx + Math.cos(t * 2.4) * 40, cy + Math.sin(t * 2.4) * 40); w.stroke();
+      w.fillStyle = "#ffd23c"; w.beginPath(); w.arc(cx, cy, 6, 0, TAU); w.fill();
+      // And a pendulum swinging beneath.
+      const swing = Math.sin(t * 2) * 0.5;
+      w.strokeStyle = "#8a6a4a"; w.lineWidth = 3; w.beginPath(); w.moveTo(cx, cy + 52); w.lineTo(cx + Math.sin(swing) * 60, cy + 52 + Math.cos(swing) * 60); w.stroke();
+      w.fillStyle = "#ffd23c"; w.beginPath(); w.arc(cx + Math.sin(swing) * 60, cy + 52 + Math.cos(swing) * 60, 10, 0, TAU); w.fill();
+      w.restore();
+    } else if (kind === "firstfriend") {
+      this.glowAt(x, top - h + 3 * scale, 50, "#ffd23c", 0.5 + 0.2 * Math.sin(t * 3));
+      this.glowAt(x + 14, top - h * 0.38, 30, "#ffd23c", 0.6);
+    } else if (kind === "bloom") {
+      this.glowAt(x, top - h * 0.66, 50, "#b9ff6b", 0.35 + 0.15 * Math.sin(t * 2));
+    }
+  }
+
+  /** The Reflection wears your Friend's own silhouette, pale as glass. Its false images look the same, smaller. */
+  private drawReflection(e: Enemy) {
+    const w = this.wctx, g = this.game, t = g.reducedMotion ? 0 : this.t;
+    const size = e.minion ? 4 : 6, frame = g.reducedMotion ? 0 : Math.floor(e.anim / 0.12) % 8;
+    const facing = Math.abs(Math.cos(angleTo(e.pos, g.player.pos))) > 0.6 ? (g.player.pos.x < e.pos.x ? "left" : "right") : g.player.pos.y < e.pos.y ? "up" : "down";
+    const sprite = g.art.frame("ghost", size, facing, true, frame, g.player.pos.x < e.pos.x ? "left" : "right");
+    const intro = e.spawnT > 0 ? clamp(1 - e.spawnT / 1.4, 0, 1) : 1;
+    this.shadow(e.pos.x, e.pos.y + 4, e.radius * 1.1);
+    this.glowAt(e.pos.x, e.pos.y - e.radius, e.radius * 2.4, "#dcb8ff", 0.2 + 0.08 * Math.sin(t * 3));
+    this.lights.push({ x: e.pos.x, y: e.pos.y - e.radius, r: e.minion ? 110 : 220, a: 0.6, color: "#e9e4ff" });
+    const alpha = (e.minion ? 0.7 : 1) * intro * (e.invulnT > 0 ? 0.5 + 0.3 * Math.sin(t * 20) : 1);
+    drawSprite(w, sprite, e.pos.x, e.pos.y + 6, false, alpha);
+    drawSprite(w, flashSprite(sprite, e.hitFlash > 0 ? "#ffffff" : "#dcb8ff"), e.pos.x, e.pos.y + 6, false, e.hitFlash > 0 ? 0.85 : 0.25 * alpha);
+  }
+
+  /** A Thorn Crawler underground: a moving mound of earth and thorns. */
+  private drawMound(e: Enemy) {
+    const w = this.wctx, t = this.game.reducedMotion ? 0 : this.t;
+    w.fillStyle = "#2c3a1f"; w.beginPath(); w.ellipse(e.pos.x, e.pos.y, 18, 8, 0, 0, TAU); w.fill();
+    w.fillStyle = "#6ee07a";
+    for (let i = 0; i < 4; i++) w.fillRect(Math.round(e.pos.x - 12 + i * 7), Math.round(e.pos.y - 6 - Math.abs(Math.sin(t * 8 + i)) * 4), 2, 5);
+  }
+
+  /** A Bell Diver underwater: only rings on the surface give it away. */
+  private drawRipples(e: Enemy) {
+    const w = this.wctx, t = this.game.reducedMotion ? 0 : this.t;
+    w.save(); w.strokeStyle = "#7fd4ff"; w.lineWidth = 1.5;
+    for (let i = 0; i < 2; i++) { const k = (t * 1.2 + i / 2) % 1; w.globalAlpha = 0.6 * (1 - k); w.beginPath(); w.ellipse(e.pos.x, e.pos.y, 8 + k * 26, 3 + k * 9, 0, 0, TAU); w.stroke(); }
+    w.restore();
   }
 
   private drawWarden(e: Enemy) {
@@ -1328,9 +1474,10 @@ export class Renderer {
     if (b.spawnT > 0) return;
     panel(ctx, x - 10, y - 6, w + 20, 56);
     ctx.textAlign = "center";
-    ctx.font = `24px ${FONT_DISPLAY}`; ctx.fillStyle = b.kind === "beast" ? "#ccff00" : b.kind === "unminted" ? "#ff3d7f" : "#ff4d6d";
+    const color = b.kind === "unminted" ? "#ff3d7f" : b.guardian ? "#ff4d6d" : BOSS_COLOR[b.kind as ActBoss] ?? "#ff4d6d";
+    ctx.font = `24px ${FONT_DISPLAY}`; ctx.fillStyle = b.kind === "warden" ? "#ff4d6d" : color;
     ctx.fillText(titleCase(b.name), x + w / 2, y + 18);
-    bar(ctx, x, y + 26, w, 14, b.hp / b.maxHp, "#8a1c2b", b.kind === "beast" ? "#ccff00" : "#ff2e4d", "#1a0508");
+    bar(ctx, x, y + 26, w, 14, b.hp / b.maxHp, "#8a1c2b", b.kind === "warden" ? "#ff2e4d" : color, "#1a0508");
     ctx.font = `14px ${FONT_UI}`; ctx.fillStyle = "#fff"; ctx.fillText(b.guardian ? `GUARDIAN${b.hp < b.maxHp * 0.5 ? " · ENRAGED" : ""}` : `PHASE ${b.phase}${b.invulnT > 0 ? " · IMMUNE" : b.stunT > 0 ? " · STUNNED" : ""}`, x + w / 2, y + 38);
     ctx.textAlign = "left";
   }
@@ -1630,7 +1777,12 @@ function bestiaryLook(kind: string, champ: string | null, accent: string, bullet
     case "wraith": return { mask: MASKS.wraith, pal: { "#": champ ?? "#9a93c9", e: "#ccff00", x: "#07050b" }, scale: 3 };
     case "prism": return { mask: MASKS.prism, pal: { "#": champ ?? "#1a1030", l: "#e9e4ff", e: bullet }, scale: 3 };
     case "target": return { mask: MASKS.target, pal: { "#": "#ffd23c", e: "#ffffff" }, scale: 3 };
-    default: return null;
+    default: {
+      const mask = DEPTH_MASKS[kind], look = DEPTH_PALETTE[kind];
+      if (!mask || !look) return null;
+      const { scale, ...pal } = look;
+      return { mask, pal: { ...pal, "#": champ ?? pal["#"] } as Record<string, string>, scale: minion ? Math.max(2, scale - 1) : scale };
+    }
   }
 }
 
@@ -1640,6 +1792,9 @@ export function creaturePortrait(kind: string, art: FriendArt): Sprite {
     case "warden": return maskSprite("portrait:warden", WARDEN_BODY, wardenPalette(false, false), 2);
     case "beast": return maskSprite("portrait:beast", BEAST_BODY, beastPalette(1, false), 2);
     case "unminted": return art.frame("void", 4, "down", false, 0, "right");
+    case "reflection": return art.frame("ghost", 4, "down", false, 0, "right");
+    case "archivist": case "forgemaster": case "bloom": case "cantor": case "hourengine": case "firstfriend":
+      return maskSprite(`portrait:${kind}`, ACT_BOSS_ART[kind], BOSS_PALETTES[kind], 2);
     case "corrupted": return art.frame("corrupted", 4, "down", false, 0, "right");
     case "cursed": return maskSprite("portrait:cursed", MASKS.husk[0], { "#": "#5a2a66", x: "#0b0710", e: "#ff2e4d" }, 3);
     case "crawler": return maskSprite("portrait:crawler", MASKS.crawler[0], { "#": "#2c3654", x: "#ff3d7f", e: "#f0e6ff" }, 3);

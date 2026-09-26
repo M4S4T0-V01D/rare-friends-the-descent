@@ -83,6 +83,24 @@ function paintFloorTile(ctx: CanvasRenderingContext2D, floor: Floor, band: Band,
         ctx.moveTo(x, y + n * 30); ctx.quadraticCurveTo(x + 16, y + (1 - n) * 32, x + TILE, y + n * 20); ctx.stroke();
       }
       if (n < 0.06) { ctx.fillStyle = "#6a1020"; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.ellipse(x + 16, y + 16, 9, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+    } else if (band.style === "frost") {
+      if (n > 0.82) { ctx.fillStyle = "#e9f6ff"; ctx.globalAlpha = 0.5; ctx.fillRect(x + Math.floor(n * 97) % 26 + 3, y + Math.floor(n * 53) % 26 + 3, 2, 2); ctx.globalAlpha = 1; }
+      if (n < 0.18) { ctx.strokeStyle = "#bfe8ff"; ctx.globalAlpha = 0.12; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 4, y + 26); ctx.lineTo(x + 26, y + 4); ctx.stroke(); ctx.globalAlpha = 1; }
+    } else if (band.style === "ember") {
+      if (n > 0.86) { ctx.strokeStyle = band.accent; ctx.globalAlpha = 0.45; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 3, y + n * 28); ctx.lineTo(x + 16, y + 16); ctx.lineTo(x + 29, y + (1 - n) * 30); ctx.stroke(); ctx.globalAlpha = 1; }
+      if (n < 0.1) { ctx.fillStyle = "#0e0806"; ctx.globalAlpha = 0.5; ctx.fillRect(x + 8, y + 8, 16, 16); ctx.globalAlpha = 1; }
+    } else if (band.style === "rot") {
+      if (n > 0.58) { ctx.fillStyle = shade(base, 18); ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.ellipse(x + 16, y + 16, 6 + n * 8, 4 + n * 4, n * 3, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+      if (n < 0.05) { ctx.fillStyle = band.accent; ctx.fillRect(x + 14, y + 12, 3, 2); ctx.fillStyle = "#d8cfbf"; ctx.fillRect(x + 15, y + 14, 1, 3); }
+    } else if (band.style === "sunken") {
+      if (n > 0.72) { ctx.fillStyle = "#3ef0ff"; ctx.globalAlpha = 0.08; ctx.beginPath(); ctx.ellipse(x + 16, y + 16, 14, 6, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+      if (n < 0.12) { ctx.strokeStyle = "#a8e6ff"; ctx.globalAlpha = 0.15; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 4, y + 18); ctx.quadraticCurveTo(x + 16, y + 12, x + 28, y + 18); ctx.stroke(); ctx.globalAlpha = 1; }
+    } else if (band.style === "clock") {
+      ctx.fillStyle = shade(base, 20); for (const [bx, by] of [[2, 2], [28, 2], [2, 28], [28, 28]]) ctx.fillRect(x + bx, y + by, 2, 2);
+      if (n > 0.9) { ctx.strokeStyle = band.accent; ctx.globalAlpha = 0.25; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x + 16, y + 16, 9, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+    } else if (band.style === "mirror") {
+      if ((tx + ty) % 2 === 0) { ctx.fillStyle = shade(base, 8); ctx.fillRect(x + 1, y + 1, TILE - 2, TILE - 2); }
+      if (n > 0.9) { ctx.fillStyle = "#ffffff"; ctx.globalAlpha = 0.35; ctx.fillRect(x + 6, y + 6, 1, 6); ctx.fillRect(x + 4, y + 8, 5, 1); ctx.globalAlpha = 1; }
     } else if (band.style === "void") {
       if (n > 0.8) { ctx.fillStyle = n > 0.97 ? band.accent : "#6d6780"; ctx.fillRect(x + Math.floor(n * 97) % 28 + 2, y + Math.floor(n * 53) % 28 + 2, 1, 1); }
       if ((tx + ty * 3) % 11 === 0) { ctx.fillStyle = band.torch; ctx.globalAlpha = 0.12; ctx.fillRect(x, y, TILE, 1); ctx.globalAlpha = 1; }
@@ -120,6 +138,12 @@ function paintWallTile(ctx: CanvasRenderingContext2D, floor: Floor, band: Band, 
     ctx.fillRect(x, y + TILE - 3, TILE, 3);
     if (band.style === "flesh" && n > 0.6) { ctx.fillStyle = shade(band.wallTop, 20); ctx.fillRect(x + Math.floor(n * 90) % 26 + 3, y + 10, 2, 6 + Math.floor(n * 10)); }
     if (band.style === "tech" && n > 0.45 && n < 0.6) { ctx.fillStyle = band.accent; ctx.globalAlpha = 0.5; ctx.fillRect(x + 6, y + 22, 3, 3); ctx.fillRect(x + 12, y + 22, 3, 3); ctx.globalAlpha = 1; }
+    if (band.style === "frost" && n > 0.35) { ctx.fillStyle = "#bfe8ff"; ctx.globalAlpha = 0.7; for (let i = 0; i < 3; i++) { const ix = x + 4 + i * 10 + Math.floor(n * 7) % 4; ctx.fillRect(ix, y + TILE - 3, 3, 3 + ((i * 7 + Math.floor(n * 50)) % 6)); } ctx.globalAlpha = 1; }
+    if (band.style === "ember" && n > 0.55 && n < 0.7) { ctx.fillStyle = band.accent; ctx.globalAlpha = 0.6; ctx.fillRect(x, y + 20, TILE, 1); ctx.globalAlpha = 1; }
+    if (band.style === "rot" && n > 0.5) { ctx.fillStyle = "#2c4a2a"; ctx.fillRect(x + Math.floor(n * 90) % 24 + 3, y + 10, 3, 12 + Math.floor(n * 8)); }
+    if (band.style === "sunken" && n > 0.4) { ctx.fillStyle = "#3ef0ff"; ctx.globalAlpha = 0.1; ctx.fillRect(x, y + 22, TILE, 10); ctx.globalAlpha = 1; }
+    if (band.style === "clock" && n > 0.6 && n < 0.75) { ctx.fillStyle = "#6a5530"; ctx.fillRect(x, y + 15, TILE, 3); ctx.fillStyle = band.accent; ctx.globalAlpha = 0.4; ctx.fillRect(x + 14, y + 14, 4, 5); ctx.globalAlpha = 1; }
+    if (band.style === "mirror" && n > 0.72) { ctx.fillStyle = "#c9c2e6"; ctx.globalAlpha = 0.35; ctx.fillRect(x + 8, y + 12, 16, 16); ctx.fillStyle = "#ffffff"; ctx.fillRect(x + 10, y + 14, 2, 8); ctx.globalAlpha = 1; }
     if (n > 0.9) {
       ctx.globalAlpha = 0.5; ctx.fillStyle = band.accent;
       ctx.fillRect(x + 12, y + 13, 8, 2); ctx.fillRect(x + 15, y + 13, 2, 12);
@@ -276,6 +300,101 @@ export function paintDecor(ctx: CanvasRenderingContext2D, band: Band, d: Decor) 
       break;
     case "glitch":
       for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? band.accent : band.torch; ctx.globalAlpha = 0.35; ctx.fillRect(x - 14 + ((s >> i) % 10), y - 8 + i * 4, 10 + ((s >> (i + 2)) % 16), 2); }
+      break;
+    case "icicle":
+      ctx.fillStyle = "#bfe8ff"; ctx.globalAlpha = 0.8;
+      for (let i = 0; i < 3; i++) { const ix = x - 8 + i * 8, h = 8 + ((s >> i) % 8); ctx.beginPath(); ctx.moveTo(ix - 3, y - h); ctx.lineTo(ix + 3, y - h); ctx.lineTo(ix, y); ctx.fill(); }
+      ctx.globalAlpha = 1; ctx.fillStyle = "#ffffff"; ctx.fillRect(x - 8, y - 12, 1, 4);
+      break;
+    case "frozenFriend":
+      // A Friend the Archive kept: a dark shape in a block of ice.
+      ctx.fillStyle = "#8fe3ff"; ctx.globalAlpha = 0.35; ctx.fillRect(x - 11, y - 26, 22, 28);
+      ctx.globalAlpha = 0.9; ctx.fillStyle = "#16263a";
+      ctx.fillRect(x - 5, y - 20, 10, 6); ctx.fillRect(x - 7, y - 14, 14, 8); ctx.fillRect(x - 5, y - 6, 3, 5); ctx.fillRect(x + 2, y - 6, 3, 5);
+      ctx.fillStyle = "#e9f6ff"; ctx.globalAlpha = 0.7; ctx.fillRect(x - 11, y - 26, 22, 2); ctx.fillRect(x + 7, y - 22, 1, 10);
+      break;
+    case "shelf":
+      ctx.fillStyle = "#2a2f45"; ctx.fillRect(x - 16, y - 24, 32, 26);
+      for (let r = 0; r < 3; r++) for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = ["#4a5d8a", "#8fa3c9", "#5c4a6a", "#34496a"][(s >> (i + r)) % 4];
+        ctx.fillRect(x - 14 + i * 5, y - 22 + r * 8, 4, 6);
+      }
+      ctx.fillStyle = "#bfe8ff"; ctx.globalAlpha = 0.5; ctx.fillRect(x - 16, y - 24, 32, 2);
+      break;
+    case "anvil":
+      ctx.fillStyle = "#3a3a44"; ctx.fillRect(x - 12, y - 12, 24, 6); ctx.fillRect(x - 5, y - 6, 10, 6); ctx.fillRect(x - 9, y, 18, 3);
+      ctx.fillRect(x + 12, y - 11, 5, 3);
+      ctx.fillStyle = "#6a6a74"; ctx.fillRect(x - 12, y - 12, 24, 2);
+      break;
+    case "lavaCrack":
+      ctx.strokeStyle = "#ff5a3c"; ctx.lineWidth = 2; ctx.globalAlpha = 0.85;
+      ctx.beginPath(); ctx.moveTo(x - 16, y + (s % 5)); ctx.lineTo(x - 5, y - 4); ctx.lineTo(x + 3, y + 3); ctx.lineTo(x + 16, y - (s % 4)); ctx.stroke();
+      ctx.strokeStyle = "#ffd23c"; ctx.lineWidth = 1; ctx.stroke();
+      break;
+    case "brazier":
+      ctx.fillStyle = "#3a2418"; ctx.fillRect(x - 8, y - 10, 16, 6); ctx.fillRect(x - 2, y - 4, 4, 6); ctx.fillRect(x - 6, y + 2, 12, 2);
+      ctx.fillStyle = "#ff9a3c"; ctx.fillRect(x - 6, y - 14, 12, 4); ctx.fillStyle = "#ffd23c"; ctx.fillRect(x - 3, y - 17, 6, 4);
+      break;
+    case "mushroom":
+      for (let i = 0; i < 2 + (s % 2); i++) {
+        const mx = x - 8 + i * 8, h = 5 + ((s >> i) % 6), cap = ["#ff8fb3", "#b9ff6b", "#d9c9a8"][(s >> (i + 1)) % 3];
+        ctx.fillStyle = "#d8cfbf"; ctx.fillRect(mx - 1, y - h, 3, h);
+        ctx.fillStyle = cap; ctx.fillRect(mx - 4, y - h - 3, 9, 4); ctx.fillStyle = "#ffffff"; ctx.fillRect(mx - 2, y - h - 2, 1, 1);
+      }
+      break;
+    case "thornVine":
+      ctx.strokeStyle = "#2c4a2a"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(x - 18, y); ctx.bezierCurveTo(x - 6, y - 14, x + 6, y + 10, x + 18, y - 4); ctx.stroke();
+      ctx.fillStyle = "#6ee07a"; for (let i = 0; i < 5; i++) ctx.fillRect(x - 14 + i * 7, y - 5 + ((s >> i) % 7) - 3, 2, 2);
+      break;
+    case "sporePod":
+      ctx.fillStyle = "#2c4a2a"; ctx.beginPath(); ctx.ellipse(x, y - 6, 9, 8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#b9ff6b"; ctx.globalAlpha = 0.8; for (const [px, py] of [[-4, -9], [3, -7], [-1, -3], [5, -2]]) ctx.fillRect(x + px, y + py, 2, 2);
+      break;
+    case "puddle":
+      ctx.fillStyle = "#3ef0ff"; ctx.globalAlpha = 0.14; ctx.beginPath(); ctx.ellipse(x, y, 18 + (s % 8), 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.35; ctx.strokeStyle = "#a8e6ff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x - 3, y - 1, 8, 3, 0, 0, Math.PI * 2); ctx.stroke();
+      break;
+    case "bell":
+      ctx.fillStyle = "#6a5a3a"; ctx.beginPath(); ctx.moveTo(x - 10, y); ctx.lineTo(x - 7, y - 16); ctx.lineTo(x + 7, y - 16); ctx.lineTo(x + 10, y); ctx.fill();
+      ctx.fillStyle = "#8a7a4a"; ctx.fillRect(x - 7, y - 16, 14, 2); ctx.fillStyle = "#3ef0ff"; ctx.globalAlpha = 0.4; ctx.fillRect(x - 10, y - 2, 20, 2);
+      break;
+    case "kelp":
+      ctx.strokeStyle = "#1f5a4a"; ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) { const kx = x - 6 + i * 6; ctx.beginPath(); ctx.moveTo(kx, y); ctx.quadraticCurveTo(kx + 6 * (i % 2 ? 1 : -1), y - 10, kx, y - 18 - ((s >> i) % 6)); ctx.stroke(); }
+      break;
+    case "gear": {
+      const r = 8 + (s % 5);
+      ctx.fillStyle = "#6a5530";
+      for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2 + s; ctx.fillRect(x + Math.cos(a) * r - 2, y + Math.sin(a) * r * 0.6 - 2, 4, 4); }
+      ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#19160f"; ctx.beginPath(); ctx.ellipse(x, y, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    case "clockface":
+      ctx.fillStyle = "#4a3b24"; ctx.beginPath(); ctx.arc(x, y - 12, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#e8d8a8"; ctx.beginPath(); ctx.arc(x, y - 12, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#19160f"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x, y - 18); ctx.moveTo(x, y - 12); ctx.lineTo(x + 5, y - 10); ctx.stroke();
+      break;
+    case "pendulumClock":
+      ctx.fillStyle = "#3a2e1c"; ctx.fillRect(x - 7, y - 30, 14, 32);
+      ctx.fillStyle = "#e8d8a8"; ctx.beginPath(); ctx.arc(x, y - 23, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffd23c"; ctx.fillRect(x - 1, y - 16, 2, 10); ctx.beginPath(); ctx.arc(x, y - 5, 3, 0, Math.PI * 2); ctx.fill();
+      break;
+    case "mirrorPane":
+      ctx.fillStyle = "#8a8098"; ctx.fillRect(x - 10, y - 30, 20, 32);
+      ctx.fillStyle = "#c9c2e6"; ctx.fillRect(x - 8, y - 28, 16, 28);
+      ctx.fillStyle = "#ffffff"; ctx.globalAlpha = 0.6; ctx.fillRect(x - 6, y - 26, 2, 12); ctx.fillRect(x - 3, y - 26, 1, 6);
+      if (s % 3 === 0) { ctx.globalAlpha = 1; ctx.strokeStyle = "#3d3c4e"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 8, y - 20); ctx.lineTo(x + 2, y - 14); ctx.lineTo(x + 8, y - 22); ctx.stroke(); }
+      break;
+    case "glassShard":
+      ctx.fillStyle = "#e9e4ff"; ctx.globalAlpha = 0.7;
+      for (let i = 0; i < 3; i++) { const gx = x - 8 + i * 7, gy = y - ((s >> i) % 4); ctx.beginPath(); ctx.moveTo(gx, gy - 6); ctx.lineTo(gx + 3, gy); ctx.lineTo(gx - 3, gy); ctx.fill(); }
+      break;
+    case "candelabra":
+      ctx.fillStyle = "#8a8098"; ctx.fillRect(x - 1, y - 20, 2, 22); ctx.fillRect(x - 10, y - 16, 20, 2); ctx.fillRect(x - 10, y - 20, 2, 4); ctx.fillRect(x + 8, y - 20, 2, 4);
+      ctx.fillStyle = "#f3eeff"; for (const cx of [-10, -1, 8]) ctx.fillRect(x + cx, y - 26, 2, 5);
+      ctx.fillStyle = "#e9e4ff"; for (const cx of [-10, -1, 8]) ctx.fillRect(x + cx, y - 29, 2, 3);
       break;
     case "crystal":
       ctx.fillStyle = band.accent; ctx.globalAlpha = 0.75;

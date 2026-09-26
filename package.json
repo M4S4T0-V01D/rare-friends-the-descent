@@ -19,12 +19,14 @@
     "test:browser": "node scripts/test-browser.mjs",
     "test:real": "npm run build && node scripts/test-real-gate.mjs",
     "playtest": "npm run build && node scripts/playtest-bot.mjs",
-    "test": "npm run typecheck && npm run lint && npm run test:unit && npm run check && npm run test:browser && npm run test:showcase",
+    "test": "npm run typecheck && npm run lint && npm run test:unit && npm run check && npm run test:browser && npm run test:showcase && npm run test:tour",
     "test:showcase": "node scripts/test-showcase.mjs",
     "trailer": "node scripts/trailer.mjs",
     "screenshots": "node scripts/screenshots.mjs",
     "perf": "node scripts/perf.mjs bench",
-    "perf:golden": "node scripts/perf.mjs golden"
+    "perf:golden": "node scripts/perf.mjs golden",
+    "test:tour": "node scripts/tour.mjs",
+    "balance": "node scripts/balance-probe.mjs"
   },
   "dependencies": {
     "@rarefriends/friendsdk": "file:vendor/rarefriends-friendsdk-0.1.2.tgz",

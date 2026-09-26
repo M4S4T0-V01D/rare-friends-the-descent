@@ -28,7 +28,7 @@ A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Yo
 | **Depth 3 · Warden's Vault.** Hex Priest curse circles and a Loot Goblin. | **Depth 5 · Server Tombs.** A mite swarm under turret fire. |
 | ![Depth 8, Vein Galleries: elite champions with modifiers and an Eye Stalk's needle stream](docs/screenshots/combat-depth-8.png) | ![The character sheet: a paper doll of equipped gear and the bag grouped by type](docs/screenshots/inventory.png) |
 | **Depth 8 · Vein Galleries.** Named champions and an Eye Stalk's needles. | **Character sheet.** Paper-doll gear and a bag grouped by item type. |
-| ![The bestiary: 24 creature pages, unseen ones as silhouettes](docs/screenshots/bestiary.png) | ![The Friend picker with each Friend's on-chain artwork](docs/screenshots/picker.png) |
+| ![The bestiary: a page for every creature, unseen ones as silhouettes](docs/screenshots/bestiary.png) | ![The Friend picker with each Friend's on-chain artwork](docs/screenshots/picker.png) |
 | **Bestiary (B).** A page for every creature your Friend has met. | **Friend picker.** Each Friend's on-chain artwork and family (test fixture wallet shown). |
 
 Screenshots are captured from the shipped site by `node scripts/screenshots.mjs`, using the FriendSDK's mock wallet fixture and sample Friend #7730.
@@ -52,7 +52,7 @@ Every price lives in one file ([`src/economy/terms.ts`](src/economy/terms.ts)), 
 
 1. Connect your wallet and choose your Friend from a picker that shows each Friend's own on-chain artwork and family. The FriendSDK verifies ownership at a fresh block, and once you enter, that Friend is locked in for the session (reload the page to pick another).
 2. **Begin** at the title and arrive at **the camp**: a ruined sanctuary of the ancient Rare Friends. Walk around with your Friend among tents, a campfire, lanterns and broken columns. Use the stations (your stash, the Rune Tablet codex, the Obelisk of Descents with your scores, the RF Ledger, the Still Pool that shows your Friend's kit, and the **Dye Altar** wardrobe), then walk down **the great stairs**, through a ruined arch flanked by two stone statues of your own Friend, to descend. The arch's pillars are solid, and on the steps your Friend passes between them and under the lintel instead of clipping through.
-3. Clear rooms, loot, make RF decisions, go deeper. A **guardian** (mini-boss) blocks the stairs on every floor without a boss, and bosses wait at depths 3, 6 and 9. Pay-to-play **mini-games** hide in event rooms, and every creature you meet unlocks a page in the **bestiary** (B).
+3. Clear rooms, loot, make RF decisions, go deeper. A **guardian** (mini-boss) blocks the stairs on every floor without a boss, and a boss waits at the bottom of every act: **30 floors in 10 acts, 10 bosses**. Beat **The First Friend** at depth 30 and escape to conquer the Descent. Pay-to-play **mini-games** hide in event rooms, and every creature you meet unlocks a page in the **bestiary** (B).
 4. Escape at a Waystone with your loot, or die and decide whether RF can buy you another chance. Either way, the run is scored.
 
 **The dungeon is dangerous.** Your Friend starts with 100 HP, 2 potions, and grows slowly (+6 HP, +1.2 attack per level). Enemies hit hard from the first room and scale with depth. Dodge-rolling through bullets, not trading hits, is how you survive.
@@ -75,8 +75,15 @@ Every place has its own little creepy dungeon tune, composed as a looping song a
 | The Upper Crypts | Harpsichord danse-macabre waltz in D harmonic minor (3/4), with dripping water |
 | The Signal Vaults | Nervous E-minor chiptune: square lead, arpeggios, drums |
 | The Hollow Deep | Slow bell melody in C harmonic minor over a lub-dub heartbeat |
-| The Endless Void | Glassy whole-tone bells, dreamy and wrong |
+| The Frozen Archive | A glassy E-minor music box over a cold bell pad, with icy chimes |
+| The Ember Forge | A hammering D-phrygian forge song: anvil drums, nasal chip lead, fire crackle |
+| The Rot Garden | A woozy, overripe F♯-minor waltz on harp, with squelches |
+| The Sunken Choir | A slow drowned hymn in A minor: choir, bells and harp under dripping water |
+| The Clockwork Tomb | A ticking C-minor harpsichord ostinato and a slow bell tune over tick-tock drums |
+| The Mirror Halls | B-minor music-box figures that play forwards, then back, like a reflection |
+| The Null Throne (and the endless void) | Glassy whole-tone bells, dreamy and wrong |
 | Boss fights | Driving D-minor bass, harpsichord and drums |
+| The First Friend | The last fight: C-minor organ, choir and a racing chip lead |
 
 **Special rooms have their own music.** Walk into one and its tune fades in over about 1.5 s while the floor's tune ducks away underneath; walk out and it fades back. Changing floors crossfades too, so music never cuts.
 
@@ -162,7 +169,8 @@ Title → wallet → Friend → camp → **Depth 1**. The first room holds three
 | Rare event (Lost Friend, secret room, horde survived, Void-hunt bounty) | **+5 RF** |
 | Guardian (the mini-boss before a floor's stairs) | **+3 RF** |
 | Mini-boss (Dungeon Warden, depths 3 and 6) | **+5 RF** |
-| Boss (The Rare Beast, depth 9) | **+10 RF** |
+| Boss (The Rare Beast and every act boss after it, depths 9–27) | **+10 RF** |
+| Final boss (The First Friend, depth 30) | **+25 RF** |
 | Secret boss (The Unminted) | **+25 RF** |
 | The Gambler (5 RF stake) | 0 RF 45% · 5 RF 30% · 10 RF 17% · 25 RF 8% |
 | The Rune Gallery (5 RF) | 7+ runes 5 RF · 10+ 10 RF · 14+ 15 RF · 18+ 20 RF |
@@ -231,12 +239,12 @@ Every run ends with a score, shown line by line on the summary screen (counting 
 | Enemies slain | 10 each |
 | Elites slain | 60 each |
 | Guardians slain | 400 each |
-| Bosses | 1,000 per Warden · 3,000 for The Rare Beast · 2,500 for The Unminted |
+| Bosses | 1,000 per Warden · 3,000 The Rare Beast · 3,500 The Archivist · 4,000 The Forgemaster · 4,500 The Mother Bloom · 5,000 The Drowned Cantor · 5,500 The Hour Engine · 6,000 The Reflection · **10,000 The First Friend** · 2,500 The Unminted |
 | Friend level | 120 per level above 1 |
 | **Loot on your Friend** (everything equipped or in the bag when the run ends) | Common 10 · Uncommon 30 · Rare 75 · Epic 180 · Legendary 450 · Mythic 1,200 (cursed items ×1.25) |
 | RF earned | 15 per RF |
 
-**How the run ends multiplies the total:** conquered (escaped after The Rare Beast) **×2**, escaped at a Waystone **×1.5**, fell in the dark **×0.75**, abandoned **×0.5**. Dying with a bag full of Legendaries still scores them, but escaping with them is worth twice as much. The formula lives in [`src/game/score.ts`](src/game/score.ts) and is pinned by unit tests.
+**How the run ends multiplies the total:** conquered (escaped after beating The First Friend at depth 30) **×2**, escaped at a Waystone **×1.5**, fell in the dark **×0.75**, abandoned **×0.5**. Dying with a bag full of Legendaries still scores them, but escaping with them is worth twice as much. The formula lives in [`src/game/score.ts`](src/game/score.ts) and is pinned by unit tests.
 
 ### Share your run
 
@@ -263,7 +271,7 @@ How it works: the game's sandbox has no storage, so it posts its save to The Des
 ### Death, revival and extraction
 
 - **Death:** choose **Revive (10 RF)**, **Full Revival (25 RF)** or **End Run**.
-- **Waystones** appear after each boss (depths 3, 6, 9). Touching one **secures** everything you carry. You then **escape** (the run ends and all loot goes to your camp stash) or **descend** for more.
+- **Waystones** appear after each boss (every third floor). Touching one **secures** everything you carry. You then **escape** (the run ends and all loot goes to your camp stash) or **descend** for more.
 - **End Run after death:** secured items return to the stash; unsecured items and the run's progress are lost. Your RF balance is untouched.
 - **Heirloom:** before a descent, carry one stash item into the dungeon. It is equipped and secured from the start.
 
@@ -304,6 +312,19 @@ How it works: the game's sandbox has no storage, so it posts its save to The Des
 | **Hive Mother** (new) | Rooted in place; births Signal Mites (up to 8) and pulses slow spores |
 | **Grave Wraith** (new) | Nearly invisible (a faint shimmer) until it reveals itself and lunges |
 | **Void Prism** (new) | Spits rotating crosses of bullets and sweeps a long laser across the room |
+| **Frost Moth** | Flutters at range; a fan of three frost needles that slow you |
+| **Rime Knight** | Marks a line, charges down it and leaves a trail of slowing frost |
+| **Cinder Imp** | Hops around lobbing fireballs that leave burning pools |
+| **Slag Golem** | Stomps a ring of molten slag; breaks into two Cinder Imps when it dies |
+| **Sporeling** | Drops a lingering spore cloud where you stand and spits slow seeds |
+| **Thorn Crawler** | Burrows toward you out of reach, erupts beneath you in a burst of thorns, then sits exposed |
+| **Bell Diver** | Dives out of reach, resurfaces near you and tolls a ring of bullets |
+| **Choir Eel** | Weaves at range and sings a wavering stream of bullets |
+| **Cog Sentry** | Rooted; spins three arms of gear-shot that reverse on every tick-tock |
+| **Pendulum Knight** | Closes in and swings twice, left then right, each arc marked first |
+| **Glass Shardling** | Swarms you, and shatters into six shards when it dies |
+| **Mirror Sentinel** | Throws glass; **bolts that hit its mirror face fly straight back at you**, so strike it from the side or up close |
+| **Null Seraph** | Curtains of void light with one gap, or a slow crown of needles |
 | Loot Goblin | Flees, drops coins, escapes after 14 s |
 | Corrupted Friend | Elite: charge, slam |
 
@@ -312,12 +333,19 @@ Dodge-rolling through bullets is the core skill, and leftover enemy bullets vani
 
 **Guardians (mini-bosses).** Every floor from depth 2 that has no boss ends its main path in a guardian room right before the stairs. The guardian is a giant, titled form of one of that floor's creatures, about twice its size with nine times its health: The First Husk, Void Matriarch, The Choirmaster, Ossuary Captain, Static Overseer, Relay Bastion, The Great Maw, All-Seeing Stalk, The Clot, Null Sovereign, The Demolisher, Bone Champion, High Hexer, Deadeye Relay, The Butcher, Hive Queen, The Pale Widow or The Shattered Prism. It fights with its kind's own attacks, carries 1–2 modifiers and adds a **rage ring** of bullets every few seconds (more often when hurt), and at half health it **calls two of its kin**. It gets a boss bar, a banner and the boss music, and brings a small escort. Slaying one pays **+3 RF** and 400 score, and the room drops an elite chest (Rare or better). Guardian rooms show a crown on the minimap.
 
-**The bestiary (B).** The first time your Friend sees a creature, its page unlocks, with a toast to tell you. Creatures met together share one toast ("BESTIARY: Static Drone, Relay Sniper and Grave Bomber recorded"), and at most three toasts show at once, so a new room never buries the fight under notices. Each page has the creature's portrait, a line of lore, what its attacks look like, where it lives, how many you have slain this session and whether you have beaten its guardian form. Unseen creatures show as dark silhouettes. Open it with **B** in the dungeon (or from the pause menu), or from the camp menu's Bestiary tab. It covers all 24 creatures, from the Cursed Friend to The Unminted.
+**The bestiary (B).** The first time your Friend sees a creature, its page unlocks, with a toast to tell you. Creatures met together share one toast ("BESTIARY: Static Drone, Relay Sniper and Grave Bomber recorded"), and at most three toasts show at once, so a new room never buries the fight under notices. Each page has the creature's portrait, a line of lore, what its attacks look like, where it lives, how many you have slain this session and whether you have beaten its guardian form. Unseen creatures show as dark silhouettes. Open it with **B** in the dungeon (or from the pause menu), or from the camp menu's Bestiary tab. It covers all 44 creatures, from the Cursed Friend to The First Friend.
 
 **Bosses, redrawn and rearmed.** Every boss has new pixel art and a cinematic entrance: letterbox bars, a name card, and a moment of immunity while it rises.
 
 - **Dungeon Warden** (depth 3) / **Warden of the Deep** (depth 6): a horned, armored jailer with a burning core, stepping legs and swinging chains; crimson and ember in the crypts, steel and ice-blue in the Signal Vaults. Its armor cracks and bleeds light in phase 2. New attacks: **Chains** (three whirling arms of bullets) and **Quake** (a fissure of slams marching toward you), alongside its slam, sweep, charge, summons, rings and blink.
 - **The Rare Beast** (depth 9): a crowned maw with eyes that open with each phase and follow your Friend, and writhing tendrils. New attacks: **Eyes** (every eye fires a needle in turn) and **Curtain** (a wall of bullets sweeps the arena with a single gap), alongside claws, spirals, stomps, charges, pools and the sweeping beam.
+- **The Archivist** (depth 12): a hooded librarian of frozen Friends, circled by torn pages. **Index** (three widening fans of frost needles), **Catalog** (four frozen lines across your path), **Freeze** slams, frozen husks called from the shelves, and a phase-2 **Blizzard** spiral.
+- **The Forgemaster** (depth 15): broad, aproned and molten-chested, with a hammer it raises before each blow. **Hammer** slams that leave slag behind, five **Anvils** around you, a fountain of **Sparks**, a stunning charge, and double fire rings in phase 2.
+- **The Mother Bloom** (depth 18): a rooted flower over a bulb of roots, petals turning around it. A five-arm (then seven-arm) **Petal** spiral, lingering **Spores**, lashing **Vines**, Sporeling and Thorn Crawler seedlings, and a crown of slow **Pollen**. Three phases.
+- **The Drowned Cantor** (depth 21): a waterlogged choirmaster with ripples at its feet. **Tide** (a wall of water with one gap), **Toll** rings, an **Undertow** that drags you in before a ring breaks outward, two wavering **Hymn** streams, and in phase 2 it sinks and resurfaces.
+- **The Hour Engine** (depth 24): a great clock on brass legs, its face and hands turning and a pendulum swinging beneath. **Hands** (long beams that sweep the room), **Tick** (twelve marks around it going off in turn), bursting **Gears**; from phase 2 its gears shed a spiral, and in phase 3 it chimes in rings. Three phases.
+- **The Reflection** (depth 27): **your own Friend**, pale as glass, drawn from its on-chain artwork. It fires **your bolt style** back at you (Void Bolt, Scatter Shards or Piercing Lance), casts **its version of your family's signature**, steps to your mirror position across the room, and in phase 2 two false reflections step out of the glass.
+- **The First Friend** (depth 30, the final boss): the first Rare Friend ever to take the stairs, crowned in gold with halos turning around it. **Genesis** rings, sweeping **Cross** beams, a **Mint** spiral of coins and light, creatures called from every act, **Curtains** in phase 2 and **Judgement** strikes in phase 3. Beat it and escape to conquer the Descent.
 - **The Unminted** (secret): your Friend's silhouette as living void. New attack: **Starfall**, a spiral of void stars raining around you.
 
 **Every floor is its own place**, with its own palette, tile style, props and enemy roster:
@@ -333,9 +361,32 @@ Dodge-rolling through bullets is the core skill, and leftover enemy bullets vani
 | 7 | The Hollow Deep · Red Gullet | Veined flesh, tendrils, blood pools | Bloodlings, Maw Spitters, Flesh Brutes |
 | 8 | The Hollow Deep · Vein Galleries | Eyes in the floor | Eye Stalks |
 | 9 | The Hollow Deep · The Beast's Heart | Ribcages and tendrils | (The Rare Beast) |
-| 10+ | The Endless Void · Stratum N | Star-flecked void, shards, glitches | Null Shades, Void Prisms, and everything else |
+| 10 | The Frozen Archive · Hoarfrost Stacks | Frost-rimed slabs, icicles, shelves of frozen books | Frost Moths, Rime Knights |
+| 11 | The Frozen Archive · The Silent Index | Endless shelves | |
+| 12 | The Frozen Archive · The Archivist's Vault | Friends kept in blocks of ice | (The Archivist) |
+| 13 | The Ember Forge · Slag Channels | Lava cracks, braziers, chains | Cinder Imps, Slag Golems |
+| 14 | The Ember Forge · Anvil Halls | Anvils in gold light | |
+| 15 | The Ember Forge · The Crucible | Molten floors | (The Forgemaster) |
+| 16 | The Rot Garden · Spore Beds | Moss, mushrooms, spore pods | Sporelings, Thorn Crawlers |
+| 17 | The Rot Garden · Thorn Maze | Thorn vines everywhere | |
+| 18 | The Rot Garden · The Blooming Heart | Pink bloom light | (The Mother Bloom) |
+| 19 | The Sunken Choir · Drowned Nave | Puddles, kelp, drowned bells | Bell Divers, Choir Eels |
+| 20 | The Sunken Choir · Bell Cisterns | Bells in violet water | |
+| 21 | The Sunken Choir · The Tidal Chancel | Bright tidal cyan | (The Drowned Cantor) |
+| 22 | The Clockwork Tomb · Gear Galleries | Brass rivets, gears, clock faces | Cog Sentries, Pendulum Knights |
+| 23 | The Clockwork Tomb · Pendulum Crypts | Pendulum clocks | |
+| 24 | The Clockwork Tomb · The Hour Engine | Clock faces in lime light | (The Hour Engine) |
+| 25 | The Mirror Halls · Silver Corridors | Checkered marble, mirrors, glass shards | Glass Shardlings, Mirror Sentinels |
+| 26 | The Mirror Halls · Hall of Faces | Walls of mirrors | |
+| 27 | The Mirror Halls · The Last Reflection | Candelabras in violet | (The Reflection) |
+| 28 | The Null Throne · The Unlit Stair | Star-flecked void, shards, glitches | Null Seraphs |
+| 29 | The Null Throne · Choir of Nothing | Glitches in rose light | |
+| 30 | The Null Throne · The Null Throne | White void | (The First Friend) |
+| 31+ | The Endless Void · Stratum N (optional, after conquering) | Star-flecked void | Everything, and earlier bosses come back up |
 
-**Look and feel:** each floor has drifting ambient motes (crypt dust, tech sparks, flesh spores, void stars). Enemies breathe, squash when hit and stretch while winding up, then flash and dissolve when they die; damage numbers pop in and settle; dodges leave afterimages in your glow's color; movement eases in and out instead of snapping. Under the hood, crowded fights are cheaper to draw: enemy bullets no longer spawn trail particles, sprite palettes are cached by a cheap key, and the particle pool trims in batches.
+From depth 10, earlier creatures return in new mixes alongside each act's own. Enemy health and damage keep climbing below depth 9, but on a gentler curve (about +10% health and +5.5% damage per floor) so depth 30 is brutal but beatable.
+
+**Look and feel:** each floor has drifting ambient motes (crypt dust, tech sparks, flesh spores, falling snow, rising embers, drifting spores, bubbles, brass dust, glints, void stars). Enemies breathe, squash when hit and stretch while winding up, then flash and dissolve when they die; damage numbers pop in and settle; dodges leave afterimages in your glow's color; movement eases in and out instead of snapping. Under the hood, crowded fights are cheaper to draw: enemy bullets no longer spawn trail particles, sprite palettes are cached by a cheap key, and the particle pool trims in batches.
 
 **The dungeon:** each floor is generated from a seed, and floors **grow larger and more complex as you descend**. The layout grid grows from 7×7 to 9×9 cells, and over 20 generated floors per depth, rooms go from about 9 to 22 and floor area almost quadruples. Deeper floors add loops (multiple routes), optional side-combat wings, branches off branches, and interior architecture: colonnades, dividing walls, inner rings and crosses. Every room tile is verified reachable. A main path of combat rooms leads to the stairs or the boss arena, with side rooms branching off it: treasure, shrines, the merchant, events, gated bonus rooms, and a hidden secret room behind a cracked wall (strike it three times). Floors run through The Upper Crypts, The Signal Vaults, The Hollow Deep and The Endless Void. After depth 9 you can keep descending for as long as you survive.
 
@@ -385,11 +436,13 @@ If your Playwright version has no matching browser download (for example in a sa
 |---|---|---|
 | `npm run typecheck` | TypeScript, strict | Pass |
 | `npm run lint` | ESLint (typescript-eslint, react-hooks) | Pass |
-| `npm run test:unit` | 29 tests: saves survive the JSON round trip, load only for their own Friend, and are cleaned field by field when damaged or edited; the economy resumes a saved balance and ledger; restored item ids are never reused; the camp's stair-arch pillars are solid and its steps walkable, guardian rooms on every boss-less floor from depth 2, a bestiary page for every creature, mini-game prices and payouts, per-floor themes and rosters (including all 8 new enemies), floor growth with depth plus full-tile reachability, economy ledger, bigint RF units, insufficient funds, all prices (cosmetics included) in the 5/10/25 family, small rewards, every odds table sums to 100%, prices come from the economy terms, generation determinism, reachability of every room (300 floors), floor-1 script, depth-2 Void shrine, loot and stats, player/enemy balance caps, run scoring and outcome multipliers, cosmetic catalogue, every sprite mask is a clean rectangle | 29/29 pass |
+| `npm run test:unit` | 31 tests: 30 floors in 10 acts with a distinct place per floor and each act's creatures arriving on its first floor; ten bosses, one per act, with the First Friend worth the most; enemy scaling that keeps climbing below depth 9 but stays beatable at 30; saves survive the JSON round trip, load only for their own Friend, and are cleaned field by field when damaged or edited; the economy resumes a saved balance and ledger; restored item ids are never reused; the camp's stair-arch pillars are solid and its steps walkable, guardian rooms on every boss-less floor from depth 2, a bestiary page for every creature, mini-game prices and payouts, per-floor themes and rosters (including all 8 new enemies), floor growth with depth plus full-tile reachability, economy ledger, bigint RF units, insufficient funds, all prices (cosmetics included) in the 5/10/25 family, small rewards, every odds table sums to 100%, prices come from the economy terms, generation determinism, reachability of every room (300 floors), floor-1 script, depth-2 Void shrine, loot and stats, player/enemy balance caps, run scoring and outcome multipliers, cosmetic catalogue, every sprite mask is a clean rectangle | 31/31 pass |
 | `npm run check` | FriendSDK game validation (imports, sandbox boundary, definition) | Pass |
 | `npm run build` | Static preview build | Pass |
 | `npm run test:browser` | 30 end-to-end checks in headless Chromium against **the site as shipped** (The Descent host plus the SDK runtime pieces) with the SDK's own mock wallet and RPC fixture: picker thumbnails, Friend locked in during play, walking the camp and descending the great stairs, every floor mood, every special-room tune and family voice, title and verified Friend, keyboard movement, locked-room combat with real key presses, first loot, level-up, **5 RF** shrine (and its tune fading in inside the shrine room and out after leaving), +3 RF treasure, **5 → 10 → 25** rerolls with no 4th, **5 RF** gate, events, **10 RF** revive, **25 RF** full revival, **25 RF** Void shrine (including the secret-boss path and +25 RF), merchant **5 RF** and **10 RF** buys, potion, pause, mute, reduced motion, depth-3 boss with +5 RF, Waystone, escape summary with its score breakdown, **Copy image** putting a 1200×675 PNG scoreboard on the clipboard and **Post on X** opening X's composer with the run text and a link back, restart with no free RF top-up, death and End Run, **10 RF + 5 RF** Dye Altar buys (Corrupted skin, Blood Moon glow) and free swaps, the bestiary unlocking and opening with B (and several new creatures sharing one toast), every enemy bullet kind playing its own shot sound, a guardian fight paying +3 RF, a **5 RF** Shell Game won by following the real shuffle (+15 RF) and a **5 RF** Rune Gallery paying by runes shattered, artwork-load error with retry, wrong-network unmount and recheck, **progress saved under the Friend's wallet and restored after a browser refresh** (balance, stash, cosmetics, bestiary, scores; the 25 RF start granted once), the save relay ignoring forged messages from outside the game frame and refusing saves for another Friend, touch joystick and buttons, zero console errors | 30/30 pass |
 | `npm run perf` / `npm run perf:golden <dir>` | `perf` times update and render per frame in five scenes (camp, depth 1, depth 5, a depth-8 stress room with 16 extra foes and ~150 bullets, the Rare Beast), optionally on a CPU slowed down 4× (`node scripts/perf.mjs bench 4`). `perf:golden` replays the game deterministically (seeded randomness, virtual clock and timers, the bot at the controls) and saves 13 exact frames; `node scripts/perf.mjs compare <a> <b>` checks two replays pixel by pixel and state by state | Replays are identical run to run; the layered renderer matches the old one within 3 color levels (rounding only) |
+| `npm run test:tour` | A guided tour of **all 30 floors** on the shipped site: the bot fights on the first floor of every act and every creature of the lower acts is spawned, then all 10 bosses are fought, beaten and must leave a Waystone; escaping after The First Friend must end the run as **Conquered**. Zero page errors allowed. Screenshots in `artifacts/tour/` | Pass (conquered at depth 30, 0 errors) |
+| `npm run balance [depths]` | Balance probe: at each boss depth the Friend gets a typical level and gear, then the bot clears three combat rooms and fights the boss; damage taken is reported as multiples of max HP so every act compares on one scale | Used to tune depths 10–30: act bosses take about 50–120 s for the probe bot, and The First Friend is the hardest fight |
 | `npm run test:showcase` | The no-wallet showcase at desktop and phone widths, with a wallet present in the browser: the Play link goes to the gated game, all nine families match the game's kit, the trailer and all nine clips can play, every screenshot loads, a family voice plays, and there are **zero wallet calls**, no outside requests, no horizontal scroll and no console errors | 12/12 pass |
 | `npm run test:real` (or `TARGET_URL=<preview> node scripts/test-real-gate.mjs`) | **Live Robinhood mainnet**, read-only, also run against the published GitHub Pages preview: a stand-in wallet that refuses every signing method reports a real holder's public address. The real SDK picker discovered the holder's 5 hardwired Friends, freshly verified ownership, and the game loaded that Friend's on-chain artwork. An address with only a generation-0 Friend was refused, and a wrong-network wallet was stopped before play. | 3/3 pass |
 | `npm run playtest` | A bot plays the real engine at accelerated speed using only player controls, reporting depth, deaths, damage by source and RF flow | Used for balance. After the difficulty pass, a bot that never dodges usually falls at depths 2–4 (often to the Dungeon Warden) and takes about 3× the damage per floor it used to; a bot that sidesteps bullets reaches about depth 5–6 instead of clearing all 9 floors. Deep runs earn about 40–110 RF. |
@@ -398,6 +451,8 @@ If your Playwright version has no matching browser download (for example in a sa
 
 ## Known issues and limitations
 
+- **A full descent is long.** Conquering all 30 floors in one run takes a skilled player a couple of hours. Waystones after every boss let you escape with your loot at any act. Starting a run from an act you have already beaten is a planned addition.
+- **Depths 10–30 are balanced with bots, not humans.** The balance probe and a guided 30-floor tour verify every floor and boss, but no human has played through all ten acts yet.
 - **Saves are per browser.** Progress is saved per Friend in the browser where you play (see [Saved progress](#saved-progress)), not synced between devices, and a player could edit their own browser's copy. That is fine for simulated RF; a real economy would need a server or on-chain record. The global leaderboard is a placeholder for the same reason.
 - **No free top-ups.** After the starting 25 RF, a player who spends everything must earn RF back in the dungeon (kills, treasure, guardians, bosses, mini-games) before paying for anything again.
 - **Two RF numbers are visible.** The SDK runtime's own "Friend wallet" panel shows its reference chance-game preview balance (20 RF). The Descent does not use that ledger; the in-game **$RAREFRIENDS** panel is this game's simulated purse. The pause menu explains this.

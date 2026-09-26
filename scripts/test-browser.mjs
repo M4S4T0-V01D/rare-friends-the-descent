@@ -524,7 +524,7 @@ await testSite({
         const a = g.audio;
         return a.unlock().then(running => {
           const songs = [];
-          for (const mode of ["camp", "crypt", "tech", "flesh", "void", "boss"]) { a.setMusicMode(mode); songs.push(Boolean(a.place && a.place.player.playing)); }
+          for (const mode of ["camp", "crypt", "tech", "flesh", "frost", "ember", "rot", "sunken", "clock", "mirror", "void", "boss", "finale"]) { a.setMusicMode(mode); songs.push(Boolean(a.place && a.place.player.playing)); }
           const rooms = [];
           for (const song of ["shrine", "voidShrine", "corpse", "lostFriend", "mystery", "merchant", "gambler", "treasure", "secret"]) {
             a.setRoomSong(song); rooms.push(Boolean(a.room && a.room.player.playing) && a.currentRoomSong === song);
@@ -539,7 +539,7 @@ await testSite({
         });
       `);
       assert.equal(result.state, "running", "audio context runs after a gesture");
-      assert.deepEqual(result.songs, [true, true, true, true, true, true], "every place has a tune");
+      assert.deepEqual(result.songs, Array(13).fill(true), "every place (and the final boss) has a tune");
       assert.deepEqual(result.rooms, Array(9).fill(true), "every special room has a tune");
       // Every enemy bullet kind has its own shot sound, played by fire() itself.
       await call("g.audio.lastPlayed.clear()");

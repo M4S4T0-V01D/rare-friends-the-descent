@@ -30,6 +30,8 @@ export const RF_REWARDS = {
   miniBoss: 5,
   boss: 10,
   secretBoss: 25,
+  /** The First Friend, at the bottom of the Descent (depth 30). */
+  finalBoss: 25,
   /** Each coin a fleeing Loot Goblin drops. */
   goblinCoin: 1,
   /** Searching The Corpse can turn up a few RF. */

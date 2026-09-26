@@ -21,6 +21,8 @@ export type Player = {
 export type EnemyKind = "cursed" | "crawler" | "goblin" | "corrupted" | "warden" | "beast" | "unminted"
   | "wisp" | "gunner" | "drone" | "turret" | "mite" | "spitter" | "eyestalk" | "bloodling" | "shade"
   | "bomber" | "lancer" | "hexer" | "sniper" | "brute" | "hive" | "wraith" | "prism"
+  | "frostmoth" | "rimeknight" | "cinderimp" | "slaggolem" | "sporeling" | "thorn" | "belldiver" | "eel" | "cog" | "pendulum" | "shardling" | "mirror" | "seraph"
+  | "archivist" | "forgemaster" | "bloom" | "cantor" | "hourengine" | "reflection" | "firstfriend"
   /** A floating rune in the Rune Gallery mini-game, not a real foe. */
   | "target";
 export type Modifier = "vampiric" | "explosive" | "frozen" | "swarm" | "frenzied" | "armored" | "teleporting" | "cursed"

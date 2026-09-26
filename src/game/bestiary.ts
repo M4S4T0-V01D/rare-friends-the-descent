@@ -28,9 +28,9 @@ export function updateBestiary(e: Enemy, w: World, dt: number) {
   }
 }
 
-const depthBonus = (w: World, per: number, max: number) => Math.min(max, Math.floor((w.depth - 1) / per));
+export const depthBonus = (w: World, per: number, max: number) => Math.min(max, Math.floor((w.depth - 1) / per));
 
-function shoot(e: Enemy, w: World, angle: number, speed: number, kind: "orb" | "pellet" | "needle" = "orb", radius = 7, dmgScale = 1) {
+export function shoot(e: Enemy, w: World, angle: number, speed: number, kind: "orb" | "pellet" | "needle" = "orb", radius = 7, dmgScale = 1) {
   w.fire({ pos: { x: e.pos.x + Math.cos(angle) * e.radius, y: e.pos.y - 8 + Math.sin(angle) * e.radius }, vel: fromAngle(angle, speed),
     radius, dmg: e.dmg * dmgScale, owner: "enemy", life: 4.5, color: w.bulletColor, kind, source: e,
     slow: e.mods.includes("frozen"), curse: e.mods.includes("cursed") });
@@ -38,13 +38,13 @@ function shoot(e: Enemy, w: World, angle: number, speed: number, kind: "orb" | "
 export function ring(e: Enemy, w: World, count: number, speed: number, offset = 0, kind: "orb" | "pellet" = "orb") {
   for (let i = 0; i < count; i++) shoot(e, w, offset + (i / count) * TAU, speed, kind);
 }
-function spread(e: Enemy, w: World, count: number, arc: number, speed: number, kind: "orb" | "pellet" | "needle" = "pellet") {
+export function spread(e: Enemy, w: World, count: number, arc: number, speed: number, kind: "orb" | "pellet" | "needle" = "pellet") {
   const base = angleTo(e.pos, w.player.pos);
   for (let i = 0; i < count; i++) shoot(e, w, base + (count > 1 ? (i / (count - 1) - 0.5) * arc : 0), speed, kind, kind === "pellet" ? 6 : 7);
 }
 
 /** Hold a distance band from the player, circling while inside it. */
-function keepRange(e: Enemy, w: World, dt: number, min: number, max: number, speed = e.speed) {
+export function keepRange(e: Enemy, w: World, dt: number, min: number, max: number, speed = e.speed) {
   const p = w.player.pos, d = dist(e.pos, p);
   let target: Vec;
   if (d < min) target = { x: e.pos.x * 2 - p.x, y: e.pos.y * 2 - p.y };

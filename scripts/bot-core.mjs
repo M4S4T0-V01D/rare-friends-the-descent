@@ -6,7 +6,9 @@ export function installBot(opts) {
   // The harness moved the real mouse over the stage; the bot aims like a keyboard player.
   g.input.mouse.inside = false;
   const TILE = 32;
-  const bot = { runs: [], path: [], pathAt: -1, target: null, stuck: 0, last: { x: 0, y: 0 }, floorStart: 0, floorTimes: [] };
+  const bot = { runs: [], path: [], pathAt: -1, target: null, stuck: 0, last: { x: 0, y: 0 }, floorStart: 0, floorTimes: [], ignore: new Set(), goalSince: 0 };
+  // A goal the bot cannot reach (loot behind a closed gate, say) is dropped after a few seconds without progress.
+  const key = goal => `${g.depth}:${Math.round(goal.x / 16)}:${Math.round(goal.y / 16)}`;
   window.__bot = bot;
   const solid = (tx, ty) => {
     const f = g.floor, t = f.tiles[ty * f.width + tx];
@@ -41,9 +43,11 @@ export function installBot(opts) {
   bot.step = () => {
     if (g.screen === "summary") {
       const s = g.ui.summary;
+      if (s === bot.lastSummary) { bot.retries = (bot.retries ?? 0) + 1; if (bot.retries % 60 === 0) g.descend().catch(e => { bot.error = String(e && e.stack || e); }); return; }
+      bot.lastSummary = s; bot.retries = 0;
       bot.runs.push({ minHp: Math.round((bot.minHp ?? 1) * 100), potions: bot.potions ?? 0, hpMax: g.stats.maxHp, atk: g.stats.atk, armor: g.stats.armor, revives: bot.revives ?? 0, outcome: s.outcome, killedBy: g.lastHitBy, dmg: Object.fromEntries([...g.damageTally].map(([k, v]) => [k.replace(/ FRIEND| CRAWLER/, ""), v])), room: bot.deathRoom, depth: s.depth, kills: s.kills, level: s.level, earned: s.rfEarned, floorTimes: bot.floorTimes.join("/") });
       bot.floorTimes = []; bot.revives = 0; bot.minHp = 1; bot.potions = 0;
-      void g.descend();
+      g.descend().catch(e => { bot.error = String(e && e.stack || e); });
       return;
     }
     if (g.screen !== "run") return;
@@ -53,7 +57,7 @@ export function installBot(opts) {
     if (m.kind === "reveal") return g.closeModal();
     if (m.kind === "death" && opts.revive && g.ui.balance >= 10) { bot.revives = (bot.revives ?? 0) + 1; return void g.revive(g.ui.balance >= 25 ? "full" : "partial"); }
     if (m.kind === "death") { bot.deathRoom = `${g.floor.rooms[g.currentRoom ?? 0]?.type}:${g.enemies.map(e => e.kind[0]).join("")}`; return g.endRunFromDeath(); }
-    if (m.kind === "waystone") return g.depth >= 9 ? g.waystoneEscape() : g.waystoneDescend();
+    if (m.kind === "waystone") return g.depth >= 30 ? g.waystoneEscape() : g.waystoneDescend();
     if (m.kind !== "none") return g.closeModal();
     const p = g.player;
     if (p.dead) return;
@@ -101,10 +105,10 @@ export function installBot(opts) {
     }
     g.input.held.delete("attack");
     // Collect nearby loot, then head for the next uncleared room or the stairs.
-    const drop = g.pickups.find(pk => pk.kind === "item" && Math.hypot(pk.pos.x - p.pos.x, pk.pos.y - p.pos.y) < 400);
+    const drop = g.pickups.find(pk => pk.kind === "item" && Math.hypot(pk.pos.x - p.pos.x, pk.pos.y - p.pos.y) < 400 && !bot.ignore.has(key(pk.pos)));
     let goal = drop?.pos;
     if (!goal) {
-      const rooms = g.floor.rooms.filter(r => r.main && !r.cleared && ["combat", "elite", "guardian", "boss"].includes(r.type));
+      const rooms = g.floor.rooms.filter(r => r.main && !r.cleared && ["combat", "elite", "guardian", "boss"].includes(r.type) && !bot.ignore.has(key({ x: (r.x + r.w / 2) * TILE, y: (r.y + r.h / 2) * TILE })));
       const exit = g.interactables.find(it => it.kind === "waystone") ?? g.interactables.find(it => it.kind === "stairs");
       if (rooms.length) goal = { x: (rooms[0].x + rooms[0].w / 2) * TILE, y: (rooms[0].y + rooms[0].h / 2) * TILE };
       else if (exit) {
@@ -113,6 +117,9 @@ export function installBot(opts) {
       }
     }
     if (!goal) return;
+    if (g.time - (bot.stillSince ?? g.time) > 6 && bot.goal && Math.hypot(bot.goal.x - goal.x, bot.goal.y - goal.y) < 40) {
+      bot.ignore.add(key(goal)); bot.stillSince = g.time; bot.path = []; return;
+    }
     if (!bot.path.length || g.time - bot.pathAt > 1 || !bot.goal || Math.hypot(bot.goal.x - goal.x, bot.goal.y - goal.y) > 40) {
       bot.path = bfs(p.pos, goal) ?? []; bot.pathAt = g.time; bot.goal = goal;
     }

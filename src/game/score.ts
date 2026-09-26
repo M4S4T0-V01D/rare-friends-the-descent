@@ -23,6 +23,12 @@ export const SCORE_POINTS = {
   depth: 500, depthSquared: 50, kill: 10, elite: 60, guardian: 400, miniBoss: 1000, boss: 3000, secretBoss: 2500, level: 120, rfEarned: 15, cursedBonus: 1.25,
 } as const;
 
+/** Each act's boss is worth more than the last; the First Friend most of all. Wardens and unknown names score as mini-bosses. */
+export const BOSS_POINTS: Readonly<Record<string, number>> = {
+  "THE RARE BEAST": 3000, "THE UNMINTED": 2500, "THE ARCHIVIST": 3500, "THE FORGEMASTER": 4000, "THE MOTHER BLOOM": 4500,
+  "THE DROWNED CANTOR": 5000, "THE HOUR ENGINE": 5500, "THE REFLECTION": 6000, "THE FIRST FRIEND": 10000,
+};
+
 export type ScoreInput = Readonly<{
   depth: number; kills: number; elites: number; bosses: readonly string[]; level: number;
   /** Guardians (mini-bosses) slain. Optional so older callers still score. */
@@ -38,7 +44,7 @@ export function itemPoints(item: Item): number {
 
 export function scoreRun(input: ScoreInput): RunScore {
   const P = SCORE_POINTS;
-  const bossPoints = input.bosses.reduce((total, name) => total + (name === "THE RARE BEAST" ? P.boss : name === "THE UNMINTED" ? P.secretBoss : P.miniBoss), 0);
+  const bossPoints = input.bosses.reduce((total, name) => total + (BOSS_POINTS[name] ?? P.miniBoss), 0);
   const loot = input.items.reduce((total, item) => total + itemPoints(item), 0);
   const best = [...input.items].sort((a, b) => itemPoints(b) - itemPoints(a))[0];
   const lines: ScoreLine[] = [

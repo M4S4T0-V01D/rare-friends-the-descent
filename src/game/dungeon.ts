@@ -10,7 +10,9 @@ export type T = typeof T[keyof typeof T];
 export type RoomType = "start" | "combat" | "elite" | "guardian" | "treasure" | "shrine" | "merchant" | "event" | "bonus" | "secret" | "boss" | "exit" | "arena";
 export type Rect = { x: number; y: number; w: number; h: number };
 export type DecorKind = "bones" | "skull" | "candles" | "chains" | "terminal" | "cables" | "runeCircle" | "rubble" | "banner" | "crystal"
-  | "coffin" | "gravestone" | "serverRack" | "pipe" | "screen" | "tendril" | "fleshPool" | "ribcage" | "eyeball" | "voidShard" | "glitch";
+  | "coffin" | "gravestone" | "serverRack" | "pipe" | "screen" | "tendril" | "fleshPool" | "ribcage" | "eyeball" | "voidShard" | "glitch"
+  | "icicle" | "frozenFriend" | "shelf" | "anvil" | "lavaCrack" | "brazier" | "mushroom" | "thornVine" | "sporePod" | "puddle" | "bell" | "kelp"
+  | "gear" | "clockface" | "pendulumClock" | "mirrorPane" | "glassShard" | "candelabra";
 export type Decor = { x: number; y: number; kind: DecorKind; seed: number };
 
 export type Room = {
