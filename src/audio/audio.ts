@@ -20,6 +20,14 @@ export type SfxName =
 
 type Layer = { player: MusicPlayer; gain: GainNode };
 
+/** Mix levels. Attacks and impacts ride a little above the other effects, and music sits just under both. */
+const SFX_LEVEL = 0.55, COMBAT_LEVEL = 1.35, MUSIC_LEVEL = 0.38;
+/** Attack and impact cues, from both sides of the fight: they go through the combat bus. */
+const COMBAT: ReadonlySet<SfxName> = new Set<SfxName>([
+  "swing", "heavySwing", "hit", "crit", "bolt", "boltShards", "boltLance", "nova", "slam", "explode", "burn", "enemySwing", "charge",
+  "shotOrb", "shotPellet", "shotNeedle", "shotGlob", "shotShard", "snipe", "zap", "hiss", "wallTick", "skitter",
+]);
+
 /** Minimum seconds between repeats of one cue, so a ring of twenty bullets is one sound, not twenty. */
 const MIN_GAP: Partial<Record<SfxName, number>> = {
   hit: 0.035, coin: 0.035, shotOrb: 0.05, shotPellet: 0.04, shotNeedle: 0.045, shotGlob: 0.08, shotShard: 0.05,
@@ -38,6 +46,9 @@ export class AudioEngine {
   private sfxBus: GainNode | null = null;
   private lastShot = -1;
   private musicBus: GainNode | null = null;
+  /** Feeds the effects bus with attacks and impacts, a little louder; `route` is where the cue being played goes. */
+  private combatBus: GainNode | null = null;
+  private route: AudioNode | null = null;
   private noise: AudioBuffer | null = null;
   private kit: FriendSoundKit;
   private muted = false;
@@ -62,8 +73,9 @@ export class AudioEngine {
         this.master = this.ctx.createGain();
         this.master.gain.value = this.muted ? 0 : 0.8;
         this.master.connect(this.ctx.destination);
-        this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = 0.55; this.sfxBus.connect(this.master);
-        this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = this.musicOn ? 0.45 : 0; this.musicBus.connect(this.master);
+        this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = SFX_LEVEL; this.sfxBus.connect(this.master);
+        this.combatBus = this.ctx.createGain(); this.combatBus.gain.value = COMBAT_LEVEL; this.combatBus.connect(this.sfxBus);
+        this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = this.musicOn ? MUSIC_LEVEL : 0; this.musicBus.connect(this.master);
         const length = this.ctx.sampleRate;
         this.noise = this.ctx.createBuffer(1, length, this.ctx.sampleRate);
         const data = this.noise.getChannelData(0);
@@ -85,7 +97,7 @@ export class AudioEngine {
   }
   setMusic(on: boolean) {
     this.musicOn = on;
-    if (this.musicBus && this.ctx) this.musicBus.gain.setTargetAtTime(on ? 0.45 : 0, this.ctx.currentTime, 0.2);
+    if (this.musicBus && this.ctx) this.musicBus.gain.setTargetAtTime(on ? MUSIC_LEVEL : 0, this.ctx.currentTime, 0.2);
   }
 
   cue(name: string) {
@@ -108,6 +120,7 @@ export class AudioEngine {
     const v = Math.min(1.4, intensity);
     // A little pitch drift so a hail of identical bullets never sounds like a machine.
     const k = 0.93 + Math.random() * 0.14;
+    this.route = COMBAT.has(name) ? this.combatBus : bus;
     switch (name) {
       case "swing": this.noiseBurst(t, 0.09, 1800, 5200, 0.22 * v, "bandpass"); break;
       case "heavySwing": this.noiseBurst(t, 0.16, 900, 3000, 0.3 * v, "bandpass"); this.tone(t, 110, 60, 0.14, 0.18, "triangle"); break;
@@ -154,6 +167,7 @@ export class AudioEngine {
       case "explode": this.noiseBurst(t, 0.5, 1800, 80, 0.4, "lowpass"); this.tone(t, 90, 30, 0.4, 0.3, "sine"); break;
       case "burn": this.noiseBurst(t, 0.12, 2400, 1200, 0.07, "bandpass"); break;
     }
+    this.route = null;
   }
 
   /** Each place has its own tune. Changing place crossfades rather than cutting. */
@@ -237,7 +251,7 @@ export class AudioEngine {
 
 
 
-  private tone(t: number, from: number, to: number, duration: number, level: number, type: OscillatorType, bus: AudioNode | null = this.sfxBus) {
+  private tone(t: number, from: number, to: number, duration: number, level: number, type: OscillatorType, bus: AudioNode | null = this.route ?? this.sfxBus) {
     const ctx = this.ctx;
     if (!ctx || !bus) return;
     const osc = ctx.createOscillator(), gain = ctx.createGain();
@@ -252,7 +266,7 @@ export class AudioEngine {
   }
 
   private noiseBurst(t: number, duration: number, from: number, to: number, level: number, type: BiquadFilterType) {
-    const ctx = this.ctx, bus = this.sfxBus;
+    const ctx = this.ctx, bus = this.route ?? this.sfxBus;
     if (!ctx || !bus || !this.noise) return;
     const source = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
     source.buffer = this.noise;
