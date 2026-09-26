@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Descent · Live Preview</title>
+  <meta name="description" content="Rare Friends: The Descent, a bullet-hell dungeon crawler where your Rare Friend is the hero and $RAREFRIENDS is the currency of risk. Watch the trailer and meet every family's kit.">
+  <meta property="og:title" content="Rare Friends: The Descent">
+  <meta property="og:description" content="Your Rare Friend descends into a dungeon where $RAREFRIENDS is the currency of risk.">
+  <meta property="og:image" content="media/trailer.jpg">
+  <link rel="stylesheet" href="showcase.css">
+</head>
+<body>
+  <header class="hero">
+    <p class="eyebrow">Rare Friends</p>
+    <h1>The Descent</h1>
+    <p class="tagline">Your Rare Friend descends into a dungeon where <strong>$RAREFRIENDS</strong> is the currency of risk.</p>
+    <p class="cta">
+      <a class="play" href="../">Play <span>(wallet required)</span></a>
+      <a class="ghost" href="https://github.com/M4S4T0-V01D/rare-friends-the-descent">Source &amp; full rules</a>
+    </p>
+    <p class="needs">Playing needs a browser wallet on <strong>Robinhood mainnet</strong> holding a hardwired <strong>Rare Friends Generations NFT</strong> (generation ≥ 1). The FriendSDK checks ownership before play. This page is only a showcase: it never connects a wallet.</p>
+  </header>
+
+  <main>
+    <section class="trailer" aria-labelledby="trailer-h">
+      <h2 id="trailer-h">Trailer</h2>
+      <video controls preload="metadata" playsinline poster="media/trailer.jpg" aria-describedby="trailer-note">
+        <source src="media/trailer.webm" type="video/webm">
+        <source src="media/trailer.mp4" type="video/mp4">
+      </video>
+      <p class="note" id="trailer-note">Recorded from the shipped game, sound included, with the FriendSDK's test wallet and its sample Friend #7730 (a Hoverer). <span class="sim">Simulated</span> All RF shown is simulated: no real tokens move.</p>
+    </section>
+
+    <section aria-labelledby="families-h">
+      <h2 id="families-h">Every family plays differently</h2>
+      <p class="lede">Your Friend's Generations family sets its <strong>signature ability (R)</strong>, a passive trait and its voice. The clips show each signature cast on the sample Friend. In the game, your own Friend casts it with its own on-chain artwork.</p>
+      <div class="families" id="families"></div>
+    </section>
+
+    <section aria-labelledby="seed-h">
+      <h2 id="seed-h">Your Friend's seed shapes the rest</h2>
+      <p class="lede">The Friend's on-chain art seed picks its attack, bolt, dodge and action-bar look, so the same Friend always gets the same kit. Across the nine families that makes 5,184 combinations.</p>
+      <div class="seed">
+        <div><h3><span class="key">J</span> Attack</h3><ul id="attacks"></ul></div>
+        <div><h3><span class="key">Q</span> Bolt</h3><ul id="bolts"></ul></div>
+        <div><h3><span class="key">Space</span> Dodge</h3><ul id="dodges"></ul></div>
+        <div><h3>Action bar</h3><ul class="styles"><li><strong>4 frames</strong> · corner brackets, ring, diamond gems or notched</li><li><strong>8 accents</strong> · drawn around each slot, so key bindings stay readable</li></ul></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="gallery-h">
+      <h2 id="gallery-h">Screenshots</h2>
+      <div class="gallery">
+        <figure><a href="media/screenshots/camp.png"><img loading="lazy" src="media/screenshots/camp.png" alt="The camp: a ruined Rare Friends sanctuary with tents, lanterns and a campfire" width="1098" height="732"></a><figcaption><strong>The camp.</strong> Walk your Friend around a ruined sanctuary before each descent.</figcaption></figure>
+        <figure><a href="media/screenshots/camp-stairs.png"><img loading="lazy" src="media/screenshots/camp-stairs.png" alt="The great stairs, flanked by two stone statues of your own Friend" width="1098" height="732"></a><figcaption><strong>The great stairs.</strong> Two statues of <em>your</em> Friend guard the way down.</figcaption></figure>
+        <figure><a href="media/screenshots/combat-depth-1.png"><img loading="lazy" src="media/screenshots/combat-depth-1.png" alt="Depth 1, the Ossuary: a Rune Slash into Cursed Friends" width="1098" height="732"></a><figcaption><strong>Depth 1 · Ossuary.</strong> Cursed Friends in the upper crypts.</figcaption></figure>
+        <figure><a href="media/screenshots/combat-depth-3.png"><img loading="lazy" src="media/screenshots/combat-depth-3.png" alt="Depth 3, Warden's Vault: Hex Priest curse circles and a Loot Goblin" width="1098" height="732"></a><figcaption><strong>Depth 3 · Warden's Vault.</strong> Hex Priest curse circles and a Loot Goblin.</figcaption></figure>
+        <figure><a href="media/screenshots/combat-depth-5.png"><img loading="lazy" src="media/screenshots/combat-depth-5.png" alt="Depth 5, Server Tombs: a Signal Mite swarm under turret fire" width="1098" height="732"></a><figcaption><strong>Depth 5 · Server Tombs.</strong> A mite swarm under turret fire.</figcaption></figure>
+        <figure><a href="media/screenshots/combat-depth-8.png"><img loading="lazy" src="media/screenshots/combat-depth-8.png" alt="Depth 8, Vein Galleries: named champions and an Eye Stalk's needle stream" width="1098" height="732"></a><figcaption><strong>Depth 8 · Vein Galleries.</strong> Named champions and an Eye Stalk's needles.</figcaption></figure>
+        <figure><a href="media/screenshots/inventory.png"><img loading="lazy" src="media/screenshots/inventory.png" alt="The character sheet: a paper doll of equipped gear and the bag grouped by type" width="1098" height="732"></a><figcaption><strong>Character sheet.</strong> Paper-doll gear and a bag grouped by item type.</figcaption></figure>
+        <figure><a href="media/screenshots/bestiary.png"><img loading="lazy" src="media/screenshots/bestiary.png" alt="The bestiary: 24 creature pages, unseen ones as silhouettes" width="1098" height="732"></a><figcaption><strong>Bestiary.</strong> A page for every creature your Friend has met.</figcaption></figure>
+        <figure><a href="media/screenshots/title.png"><img loading="lazy" src="media/screenshots/title.png" alt="The title screen: the verified Friend on a glowing rune circle" width="1098" height="732"></a><figcaption><strong>Title.</strong> Your verified Friend, its kit and the simulated-RF label.</figcaption></figure>
+      </div>
+    </section>
+
+    <section aria-labelledby="rf-h">
+      <h2 id="rf-h">$RAREFRIENDS, in 5, 10 and 25 <span class="sim">Simulated</span></h2>
+      <p class="lede">Every paid choice costs 5, 10 or 25 RF: spend a little now, save for more, or risk everything. Everything here is simulated, and no real tokens move.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th></th><th>5 RF</th><th>10 RF</th><th>25 RF</th></tr></thead>
+          <tbody>
+            <tr><th>Shrines</th><td>Greed: small blessing</td><td>Fate: medium blessing</td><td>Void: major gamble</td></tr>
+            <tr><th>Gates</th><td>Blood: bonus room</td><td>Cursed: elite fight</td><td>Abyssal: 3-wave vault</td></tr>
+            <tr><th>Loot rerolls</th><td>1st</td><td>2nd</td><td>3rd (no 4th)</td></tr>
+            <tr><th>Revive</th><td></td><td>40% HP</td><td>Full HP + cleanse</td></tr>
+            <tr><th>Mini-games</th><td>Rune Gallery · Shell Game</td><td>Coin Dash</td><td></td></tr>
+            <tr><th>Dye Altar</th><td>Common looks</td><td>Rare looks</td><td>Prismatic, Gilded, Void</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="cta"><a class="play" href="../">Play <span>(wallet required)</span></a></p>
+    </section>
+  </main>
+
+  <footer>
+    <p>Rare Friends: The Descent · built by M4S4T0 (<a href="https://github.com/M4S4T0-V01D">@M4S4T0-V01D</a>) for the Rare Friends Vibeathon with FriendSDK v0.1.2.</p>
+    <p>Rare Friends Generations artwork is read on-chain through the FriendSDK. Fonts: Jacquard 24 and VT323 (SIL Open Font License). <a href="https://github.com/M4S4T0-V01D/rare-friends-the-descent/blob/main/NOTICE.md">Notices</a></p>
+  </footer>
+  <script src="showcase.js" defer></script>
+</body>
+</html>

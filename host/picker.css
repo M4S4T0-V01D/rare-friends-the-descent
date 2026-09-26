@@ -24,3 +24,5 @@
 @media (max-width: 520px) { .dh-grid { grid-template-columns: 1fr 1fr; } .dh-thumb, .dh-thumb canvas { width: 48px; height: 48px; } .dh-card-text strong { font-size: 16px; } }
 .dh-details { margin: 4px auto; max-width: 720px; font-size: 13px; color: #6d6780; overflow-wrap: anywhere; }
 .dh-details summary { cursor: pointer; }
+.dh-showcase { color: #ccff00; }
+.dh-showcase:focus-visible { outline: 2px solid #ccff00; outline-offset: 2px; }

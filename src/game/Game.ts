@@ -19,7 +19,7 @@ import { friendKit, type FriendKit } from "./kit";
 import {
   generateItem, itemScore, newItemId, rarityRank, RARITIES, RARITY_STYLE, rollRarity, SLOTS, type Item, type Rarity, type Slot,
 } from "./items";
-import { angleDiff, angleTo, dist, fromAngle, inCone, normalize, segmentDistance, TAU, type Vec } from "./math";
+import { angleDiff, angleTo, clamp, dist, fromAngle, inCone, normalize, segmentDistance, TAU, type Vec } from "./math";
 import { hash32, randomSeed, Rng } from "./rng";
 import { BOONS, DEFAULT_TRAIT, FAMILY_TRAITS, computeStats, xpForLevel, type BoonId, type Buff, type Stats } from "./stats";
 import { Store } from "./store";
@@ -55,6 +55,10 @@ const STATIONARY: ReadonlySet<RosterKind> = new Set(["turret", "eyestalk", "hive
 const BAG_LIMIT = 10;
 const STASH_LIMIT = 12;
 const MAX_PARTICLES = 700;
+/** The sound each enemy bullet kind makes as it leaves the barrel. */
+const SHOT_SFX: Readonly<Record<Projectile["kind"], SfxName>> = {
+  orb: "shotOrb", pellet: "shotPellet", needle: "shotNeedle", glob: "shotGlob", shard: "shotShard", bolt: "shotNeedle", wave: "shotOrb", rune: "shotOrb",
+};
 
 export class Game implements World {
   readonly store: Store<UiState>;
@@ -643,7 +647,12 @@ export class Game implements World {
 
   fire(p: Omit<Projectile, "id" | "hit" | "pierce"> & { pierce?: number }) {
     this.projectiles.push({ ...p, id: this.nextId++, hit: new Set(), pierce: p.pierce ?? 0 });
+    // Every enemy bullet has a voice: soft, per kind, quieter with distance (the player's own shots voice their cast).
+    if (p.owner === "enemy") this.sfx(SHOT_SFX[p.kind], this.nearness(p.pos));
   }
+
+  /** 1 near the Friend, fading to 0.3 across the screen: distant fights stay audible but in the background. */
+  private nearness(pos: Vec) { return clamp(1.1 - dist(pos, this.player.pos) / 800, 0.3, 1); }
 
   hazard(h: Partial<Hazard> & Pick<Hazard, "shape" | "pos" | "delay" | "dmg">) {
     this.hazards.push({
@@ -870,7 +879,7 @@ export class Game implements World {
       this.fire({ pos: { x: p.pos.x + Math.cos(a) * 16, y: p.pos.y - 12 + Math.sin(a) * 16 }, vel: fromAngle(a, bolt.speed), radius: bolt.radius,
         dmg: s.atk * bolt.dmg * s.boltMult, owner: "player", life: bolt.life, color: bolt.color, kind: bolt.id === "shards" ? "shard" : "bolt", pierce: bolt.pierce });
     }
-    this.sfx("bolt");
+    this.sfx(bolt.id === "shards" ? "boltShards" : bolt.id === "lance" ? "boltLance" : "bolt");
   }
 
   private castNova(free = false) {
@@ -1539,6 +1548,7 @@ export class Game implements World {
         if (proj.burst) { proj.pos.x -= proj.vel.x * dt; proj.pos.y -= proj.vel.y * dt; this.burstProjectile(proj); continue; }
         proj.life = 0;
         this.burst(proj.pos.x, proj.pos.y, proj.color, 5, 90);
+        this.sfx("wallTick", this.nearness(proj.pos) * (proj.owner === "player" ? 1.4 : 0.8));
         continue;
       }
       if (proj.owner === "player") {
@@ -1590,8 +1600,9 @@ export class Game implements World {
           if (h.shape === "circle") this.particle({ x: h.pos.x, y: h.pos.y - 6, vx: 0, vy: 0, life: 0.4, size: h.radius, color: h.color, kind: "ring", drag: 0, gravity: 0 });
           this.burst(h.pos.x, h.pos.y, h.color, 14, 220);
         }
+        if (h.owner === "enemy" && h.dmg > 0 && h.linger > 0) this.sfx(h.shape === "line" ? "zap" : "hiss", this.nearness(h.pos));
         if (h.owner === "enemy" && h.dmg > 0 && h.linger === 0) {
-          this.sfx(h.color === "#ff9a3c" ? "explode" : "slam");
+          this.sfx(h.color === "#ff9a3c" ? "explode" : h.shape === "line" ? "zap" : "slam", h.shape === "line" ? 1.3 : 1);
           this.shake(h.radius > 100 ? 7 : 4);
           const n = h.shape === "circle" ? 18 : 10;
           for (let i = 0; i < n; i++) {
@@ -2443,6 +2454,8 @@ export class Game implements World {
     for (let i = 0; i < count; i++) this.acquireItem(generateItem(this.rng, this.depth + 2, { slot: SLOTS[i % SLOTS.length], rarity: RARITIES[Math.min(5, (i * 7) % 6)], cursed: i === 7 }), "debug", true);
   }
   debugGrant(amount: number) { return this.economy.reward(rf(amount), "Test grant (automated test)", "stipend"); }
+  /** Showcase recordings: cast another family's signature (and hear its voice) on this Friend. */
+  debugFamily(family: string) { (this as { kit: FriendKit }).kit = friendKit(family, this.kit.seed); this.audio.setVoice(family, this.kit.seed); }
   debugSpawn(kind: EnemyKind) { const room = this.lockedRoom ?? this.currentRoom ?? 0; return this.spawn(kind, this.pointNearPlayer(room, 120, 220), room).id; }
 }
 

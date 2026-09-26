@@ -532,6 +532,14 @@ await testSite({
       assert.equal(result.state, "running", "audio context runs after a gesture");
       assert.deepEqual(result.songs, [true, true, true, true, true, true], "every place has a tune");
       assert.deepEqual(result.rooms, Array(9).fill(true), "every special room has a tune");
+      // Every enemy bullet kind has its own shot sound, played by fire() itself.
+      await call("g.audio.lastPlayed.clear()");
+      for (const kind of ["orb", "pellet", "needle", "glob", "shard"]) {
+        await call(`g.fire({ pos: { x: g.player.pos.x + 200, y: g.player.pos.y }, vel: { x: 0, y: 0 }, radius: 6, dmg: 0, owner: "enemy", life: 0.01, color: "#fff", kind: arg })`, kind);
+        await page.waitForTimeout(60);
+      }
+      const voiced = await call("return [...g.audio.lastPlayed.keys()].filter(k => k.startsWith('shot'))");
+      assert.deepEqual(voiced.sort(), ["shotGlob", "shotNeedle", "shotOrb", "shotPellet", "shotShard"], "every bullet kind sounds");
       await page.waitForTimeout(1500);
     });
 

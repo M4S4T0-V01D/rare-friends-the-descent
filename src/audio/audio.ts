@@ -12,10 +12,19 @@ export type VoiceAction = "greet" | "dodge" | "hurt" | "signature" | "happy" | "
 
 export type SfxName =
   | "swing" | "heavySwing" | "hit" | "crit" | "enemyDie" | "playerHurt" | "dodge" | "bolt" | "nova" | "potion"
-  | "coin" | "spend" | "pickup" | "levelUp" | "doorLock" | "doorOpen" | "enemySwing" | "enemyShot" | "charge"
-  | "slam" | "roar" | "summon" | "blink" | "telegraph" | "death" | "ui" | "deny" | "shrine" | "explode" | "burn";
+  | "coin" | "spend" | "pickup" | "levelUp" | "doorLock" | "doorOpen" | "enemySwing" | "charge"
+  | "slam" | "roar" | "summon" | "blink" | "telegraph" | "death" | "ui" | "deny" | "shrine" | "explode" | "burn"
+  // Enemy shots, one voice per bullet kind (played by Game.fire), plus the player's bolt styles and attack details.
+  | "shotOrb" | "shotPellet" | "shotNeedle" | "shotGlob" | "shotShard" | "boltShards" | "boltLance" | "snipe"
+  | "zap" | "hiss" | "wallTick" | "skitter";
 
 type Layer = { player: MusicPlayer; gain: GainNode };
+
+/** Minimum seconds between repeats of one cue, so a ring of twenty bullets is one sound, not twenty. */
+const MIN_GAP: Partial<Record<SfxName, number>> = {
+  hit: 0.035, coin: 0.035, shotOrb: 0.05, shotPellet: 0.04, shotNeedle: 0.045, shotGlob: 0.08, shotShard: 0.05,
+  snipe: 0.1, zap: 0.06, hiss: 0.12, wallTick: 0.09, skitter: 0.08,
+};
 
 const SDK_CUES: Partial<Record<string, FriendSoundCue>> = {
   purchase: "purchase", reward: "reward", anticipation: "anticipation", "reveal-common": "reveal-common",
@@ -27,6 +36,7 @@ export class AudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private sfxBus: GainNode | null = null;
+  private lastShot = -1;
   private musicBus: GainNode | null = null;
   private noise: AudioBuffer | null = null;
   private kit: FriendSoundKit;
@@ -87,11 +97,17 @@ export class AudioEngine {
     const ctx = this.ctx, bus = this.sfxBus;
     if (!ctx || !bus || this.muted || ctx.state !== "running") return;
     // Rate-limit very frequent cues so crowds of enemies stay readable.
-    const now = ctx.currentTime, minGap = name === "hit" || name === "coin" ? 0.035 : name === "enemyShot" ? 0.06 : 0.02;
+    const now = ctx.currentTime, minGap = MIN_GAP[name] ?? 0.02;
     if ((this.lastPlayed.get(name) ?? -1) > now - minGap) return;
+    // All enemy shot kinds share one budget too, so a full bullet-hell room stays a patter, not a roar.
+    const shot = name.startsWith("shot");
+    if (shot && this.lastShot > now - 0.03) return;
+    if (shot) this.lastShot = now;
     this.lastPlayed.set(name, now);
     const t = now + 0.005;
     const v = Math.min(1.4, intensity);
+    // A little pitch drift so a hail of identical bullets never sounds like a machine.
+    const k = 0.93 + Math.random() * 0.14;
     switch (name) {
       case "swing": this.noiseBurst(t, 0.09, 1800, 5200, 0.22 * v, "bandpass"); break;
       case "heavySwing": this.noiseBurst(t, 0.16, 900, 3000, 0.3 * v, "bandpass"); this.tone(t, 110, 60, 0.14, 0.18, "triangle"); break;
@@ -110,7 +126,21 @@ export class AudioEngine {
       case "doorLock": this.tone(t, 70, 50, 0.35, 0.3, "square"); this.noiseBurst(t, 0.3, 400, 120, 0.3, "lowpass"); break;
       case "doorOpen": this.tone(t, 60, 120, 0.4, 0.2, "triangle"); this.noiseBurst(t, 0.35, 300, 1200, 0.18, "bandpass"); break;
       case "enemySwing": this.noiseBurst(t, 0.08, 900, 2200, 0.12, "bandpass"); break;
-      case "enemyShot": this.tone(t, 300, 180, 0.12, 0.08, "sine"); this.tone(t, 600, 360, 0.1, 0.04, "square"); break;
+      // Enemy bullets: soft, short and distinct per kind, scaled by distance (v).
+      case "shotOrb": this.tone(t, 520 * k, 250 * k, 0.1, 0.075 * v, "sine"); this.tone(t, 1040 * k, 500 * k, 0.05, 0.022 * v, "triangle"); break;
+      case "shotPellet": this.tone(t, 950 * k, 620 * k, 0.04, 0.035 * v, "square"); this.noiseBurst(t, 0.03, 5200, 3200, 0.035 * v, "highpass"); break;
+      case "shotNeedle": this.tone(t, 1900 * k, 1100 * k, 0.06, 0.04 * v, "triangle"); this.noiseBurst(t, 0.025, 7000, 5000, 0.02 * v, "highpass"); break;
+      case "shotGlob": this.tone(t, 210 * k, 90 * k, 0.18, 0.1 * v, "sine"); this.noiseBurst(t, 0.12, 900, 300, 0.06 * v, "lowpass"); break;
+      case "shotShard": this.tone(t, 1400 * k, 1340 * k, 0.09, 0.04 * v, "triangle"); this.tone(t + 0.012, 2100 * k, 2040 * k, 0.07, 0.022 * v, "sine"); break;
+      case "snipe": this.noiseBurst(t, 0.07, 6000, 1500, 0.1 * v, "bandpass"); this.tone(t, 2400, 600, 0.09, 0.06 * v, "square"); break;
+      // Player bolt styles (Void Bolt keeps "bolt").
+      case "boltShards": [0, 0.025, 0.05].forEach((d, i) => this.tone(t + d, (1500 + i * 180) * k, 1050 * k, 0.06, 0.07, "triangle")); this.noiseBurst(t, 0.06, 6000, 3500, 0.05, "highpass"); break;
+      case "boltLance": this.tone(t, 180, 1500, 0.1, 0.08, "sawtooth"); this.tone(t + 0.07, 1500, 700, 0.1, 0.07, "square"); this.noiseBurst(t + 0.06, 0.1, 7000, 2500, 0.06, "highpass"); break;
+      // Enemy line blasts, igniting pools, bullets breaking on walls, mites leaping.
+      case "zap": this.tone(t, 1300 * k, 180, 0.16, 0.06 * v, "sawtooth"); this.noiseBurst(t, 0.1, 3000, 1200, 0.05 * v, "bandpass"); break;
+      case "hiss": this.noiseBurst(t, 0.35, 1800, 700, 0.06 * v, "bandpass"); this.tone(t, 150 * k, 110 * k, 0.3, 0.035 * v, "sine"); break;
+      case "wallTick": this.noiseBurst(t, 0.03, 3200 * k, 2000, 0.03 * v, "bandpass"); break;
+      case "skitter": this.noiseBurst(t, 0.05, 4200 * k, 2400, 0.05 * v, "bandpass"); this.tone(t, 700 * k, 1100 * k, 0.04, 0.03 * v, "square"); break;
       case "charge": this.tone(t, 80, 240, 0.5, 0.2, "sawtooth"); break;
       case "slam": this.tone(t, 70, 30, 0.45, 0.4, "sine"); this.noiseBurst(t, 0.4, 900, 100, 0.35, "lowpass"); break;
       case "roar": this.tone(t, 110, 40, 1.1, 0.35, "sawtooth"); this.tone(t, 117, 42, 1.1, 0.25, "sawtooth"); this.noiseBurst(t, 1.0, 700, 150, 0.25, "lowpass"); break;

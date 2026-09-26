@@ -61,7 +61,6 @@ function wisp(e: Enemy, w: World, dt: number) {
   if (e.state === "aim") {
     if (e.stateT > 0.5 * tempo) {
       ring(e, w, 8 + 2 * depthBonus(w, 3, 2), 140 + w.depth * 4, e.anim * 0.7);
-      w.sound("enemyShot");
       e.state = "float"; e.stateT = 0; e.cd = (2.4 + w.rng.range(0, 0.6)) * tempo;
     }
     return;
@@ -76,7 +75,6 @@ function gunner(e: Enemy, w: World, dt: number) {
   if (e.state === "aim") {
     if (e.stateT > 0.45 * tempo) {
       spread(e, w, 5 + depthBonus(w, 4, 2), 0.7, 250 + w.depth * 5);
-      w.sound("enemyShot");
       e.state = "move"; e.stateT = 0; e.cd = (1.8 + w.rng.range(0, 0.5)) * tempo;
     }
     return;
@@ -92,7 +90,6 @@ function drone(e: Enemy, w: World, dt: number) {
     const shots = 3 + depthBonus(w, 3, 2);
     if (e.counter < shots && e.stateT > e.counter * 0.12) {
       shoot(e, w, angleTo(e.pos, w.player.pos), 320 + w.depth * 6, "pellet", 6);
-      w.sound("enemyShot");
       e.counter++;
     }
     if (e.counter >= shots) { e.state = "move"; e.stateT = 0; e.cd = (2 + w.rng.range(0, 0.6)) * tempo; }
@@ -131,7 +128,7 @@ function mite(e: Enemy, w: World, dt: number) {
     if (e.stateT > 0.25) { e.state = "chase"; e.stateT = 0; e.cd = 1.1; e.target = undefined; }
     return;
   }
-  if (e.state === "tell") { if (e.stateT > 0.25) { e.state = "lunge"; e.stateT = 0; } return; }
+  if (e.state === "tell") { if (e.stateT > 0.25) { e.state = "lunge"; e.stateT = 0; w.sound("skitter"); } return; }
   e.state = "chase";
   // Swarm around the player rather than stacking on one point.
   const orbit = angleTo(p.pos, e.pos) + (e.seed % 2 ? 0.5 : -0.5);
@@ -149,7 +146,6 @@ function spitter(e: Enemy, w: World, dt: number) {
       w.fire({ pos: { x: e.pos.x, y: e.pos.y - 10 }, vel: fromAngle(angleTo(e.pos, target), speed), radius: 12, dmg: e.dmg * 1.2, owner: "enemy",
         life: d / speed, color: w.bulletColor, kind: "glob", source: e, burst: { count: 10 + 2 * depthBonus(w, 4, 2), speed: 150, color: w.bulletColor, dmg: e.dmg * 0.8 } });
       w.hazard({ shape: "circle", pos: { ...target }, radius: 40, delay: d / speed, dmg: 0, color: w.bulletColor });
-      w.sound("enemyShot");
       e.state = "move"; e.stateT = 0; e.cd = (2.6 + w.rng.range(0, 0.6)) * tempo; e.target = undefined;
     }
     return;
@@ -168,7 +164,7 @@ function eyestalk(e: Enemy, w: World, dt: number) {
   }
   if (e.state === "stream") {
     const shots = 4 + depthBonus(w, 4, 2);
-    if (e.counter < shots && e.stateT > e.counter * 0.08) { shoot(e, w, e.aim, 400, "needle", 6, 0.75); e.counter++; if (e.counter === 1) w.sound("enemyShot"); }
+    if (e.counter < shots && e.stateT > e.counter * 0.08) { shoot(e, w, e.aim, 400, "needle", 6, 0.75); e.counter++; }
     if (e.counter >= shots) { e.state = "rest"; e.stateT = 0; e.cd = 2.1 * attackTempo(e); }
     return;
   }
@@ -282,7 +278,7 @@ function sniper(e: Enemy, w: World, dt: number) {
   if (e.state === "lock") {
     if (e.stateT >= 0.35) {
       shoot(e, w, e.aim, 900, "needle", 7, 1);
-      w.sound("bolt");
+      w.sound("snipe");
       e.state = "move"; e.stateT = 0; e.cd = (2.4 + w.rng.range(0, 0.8)) * tempo;
     }
     return;
@@ -319,7 +315,6 @@ function hive(e: Enemy, w: World, dt: number) {
   if (e.cd <= 0 && dist(e.pos, w.player.pos) < 620) {
     e.cd = (3 + w.rng.range(0, 0.6)) * tempo;
     ring(e, w, 6 + depthBonus(w, 4, 2), 110, e.anim, "pellet");
-    w.sound("enemyShot");
   }
   if (e.cd2 <= 0 && e.counter < 8 && w.enemies.filter(o => !o.dead && o.roomId === e.roomId).length < 14) {
     e.cd2 = 5 * tempo;
@@ -369,7 +364,6 @@ function prism(e: Enemy, w: World, dt: number) {
   if (e.cd <= 0) {
     e.cd = 1.3 * tempo;
     for (let i = 0; i < 4; i++) shoot(e, w, e.aim + (i / 4) * TAU, 170, "orb", 7, 0.8);
-    w.sound("enemyShot");
   }
   if (e.cd3 <= 0 && dist(e.pos, p.pos) < 520) {
     e.state = "laser"; e.stateT = 0;

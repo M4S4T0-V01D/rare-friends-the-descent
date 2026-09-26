@@ -16,5 +16,5 @@
     "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["index.tsx", "src", "host", "tests", "types"]
+  "include": ["index.tsx", "src", "host", "showcase", "tests", "types"]
 }

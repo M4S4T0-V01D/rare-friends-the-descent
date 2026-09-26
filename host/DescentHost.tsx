@@ -77,6 +77,7 @@ function Picker({ session, wallet, discovery, loading, onRetry, onChoose }: {
       <p className="dh-kicker">RARE FRIENDS</p>
       <h1 id="dh-title">Choose your Friend</h1>
       <p className="dh-sub">Your Friend is the hero of this descent. Once you enter the dungeon it is locked in for this session.</p>
+      <p className="dh-sub"><a className="dh-showcase" href="live-preview/">No Friend yet? Watch the trailer and meet every family →</a></p>
     </header>
     <div className="dh-connection" role="status">
       {wallet.status === "unavailable" && <><p>No browser wallet found. Enable your wallet extension or open this game in your wallet's browser.</p>

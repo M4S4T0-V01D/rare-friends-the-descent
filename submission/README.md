@@ -4,7 +4,7 @@ Your Rare Friend descends into a dark bullet-hell action-RPG dungeon where **$RA
 
 **Builder:** M4S4T0 · [@M4S4T0-V01D](https://github.com/M4S4T0-V01D) · **Category:** Character Spotlight · Token Activity · Economy Potential · **SDK:** FriendSDK v0.1.2
 
-[Source code](https://github.com/M4S4T0-V01D/rare-friends-the-descent) · [Full rules, odds and economy](https://github.com/M4S4T0-V01D/rare-friends-the-descent#the-rarefriends-economy-simulated) · **[Play the preview](https://m4s4t0-v01d.github.io/rare-friends-the-descent/)**
+[Source code](https://github.com/M4S4T0-V01D/rare-friends-the-descent) · [Full rules, odds and economy](https://github.com/M4S4T0-V01D/rare-friends-the-descent#the-rarefriends-economy-simulated) · **[Play the preview](https://m4s4t0-v01d.github.io/rare-friends-the-descent/)** (wallet required) · **[Watch the trailer and meet every family](https://m4s4t0-v01d.github.io/rare-friends-the-descent/live-preview/)** (no wallet needed)
 
 | | |
 |---|---|
@@ -17,7 +17,9 @@ Your Rare Friend descends into a dark bullet-hell action-RPG dungeon where **$RA
 
 ## Play it
 
-Open the preview link with a browser wallet on **Robinhood mainnet (4663)** holding a **hardwired Rare Friends Generations NFT (generation ≥ 1)**. Connect, choose your Friend from a picker showing each Friend's on-chain artwork (the FriendSDK verifies ownership at a fresh block, and the Friend stays locked in for the session), press **Begin**, walk your Friend through the camp and down the great stairs. No RF funding and no transaction signature are needed.
+The [showcase page](https://m4s4t0-v01d.github.io/rare-friends-the-descent/live-preview/) needs no wallet: it has a gameplay trailer with sound, a guide to each family's signature ability, trait and voice, and screenshots. It is not playable, because every playable build keeps the FriendSDK ownership gate.
+
+To play, open the preview link with a browser wallet on **Robinhood mainnet (4663)** holding a **hardwired Rare Friends Generations NFT (generation ≥ 1)**. Connect, choose your Friend from a picker showing each Friend's on-chain artwork (the FriendSDK verifies ownership at a fresh block, and the Friend stays locked in for the session), press **Begin**, walk your Friend through the camp and down the great stairs. No RF funding and no transaction signature are needed.
 
 To run locally with Node.js 22+:
 
@@ -59,11 +61,11 @@ npm run dev
 
 ## What's in the dungeon
 
-Nine themed floors (the Upper Crypts, the Signal Vaults, the Hollow Deep) and an endless Void, each with its own palette, props, enemy roster and composed creepy tune. Floors grow larger and more complex as you descend (more rooms, loops, side wings, interior architecture). There are 24 creatures with telegraphed bullet patterns, each recorded in a **bestiary** the first time your Friend sees it. A titled **guardian** (a giant form of one of the floor's creatures) blocks the stairs on every boss-less floor from depth 2, and redrawn bosses with cinematic entrances wait at depths 3, 6 and 9. The Rare Friends look grades the world toward black and white, while room ambient light, enemy halos and colored glows keep every fight readable.
+Nine themed floors (the Upper Crypts, the Signal Vaults, the Hollow Deep) and an endless Void, each with its own palette, props, enemy roster and composed creepy tune. Every attack has a soft sound of its own: each enemy bullet kind, igniting blasts, bullets breaking on walls, and each of your Friend's bolt styles. Floors grow larger and more complex as you descend (more rooms, loops, side wings, interior architecture). There are 24 creatures with telegraphed bullet patterns, each recorded in a **bestiary** the first time your Friend sees it. A titled **guardian** (a giant form of one of the floor's creatures) blocks the stairs on every boss-less floor from depth 2, and redrawn bosses with cinematic entrances wait at depths 3, 6 and 9. The Rare Friends look grades the world toward black and white, while room ambient light, enemy halos and colored glows keep every fight readable.
 
 ## Checks and known issues
 
-Typecheck, ESLint, **24 unit tests**, FriendSDK game validation and the static build all pass. **29 of 29 end-to-end browser checks pass** against the site as shipped (The Descent's host page plus the SDK runtime) with the SDK's mock wallet and RPC. They cover the picker and Friend lock, walking the camp and descending the stairs, movement, combat, loot, level-ups, every 5/10/25 RF spend, rerolls, rewards, the ledger, guardians, the bestiary, mini-games, Dye Altar purchases, death and revive, the boss, the scored summary and sharing, restart, refresh, the error state, wrong network, touch, audio, mute and reduced motion, with zero console errors.
+Typecheck, ESLint, **24 unit tests**, FriendSDK game validation and the static build all pass. **29 of 29 end-to-end browser checks pass** against the site as shipped (The Descent's host page plus the SDK runtime) with the SDK's mock wallet and RPC. They cover the picker and Friend lock, walking the camp and descending the stairs, movement, combat, loot, level-ups, every 5/10/25 RF spend, rerolls, rewards, the ledger, guardians, the bestiary, mini-games, Dye Altar purchases, death and revive, the boss, the scored summary and sharing, restart, refresh, the error state, wrong network, touch, audio, mute and reduced motion, with zero console errors. A separate showcase check (12 of 12) confirms the no-wallet page makes zero wallet calls and no outside requests, links Play to the gated game, and plays the trailer and all nine family clips at desktop and phone widths.
 
 A **live Robinhood mainnet check against the published preview** (read-only stand-in wallet that refuses all signing) passed 3 of 3. A real holder's Friends were discovered, the ownership gate passed, and the Friend's on-chain artwork loaded. A generation-0-only address and a wrong-network wallet were both blocked. A playthrough with a real wallet extension is still outstanding.
 

@@ -19,7 +19,10 @@
     "test:browser": "node scripts/test-browser.mjs",
     "test:real": "npm run build && node scripts/test-real-gate.mjs",
     "playtest": "npm run build && node scripts/playtest-bot.mjs",
-    "test": "npm run typecheck && npm run lint && npm run test:unit && npm run check && npm run test:browser"
+    "test": "npm run typecheck && npm run lint && npm run test:unit && npm run check && npm run test:browser && npm run test:showcase",
+    "test:showcase": "node scripts/test-showcase.mjs",
+    "trailer": "node scripts/trailer.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@rarefriends/friendsdk": "file:vendor/rarefriends-friendsdk-0.1.2.tgz",

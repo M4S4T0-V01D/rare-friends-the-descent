@@ -17,7 +17,8 @@ async function site() {
 }
 export async function cleanup() { if (built) await rm(built.dir, { recursive: true, force: true }); built = null; }
 
-export async function testSite({ width = 960, height = 800, timeout = 30000, picker, check }) {
+/** `video` ({ dir }) records the page at viewport size; check receives `pageCreatedAt` (ms) to line clips up with the recording. */
+export async function testSite({ width = 960, height = 800, timeout = 30000, picker, check, video, reducedMotion = "reduce" }) {
   const outdir = await site();
   const server = createGameServer(outdir);
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
@@ -25,8 +26,10 @@ export async function testSite({ width = 960, height = 800, timeout = 30000, pic
   const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH || undefined });
   const errors = [];
   try {
-    const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 500, reducedMotion: "reduce" });
+    const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 500, reducedMotion,
+      ...(video ? { recordVideo: { dir: video.dir, size: { width, height } } } : {}) });
     const page = await context.newPage();
+    const pageCreatedAt = Date.now();
     page.setDefaultTimeout(timeout);
     page.on("pageerror", error => errors.push(error.message));
     const fixture = await installFixture(page, origin, { artworkCall: await createArtworkFixture() });
@@ -41,7 +44,7 @@ export async function testSite({ width = 960, height = 800, timeout = 30000, pic
     assert(fixture.ownerReads >= 1, "the SDK gate must freshly read ownership");
     assert.equal(await page.locator("iframe").getAttribute("sandbox"), "allow-scripts");
     await assertBounds(page);
-    await check({ page, game, fixture });
+    await check({ page, game, fixture, pageCreatedAt });
     assert.deepEqual([...errors, ...fixture.errors], [], "browser errors");
     assert((await page.evaluate(() => window.__friendWalletTest.state.requests)).every(method =>
       ["eth_accounts", "eth_requestAccounts", "eth_chainId", "wallet_switchEthereumChain"].includes(method)), "no signing requests");

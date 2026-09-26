@@ -173,7 +173,6 @@ export function updateEnemy(e: Enemy, w: World, dt: number) {
       e.stormCd = 4.2 * attackTempo(e);
       const n = e.elite ? 12 : 8, off = w.rng.range(0, TAU);
       for (let i = 0; i < n; i++) w.fire({ pos: { ...e.pos }, vel: fromAngle(off + (i / n) * TAU, 150), radius: 7, dmg: e.dmg * 0.6, owner: "enemy", life: 4, color: "#ccff00", kind: "orb", source: e });
-      w.sound("enemyShot");
     }
   }
   if (e.guardian) guardianRage(e, w, dt);
@@ -248,7 +247,6 @@ function crawler(e: Enemy, w: World, dt: number) {
         w.fire({ pos: { ...e.pos }, vel: fromAngle(angle, 200 + w.depth * 8), radius: 8, dmg: e.dmg, owner: "enemy", life: 4, color: "#bb66ff",
           kind: "orb", source: e, slow: e.mods.includes("frozen"), curse: e.mods.includes("cursed") });
       }
-      w.sound("enemyShot");
       e.state = "move"; e.stateT = 0; e.cd = (2.1 + w.rng.range(0, 0.6)) * tempo;
     }
     return;
@@ -369,7 +367,6 @@ function warden(e: Enemy, w: World, dt: number) {
       const volley = (offset: number) => {
         for (let i = 0; i < count; i++) w.fire({ pos: { ...e.pos }, vel: fromAngle((i / count) * TAU + offset, 210), radius: 9, dmg: e.dmg * 0.7, owner: "enemy",
           life: 4, color: deep ? "#8fe3ff" : "#c9b8ff", kind: "orb", slow: deep, source: e });
-        w.sound("enemyShot");
       };
       if (e.counter === 0 && e.stateT > 0.25) { volley(0); e.counter = 1; }
       else if (e.counter === 1 && e.stateT > 0.7) { volley(Math.PI / count); e.counter = 2; }
@@ -495,7 +492,7 @@ function beast(e: Enemy, w: World, dt: number) {
       if (e.counter < eyes * 2 && e.stateT > 0.35 + e.counter * 0.11) {
         const ex = e.pos.x + ((e.counter % eyes) - (eyes - 1) / 2) * 22, ey = e.pos.y - 90;
         w.fire({ pos: { x: ex, y: ey }, vel: fromAngle(angleTo({ x: ex, y: ey }, p.pos), 380), radius: 6, dmg: e.dmg * 0.5, owner: "enemy", life: 3, color: "#ccff00", kind: "needle", source: e });
-        e.counter++; w.sound("enemyShot");
+        e.counter++;
       }
       if (e.stateT > 0.5 + eyes * 0.24) { e.state = "idle"; e.stateT = 0; }
       return;
@@ -584,12 +581,10 @@ function unminted(e: Enemy, w: World, dt: number) {
     e.state = "attack";
     const count = e.phase >= 2 ? 22 : 16, offset = w.rng.range(0, TAU);
     for (let i = 0; i < count; i++) w.fire({ pos: { ...e.pos }, vel: fromAngle(offset + (i / count) * TAU, 200), radius: 9, dmg: e.dmg * 0.6, owner: "enemy", life: 4, color: "#ff3d7f", kind: "orb", curse: true, source: e });
-    w.sound("enemyShot");
   } else if (pick === "triple") {
     e.state = "attack";
     const base = angleTo(e.pos, p.pos);
     for (let i = -2; i <= 2; i++) w.fire({ pos: { ...e.pos }, vel: fromAngle(base + i * 0.16, 330), radius: 8, dmg: e.dmg * 0.7, owner: "enemy", life: 3, color: "#ff8fb3", kind: "shard", source: e });
-    w.sound("enemyShot");
   } else if (pick === "blink") {
     e.state = "blink";
   } else if (pick === "starfall") {
