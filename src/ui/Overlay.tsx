@@ -4,6 +4,10 @@ import { wholeRf } from "../economy/TokenEconomy";
 import { titleCase, type Game } from "../game/Game";
 import { SHORT } from "../game/kit";
 import { RARITIES, RARITY_STYLE } from "../game/items";
+import { COSMETICS, type Cosmetic, type CosmeticSlot } from "../game/content";
+import { formatScore, OUTCOME_LABEL } from "../game/score";
+import { BASE_ATK, BASE_HP, ATK_PER_LEVEL, HP_PER_LEVEL } from "../game/stats";
+import type { FriendLook } from "../render/sprites";
 import type { CampTab, UiState } from "../game/types";
 import { FriendPortrait, formatTime, ItemCard, Rf, SimulatedTag, TxList } from "./components";
 import { Modals } from "./modals";
@@ -61,7 +65,7 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
   }, [game]);
-  const tabs: [CampTab, string][] = [["descend", "Descend"], ["friend", "Friend"], ["stash", `Stash ${game.stash.length}`], ["codex", "Codex"], ["hall", "Hall"], ["rf", "$RF"]];
+  const tabs: [CampTab, string][] = [["descend", "Descend"], ["friend", "Friend"], ["wardrobe", "Wardrobe"], ["stash", `Stash ${game.stash.length}`], ["codex", "Codex"], ["hall", "Hall"], ["rf", "$RF"]];
   const balance = ui.balance;
   return <div className="dx-scrim dx-camp-scrim">
     <div className="dx-camp-panel" role="dialog" aria-modal="true" aria-label="Camp menu">
@@ -75,11 +79,12 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
           <p>Each descent starts with at least <Rf amount={RF_STARTING_BALANCE} />. RF is scarce: every coin is a decision.</p>
           <table className="dx-denoms">
             <tbody>
-              <tr><th><Rf amount={5} /></th><td>Shrine of Greed · Blood Gate · first reroll · potion · Cursed Box · The Well</td></tr>
-              <tr><th><Rf amount={10} /></th><td>Shrine of Fate · Cursed Gate · second reroll · Revive · relics · The Stranger</td></tr>
-              <tr><th><Rf amount={25} /></th><td>Shrine of the Void · Abyssal Gate · third reroll · Full Revival · Legendary Gamble · The Black Door</td></tr>
+              <tr><th><Rf amount={5} /></th><td>Shrine of Greed · Blood Gate · first reroll · potion · Cursed Box · The Well · common dyes</td></tr>
+              <tr><th><Rf amount={10} /></th><td>Shrine of Fate · Cursed Gate · second reroll · Revive · relics · The Stranger · rare dyes and skins</td></tr>
+              <tr><th><Rf amount={25} /></th><td>Shrine of the Void · Abyssal Gate · third reroll · Full Revival · Legendary Gamble · The Black Door · legendary looks</td></tr>
             </tbody>
           </table>
+          <p className="dx-dim">Every run is scored: depth, kills, elites, bosses, level, the loot on your Friend and RF earned, then ×1.5 for escaping, ×2 for conquering, ×0.75 if you fall.</p>
           <p className="dx-dim">Earn it back: +{RF_REWARDS.enemy} (chance) per enemy, +{RF_REWARDS.elite} elites, +{RF_REWARDS.treasureRoom} treasure, +{RF_REWARDS.miniBoss} mini-boss, +{RF_REWARDS.boss} boss, +{RF_REWARDS.secretBoss} secret boss.</p>
           {game.stash.length > 0 && <label className="dx-heirloom">Heirloom:
             <select value={game.heirloomId ?? ""} onChange={event => game.setHeirloom(event.target.value ? Number(event.target.value) : null)}>
@@ -104,10 +109,11 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
               <li><kbd>SPC</kbd> <b>{game.kit.dodge.name}</b> {game.kit.dodge.text}</li>
             </ul>
             <p className="dx-dim">Every Friend's kit comes from its Generations family and its own on-chain art seed. No two play quite alike.</p>
-            <p className="dx-dim">Base: 110 HP · 20 ATK · 5 armor · 5% crit. Grows +8 HP, +1.6 ATK and +1 armor per level.</p>
+            <p className="dx-dim">Base: {BASE_HP} HP · {BASE_ATK} ATK · 3 armor · 5% crit. Grows +{HP_PER_LEVEL} HP, +{ATK_PER_LEVEL} ATK and +0.6 armor per level. The dungeon hits hard: dodge, don't trade blows.</p>
             <p className="dx-dim">Descents this session: {game.runsStarted}</p>
           </div>
         </div>}
+        {tab === "wardrobe" && <Wardrobe game={game} ui={ui} />}
         {tab === "stash" && <>
           <p className="dx-dim">Loot you escape with (or secure at a Waystone) lands here. Pick one heirloom to carry into your next descent. Session only: reloading clears it.</p>
           {game.stash.length ? <div className="dx-grid">{game.stash.map(item => <ItemCard key={item.id} item={item} compact
@@ -121,9 +127,10 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
             <li key={entry.name + entry.rarity} style={{ color: RARITY_STYLE[entry.rarity].color }}>{entry.name}{entry.count > 1 ? ` ×${entry.count}` : ""}</li>)}</ul>
         </>}
         {tab === "hall" && <>
-          <p className="dx-dim">Your best descents this session.</p>
+          <p className="dx-hall-totals"><span>Lifetime score <b>{formatScore(game.lifetimeScore)}</b></span><span>Best run <b>{formatScore(game.bestScore)}</b></span></p>
+          <p className="dx-dim">Your best descents this session, by score.</p>
           {game.hall.length ? <ol className="dx-hall">{game.hall.map((run, i) => <li key={i}>
-            <b>Depth {run.depth}</b> · {run.kills} kills · {run.outcome} · {run.rarest ? <span style={{ color: RARITY_STYLE[run.rarest.rarity].color }}>{run.rarest.name}</span> : "no loot"}
+            <b className="dx-hall-score">{formatScore(run.score.total)}</b> · Depth {run.depth} · {run.kills} kills · {OUTCOME_LABEL[run.outcome].toLowerCase()} · {run.rarest ? <span style={{ color: RARITY_STYLE[run.rarest.rarity].color }}>{run.rarest.name}</span> : "no loot"}
           </li>)}</ol> : <p>No descents yet.</p>}
           <p className="dx-dim">Global leaderboard: coming soon. FriendSDK v0.1.2 has no persistence API yet.</p>
         </>}
@@ -135,6 +142,40 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
       </div>
     </div>
   </div>;
+}
+
+const SLOT_TITLES: Readonly<Record<CosmeticSlot, string>> = { glow: "Glows", skin: "Skins", trail: "Trails" };
+
+/** The Dye Altar: spend RF on cosmetics that recolor (never reshape) your Friend. */
+function Wardrobe({ game, ui }: { game: Game; ui: UiState }) {
+  return <div className="dx-wardrobe">
+    <div className="dx-wardrobe-head">
+      <FriendPortrait art={game.art} look={game.skinLook as FriendLook} scale={5} className="dx-wardrobe-preview" />
+      <div>
+        <p>Spend RF at the Dye Altar on looks for your Friend. Cosmetics only recolor your Friend's canonical pixels and add light: the on-chain shape never changes, and they give no power.</p>
+        <p className="dx-dim">Bought cosmetics last for this session. You carry <Rf amount={ui.balance} /> <SimulatedTag /></p>
+      </div>
+    </div>
+    {(["glow", "skin", "trail"] as const).map(slot => <section key={slot}>
+      <h3>{SLOT_TITLES[slot]}</h3>
+      <div className="dx-cosmetics">{COSMETICS.filter(c => c.slot === slot).map(c => <CosmeticCard key={c.id} game={game} ui={ui} item={c} />)}</div>
+    </section>)}
+  </div>;
+}
+
+function CosmeticCard({ game, ui, item }: { game: Game; ui: UiState; item: Cosmetic }) {
+  const owned = game.ownedCosmetics.has(item.id), worn = game.worn[item.slot] === item.id;
+  const short = !owned && ui.balance < item.cost;
+  const swatch = item.color === "prism" ? "linear-gradient(90deg,#ff3d7f,#ffd23c,#ccff00,#3ef0ff,#bb66ff)"
+    : item.color === "null" ? "radial-gradient(circle,#050308 45%,#ff3d7f 70%,transparent 72%)" : item.color;
+  return <button type="button" className={`dx-cosmetic${worn ? " dx-worn" : ""}${owned ? " dx-owned" : ""}`} disabled={(short || ui.busy) && !owned}
+    onClick={() => void game.buyCosmetic(item.id)} aria-pressed={worn}>
+    {item.look ? <FriendPortrait art={game.art} look={item.look as FriendLook} scale={3} className="dx-cosmetic-art" />
+      : <span className="dx-swatch" style={{ background: swatch }} aria-hidden="true" />}
+    <strong>{item.name}</strong>
+    <small>{item.text}</small>
+    <span className="dx-cosmetic-price">{worn ? "WORN" : owned ? "Wear" : item.cost === 0 ? "Free" : short ? `Need ${item.cost - ui.balance} more RF` : <Rf amount={item.cost} />}</span>
+  </button>;
 }
 
 function SummaryScreen({ game, ui }: { game: Game; ui: UiState }) {
@@ -156,6 +197,7 @@ function SummaryScreen({ game, ui }: { game: Game; ui: UiState }) {
         <div><dt>Time</dt><dd>{formatTime(s.timeMs)}</dd></div>
         <div><dt>Loot to stash</dt><dd>{s.secured} kept{s.lost ? ` · ${s.lost} lost` : ""}</dd></div>
       </dl>
+      <ScoreBreakdown summary={s} />
       <div className="dx-summary-rf">
         <div><span>RF started</span><strong>{s.rfStarted}</strong></div>
         <div><span>RF earned</span><strong className="dx-pos">+{s.rfEarned}</strong></div>
@@ -168,6 +210,39 @@ function SummaryScreen({ game, ui }: { game: Game; ui: UiState }) {
         <button type="button" className="dx-btn" onClick={() => game.returnToCamp()}>Return to Camp</button>
       </div>
       <p className="dx-dim dx-seed">Descent seed {s.seed.toString(16).toUpperCase()}</p>
+    </div>
+  </section>;
+}
+
+/** The run's score, line by line, counting up to the total. */
+function ScoreBreakdown({ summary }: { summary: NonNullable<UiState["summary"]> }) {
+  const score = summary.score;
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || !score.total) { setShown(score.total); return; }
+    let raf = 0;
+    const start = performance.now();
+    const step = (now: number) => {
+      const k = Math.min(1, (now - start) / 1400);
+      setShown(Math.round(score.total * (1 - (1 - k) ** 3)));
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [score.total]);
+  return <section className="dx-score" aria-label="Run score">
+    <table className="dx-score-lines"><tbody>
+      {score.lines.filter(line => line.points > 0 || line.id === "loot").map(line => <tr key={line.id}>
+        <th>{line.label}</th><td className="dx-dim">{line.detail}</td><td>{formatScore(line.points)}</td>
+      </tr>)}
+      <tr className="dx-score-sub"><th>Subtotal</th><td /><td>{formatScore(score.subtotal)}</td></tr>
+      <tr className={`dx-score-mult${score.multiplier >= 1 ? " dx-pos" : " dx-neg"}`}><th>{OUTCOME_LABEL[score.outcome]}</th><td /><td>×{score.multiplier}</td></tr>
+    </tbody></table>
+    <div className="dx-score-total">
+      <span>SCORE</span><strong aria-label={`Score ${formatScore(score.total)}`}>{formatScore(shown)}</strong>
+      {summary.best && <em>NEW BEST</em>}
+      <small>Lifetime total {formatScore(summary.lifetimeScore)}</small>
     </div>
   </section>;
 }

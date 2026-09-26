@@ -4,8 +4,11 @@ import { bandForFloor, FLOOR_THEMES, CURSED_BOX, EVENTS, GATES, GOLDEN_DOOR_RARI
 import { generateArena, generateFloor, T, TILE } from "../../src/game/dungeon.ts";
 import { generateItem, itemScore, RARITIES, rollRarity, SLOTS } from "../../src/game/items.ts";
 import { Rng } from "../../src/game/rng.ts";
-import { BOONS, computeStats, FAMILY_TRAITS, xpForLevel } from "../../src/game/stats.ts";
-import { RF_COSTS } from "../../src/economy/terms.ts";
+import { BASE_ATK, BASE_HP, BOONS, computeStats, FAMILY_TRAITS, HP_PER_LEVEL, xpForLevel } from "../../src/game/stats.ts";
+import { RF_COSTS, RF_DENOMINATIONS } from "../../src/economy/terms.ts";
+import { COSMETICS, DEFAULT_COSMETICS } from "../../src/game/content.ts";
+import { dmgScale } from "../../src/game/enemies.ts";
+import { OUTCOME_MULTIPLIER, RARITY_POINTS, scoreRun } from "../../src/game/score.ts";
 
 const sum = (rows: readonly { chanceBps: number }[]) => rows.reduce((total, row) => total + row.chanceBps, 0);
 
@@ -91,7 +94,9 @@ test("every floor has its own scenery and enemy roster", () => {
   assert.equal(bandForFloor(12).area, "Stratum 3");
   const seen = new Set<string>();
   for (let depth = 1; depth <= 10; depth++) for (const [kind] of bandForFloor(depth).roster) seen.add(kind);
-  for (const kind of ["wisp", "gunner", "drone", "turret", "mite", "spitter", "eyestalk", "bloodling", "shade"]) assert.ok(seen.has(kind), `${kind} appears on some floor`);
+  for (const kind of ["wisp", "gunner", "drone", "turret", "mite", "spitter", "eyestalk", "bloodling", "shade", "bomber", "lancer", "hexer", "sniper", "brute", "hive", "wraith", "prism"]) {
+    assert.ok(seen.has(kind), `${kind} appears on some floor`);
+  }
   // New enemy types are introduced as you descend, not all at once.
   assert.ok(!bandForFloor(1).roster.some(([kind]) => kind === "drone" || kind === "spitter"));
   assert.ok(bandForFloor(4).roster.some(([kind]) => kind === "drone"));
@@ -127,12 +132,50 @@ test("rarity rolls respect a floor and luck pushes them upward", () => {
 
 test("stats combine level, family trait, boons, items and buffs", () => {
   const base = computeStats(1, {}, new Map(), [], []);
-  assert.equal(base.maxHp, 110);
-  assert.equal(base.atk, 20);
+  assert.equal(base.maxHp, BASE_HP);
+  assert.equal(base.atk, BASE_ATK);
   const leveled = computeStats(4, FAMILY_TRAITS.Colossus.mods, new Map([["might", 1]]), [], [{ id: "x", name: "x", kind: "blessing", mods: { dmgPct: 20 }, rooms: 2, color: "#fff", icon: "x" }]);
-  assert.equal(leveled.maxHp, Math.round((110 + 24) * 1.2));
+  assert.equal(leveled.maxHp, Math.round((BASE_HP + 3 * HP_PER_LEVEL) * 1.2));
   assert.ok(leveled.atk > base.atk);
   assert.ok(Math.abs(leveled.dmgMult - 1.2) < 1e-9);
   assert.ok(Object.keys(BOONS).length >= 12);
   assert.ok(xpForLevel(2) > xpForLevel(1));
+});
+
+test("the player is mortal: modest base stats and enemies that scale with depth", () => {
+  const lvl10 = computeStats(10, {}, new Map(), [], []);
+  assert.ok(lvl10.maxHp <= 160, "ten levels do not make the Friend a tank");
+  assert.ok(lvl10.atk <= 30);
+  assert.ok(dmgScale(1) >= 1.2, "enemies hit hard from the first floor");
+  assert.ok(dmgScale(9) > 3.5, "and much harder deep down");
+  const d = computeStats(20, {}, new Map([["siphon", 3]]), [], []);
+  assert.ok(d.lifesteal <= 12 && d.evasion <= 20 && d.critChance <= 60, "defensive stats are capped");
+});
+
+test("scores reward depth, kills, loot and escaping; falling costs you", () => {
+  const rng = new Rng(3);
+  const items = [generateItem(rng, 5, { rarity: "legendary" }), generateItem(rng, 5, { rarity: "rare" })];
+  const base = { depth: 6, kills: 120, elites: 4, bosses: ["DUNGEON WARDEN", "WARDEN OF THE DEEP"], level: 9, items, rfEarned: 30 };
+  const escaped = scoreRun({ ...base, outcome: "escaped" }), fallen = scoreRun({ ...base, outcome: "fallen" });
+  assert.equal(escaped.subtotal, fallen.subtotal);
+  assert.ok(escaped.total > fallen.total, "escaping beats dying");
+  assert.equal(escaped.total, Math.round(escaped.subtotal * OUTCOME_MULTIPLIER.escaped));
+  assert.equal(scoreRun({ ...base, outcome: "conquered" }).total, escaped.subtotal * 2);
+  const loot = escaped.lines.find(line => line.id === "loot")!;
+  assert.equal(loot.points, RARITY_POINTS.legendary + RARITY_POINTS.rare);
+  const deeper = scoreRun({ ...base, depth: 9, outcome: "escaped" });
+  assert.ok(deeper.total > escaped.total);
+  const moreKills = scoreRun({ ...base, kills: 200, outcome: "escaped" });
+  assert.ok(moreKills.total > escaped.total);
+  assert.equal(scoreRun({ ...base, items: [], outcome: "escaped" }).lines.find(line => line.id === "loot")!.points, 0);
+});
+
+test("cosmetics are priced in the RF denominations and every slot has a free default", () => {
+  for (const c of COSMETICS) if (c.cost) assert.ok(RF_DENOMINATIONS.includes(c.cost as never), `${c.id} costs ${c.cost}`);
+  for (const [slot, id] of Object.entries(DEFAULT_COSMETICS)) {
+    const item = COSMETICS.find(c => c.id === id)!;
+    assert.equal(item.slot, slot); assert.equal(item.cost, 0);
+  }
+  assert.ok(COSMETICS.some(c => c.look === "corrupted"), "you can wear the Corrupted Friends' crimson");
+  assert.equal(new Set(COSMETICS.map(c => c.id)).size, COSMETICS.length);
 });

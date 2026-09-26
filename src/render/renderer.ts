@@ -8,7 +8,9 @@ import { angleTo, clamp, TAU } from "../game/math";
 import { SHORT } from "../game/kit";
 import { xpForLevel } from "../game/stats";
 import { CHUNK, makeGlow, paintChunk, shade, tintedGlow } from "./world";
-import { drawSprite, flashSprite, MASKS, maskSprite, type Sprite } from "./sprites";
+import { drawSprite, flashSprite, MASKS, maskSprite, type FriendLook, type Sprite } from "./sprites";
+import { BEAST_BODY, BEAST_EYES, beastPalette, WARDEN_BODY, WARDEN_LEG, wardenPalette } from "./bossArt";
+import { formatScore } from "../game/score";
 
 const W = 960, H = 640;
 const FONT_UI = "VT323, ui-monospace, monospace";
@@ -16,6 +18,8 @@ const FONT_DISPLAY = "'Jacquard 24', VT323, serif";
 
 type Light = { x: number; y: number; r: number; a: number; color?: string };
 type Ember = { x: number; y: number; vx: number; vy: number; life: number; color: string };
+type Mote = { x: number; y: number; vx: number; vy: number; phase: number; size: number };
+type Afterimage = { x: number; y: number; sprite: Sprite; life: number; color: string };
 
 export class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
@@ -32,6 +36,10 @@ export class Renderer {
   /** Drawn after the lighting overlay, in world space, so glows stay bright in the dark. */
   private emissive: (() => void)[] = [];
   private t = 0;
+  /** Ambient dust, sparks, spores or stars drifting through the current floor. */
+  private motes: Mote[] = [];
+  private afterimages: Afterimage[] = [];
+  private scoreCache = { at: -1, text: "" };
 
   constructor(private readonly canvas: HTMLCanvasElement, private readonly game: Game) {
     this.ctx = canvas.getContext("2d", { alpha: false })!;
@@ -49,7 +57,7 @@ export class Renderer {
     this.crt = null;
   }
 
-  floorChanged() { this.chunks.clear(); }
+  floorChanged() { this.chunks.clear(); this.motes = []; this.afterimages = []; }
 
   render(dt: number) {
     this.t += dt;
@@ -76,7 +84,7 @@ export class Renderer {
 
   private cam = { x: 0, y: 0 };
 
-  private drawRun(_dt: number) {
+  private drawRun(dt: number) {
     const g = this.game, w = this.wctx, floor = g.floor!;
     const shake = g.shakeAmount > 0 ? g.shakeAmount : 0;
     const sx = shake ? (Math.random() - 0.5) * shake : 0, sy = shake ? (Math.random() - 0.5) * shake : 0;
@@ -103,6 +111,8 @@ export class Renderer {
       }
     }
     for (const h of g.hazards) this.drawHazard(h);
+    for (const c of g.corpses) if (this.visible(c.e.pos.x, c.e.pos.y, 80)) this.drawCorpse(c.e, c.t);
+    this.drawAfterimages(dt);
     const drawables: { y: number; draw: () => void }[] = [];
     for (const it of g.interactables) if (this.visible(it.pos.x, it.pos.y, 160)) drawables.push({ y: it.pos.y, draw: () => this.drawInteractable(it) });
     for (const p of g.pickups) if (this.visible(p.pos.x, p.pos.y, 40)) drawables.push({ y: p.pos.y, draw: () => this.drawPickup(p) });
@@ -117,6 +127,54 @@ export class Renderer {
     w.translate(-cam.x, -cam.y);
     for (const draw of this.emissive) draw();
     this.drawParticles();
+    this.drawMotes(dt, floor.band.style, g.screen === "camp");
+    w.restore();
+  }
+
+  /** A dying enemy flashes white, pops outward and dissolves instead of vanishing. */
+  private drawCorpse(e: Enemy, t: number) {
+    const sprite = e.kind === "warden" || e.kind === "beast" ? null : this.enemySprite(e);
+    if (!sprite) return;
+    const k = t / 0.4, pop = 1 + (1 - k) * 0.35;
+    const w = this.wctx;
+    w.save();
+    w.globalCompositeOperation = "lighter";
+    drawSprite(w, flashSprite(sprite, e.elite ? "#ff2e4d" : "#ffffff"), e.pos.x, e.pos.y + 6, false, k * 0.9, pop, 2 - pop);
+    w.restore();
+  }
+
+  private drawAfterimages(dt: number) {
+    const w = this.wctx;
+    for (const a of this.afterimages) {
+      a.life -= dt;
+      if (a.life <= 0) continue;
+      w.save(); w.globalCompositeOperation = "lighter";
+      drawSprite(w, flashSprite(a.sprite, a.color), a.x, a.y, false, a.life * 2.2);
+      w.restore();
+    }
+    this.afterimages = this.afterimages.filter(a => a.life > 0);
+  }
+
+  /** Slow ambient motes give each floor air: crypt dust, tech sparks, flesh spores, void stars. */
+  private drawMotes(dt: number, style: string, camp: boolean) {
+    if (this.game.reducedMotion) return;
+    const w = this.wctx, cam = this.cam;
+    const want = camp ? 26 : 38;
+    while (this.motes.length < want) {
+      this.motes.push({ x: cam.x + Math.random() * W, y: cam.y + Math.random() * H, vx: (Math.random() - 0.5) * 12, vy: style === "tech" ? -18 - Math.random() * 20 : style === "flesh" ? -6 - Math.random() * 8 : (Math.random() - 0.5) * 8,
+        phase: Math.random() * TAU, size: 1 + Math.random() * 2 });
+    }
+    const color = camp ? "#ffb347" : style === "tech" ? this.game.floor!.band.accent : style === "flesh" ? "#ff4d6d" : style === "void" ? "#ffffff" : "#b9a8e0";
+    w.save();
+    w.globalCompositeOperation = "lighter";
+    w.fillStyle = color;
+    for (const m of this.motes) {
+      m.x += m.vx * dt; m.y += m.vy * dt; m.phase += dt;
+      if (m.x < cam.x - 20) m.x += W + 40; else if (m.x > cam.x + W + 20) m.x -= W + 40;
+      if (m.y < cam.y - 20) m.y += H + 40; else if (m.y > cam.y + H + 20) m.y -= H + 40;
+      w.globalAlpha = (style === "void" ? 0.5 : 0.28) * (0.5 + 0.5 * Math.sin(m.phase * (style === "void" ? 3 : 1.3)));
+      w.fillRect(Math.round(m.x), Math.round(m.y), m.size, m.size);
+    }
     w.restore();
   }
 
@@ -216,9 +274,21 @@ export class Renderer {
     if (p.dead && p.deathTime > 1.1) return;
     const bob = p.moving || g.reducedMotion ? 0 : Math.sin(this.t * 2.4) * 1;
     this.shadow(p.pos.x, p.pos.y + 4, 16);
-    this.glowAt(p.pos.x, p.pos.y - 14, 52, g.stats.powers.has("voidHeart") ? "#ff3d7f" : "#ccff00", 0.22);
+    const glow = g.stats.powers.has("voidHeart") && g.screen === "run" ? "#ff3d7f" : g.glowColor();
+    if (g.worn.glow === "glow-null") {
+      // Null Halo: a pocket of darkness with a burning rim.
+      this.emissive.push(() => {
+        w.save(); w.globalAlpha = 0.55; w.fillStyle = "#050308";
+        w.beginPath(); w.ellipse(p.pos.x, p.pos.y - 14, 30, 34, 0, 0, TAU); w.fill();
+        w.globalCompositeOperation = "lighter"; w.globalAlpha = 0.5 + 0.2 * Math.sin(this.t * 4); w.strokeStyle = "#ff3d7f"; w.lineWidth = 2;
+        w.beginPath(); w.ellipse(p.pos.x, p.pos.y - 14, 31, 35, 0, 0, TAU); w.stroke(); w.restore();
+      });
+    } else this.glowAt(p.pos.x, p.pos.y - 14, 56, glow, g.worn.glow === "glow-lime" ? 0.22 : 0.34);
     const frame = g.reducedMotion ? 0 : Math.floor((p.moving ? p.walkTime : this.t) / (p.moving ? 0.1 : 0.16)) % 8;
-    const sprite = g.art.frame("hero", 3, p.facing, p.moving || p.dashTime > 0, frame, p.side);
+    const sprite = g.art.frame(g.skinLook as FriendLook, 3, p.facing, p.moving || p.dashTime > 0, frame, p.side);
+    if (p.dashTime > 0 && !g.reducedMotion && (this.afterimages.length === 0 || this.afterimages[this.afterimages.length - 1].life < 0.36)) {
+      this.afterimages.push({ x: p.pos.x, y: p.pos.y + 6, sprite, life: 0.4, color: glow });
+    }
     let alpha = 1;
     if (p.dead) alpha = Math.max(0, 1 - p.deathTime);
     else if (p.iframes > 0 && p.dashTime <= 0 && !g.reducedMotion && Math.floor(this.t * 20) % 2) alpha = 0.45;
@@ -230,6 +300,7 @@ export class Renderer {
     if (p.chill > 0) drawSprite(w, flashSprite(sprite, "#8fe3ff"), p.pos.x, p.pos.y + 6 + bob, false, 0.3);
     w.restore();
     this.lights.push({ x: p.pos.x, y: p.pos.y - 10, r: 300, a: 1 });
+    if (g.worn.glow !== "glow-lime") this.lights.push({ x: p.pos.x, y: p.pos.y - 10, r: 120, a: 0.6, color: glow });
     if (p.swing) this.drawSwing();
     if (g.stats.powers.has("runeOrbit") || g.stats.powers.has("voidHeart")) {
       for (let i = 0; i < 3; i++) {
@@ -279,29 +350,19 @@ export class Renderer {
       default: {
         const band = g.floor!.band, accent = band.accent, bullet = band.bullet;
         const champ = e.champion && mod ? shade(mod, -60) : null;
-        const kinds: Record<string, { mask: readonly (readonly string[])[]; pal: Record<string, string>; scale: number }> = {
-          wisp: { mask: MASKS.wisp, pal: { "#": champ ?? "#c9c2e6", e: "#07050b", x: bullet }, scale: 3 },
-          gunner: { mask: MASKS.gunner, pal: { "#": champ ?? "#b8ad99", e: "#ff2e4d", x: "#2a2018", s: "#6b5a44" }, scale: 3 },
-          drone: { mask: MASKS.drone, pal: { "#": champ ?? "#2b4a5c", e: accent, x: "#0e1418", s: "#8fe3ff" }, scale: 3 },
-          turret: { mask: MASKS.turret, pal: { "#": champ ?? "#35415a", e: accent, x: "#1a2230" }, scale: 3 },
-          mite: { mask: MASKS.mite, pal: { "#": "#3a5a52", e: accent }, scale: 3 },
-          spitter: { mask: MASKS.spitter, pal: { "#": champ ?? "#6a2a3a", e: "#ffd23c", x: "#2a0a12" }, scale: 3 },
-          eyestalk: { mask: MASKS.eyestalk, pal: { "#": champ ?? "#5c1a2c", e: "#f3eeff", x: "#c2283f" }, scale: 3 },
-          bloodling: { mask: MASKS.bloodling, pal: { "#": champ ?? "#9a1c30", e: "#ffd23c", x: "#3d0d17" }, scale: e.minion ? 2 : 3 },
-          shade: { mask: MASKS.shade, pal: { "#": champ ?? "#140f20", e: bullet, x: accent }, scale: 3 },
-        };
-        const def = kinds[e.kind];
+        const def = bestiaryLook(e.kind, champ, accent, bullet, e.minion);
         if (!def) return null;
         const f = def.mask.length > 1 ? frame : 0;
-        return maskSprite(`${e.kind}:${f}:${def.scale}:${JSON.stringify(def.pal)}`, def.mask[f], def.pal, def.scale);
+        // Palettes depend only on the floor and champion color, so this key is cheap and stable.
+        return maskSprite(`${e.kind}:${f}:${def.scale}:${champ ?? ""}:${accent}:${bullet}`, def.mask[f], def.pal, def.scale);
       }
     }
   }
 
   private drawEnemy(e: Enemy) {
     const w = this.wctx, g = this.game;
-    const spawning = e.spawnT > 0 ? 1 - e.spawnT / 0.6 : 1;
-    if (e.spawnT > 0) {
+    const spawning = e.spawnT > 0 && !e.boss ? clamp(1 - e.spawnT / 0.45, 0, 1) : 1;
+    if (e.spawnT > 0 && !e.boss) {
       w.save(); w.globalAlpha = 0.6; w.strokeStyle = e.elite ? "#ff2e4d" : "#9a7fd1"; w.lineWidth = 2;
       w.beginPath(); w.ellipse(e.pos.x, e.pos.y + 2, e.radius * 1.6 * spawning + 6, (e.radius * 1.6 * spawning + 6) * 0.4, 0, 0, TAU); w.stroke(); w.restore();
     }
@@ -312,10 +373,21 @@ export class Renderer {
       w.beginPath(); w.ellipse(e.pos.x, e.pos.y + 3, e.radius * 1.5, e.radius * 0.6, 0, 0, TAU); w.stroke(); w.restore();
       this.glowAt(e.pos.x, e.pos.y - e.radius, e.radius * 2.4, color, 0.18);
     }
+    if (e.shield > 0) {
+      w.save(); w.globalCompositeOperation = "lighter"; w.globalAlpha = 0.35 + 0.1 * Math.sin(this.t * 6); w.strokeStyle = "#4fb0ff"; w.lineWidth = e.shield > 1 ? 3 : 1.5;
+      w.beginPath(); w.arc(e.pos.x, e.pos.y - e.radius, e.radius + 12, 0, TAU); w.stroke(); w.restore();
+    }
     if (e.kind === "warden") { this.drawWarden(e); return; }
     if (e.kind === "beast") { this.drawBeast(e); return; }
     const sprite = this.enemySprite(e)!;
-    const telegraph = e.state === "windup" || e.state === "aim" || e.state === "chargeAim" || e.state === "blink" || e.state === "tell" || e.state === "gaze" || e.state === "vanish" || (e.state === "burst" && e.stateT < 0);
+    const telegraph = e.state === "windup" || e.state === "aim" || e.state === "chargeAim" || e.state === "blink" || e.state === "tell" || e.state === "gaze" || e.state === "vanish"
+      || e.state === "fuse" || e.state === "reveal" || e.state === "lock" || e.state === "pound" || e.state === "cast" || (e.state === "burst" && e.stateT < 0);
+    // Grave Wraiths are nearly invisible until they strike; a faint shimmer gives them away.
+    const ghost = e.kind === "wraith" && e.state === "fade" && e.hitFlash <= 0 ? 0.14 + 0.06 * Math.sin(this.t * 7 + e.seed) : 1;
+    // Squash on hit, stretch on a fuse or wind-up, a slow breath otherwise.
+    const breathe = g.reducedMotion ? 0 : Math.sin(e.anim * 3 + e.seed) * 0.03;
+    const sx = e.hitFlash > 0 ? 1.14 : e.state === "fuse" ? 1 + 0.12 * Math.abs(Math.sin(this.t * 24)) : 1 + breathe;
+    const sy = e.hitFlash > 0 ? 0.88 : e.state === "fuse" ? 1 - 0.06 * Math.abs(Math.sin(this.t * 24)) : 1 - breathe;
     const lift = e.kind === "unminted" ? Math.sin(this.t * 2) * 6 - 14 : 0;
     if (e.kind === "unminted") this.glowAt(e.pos.x, e.pos.y - 50, 110, "#ff3d7f", 0.35 + 0.1 * Math.sin(this.t * 4));
     if (e.kind === "unminted" && !g.reducedMotion) {
@@ -326,21 +398,30 @@ export class Renderer {
         drawSprite(w, sprite, e.pos.x + offset, e.pos.y + 6 + lift, false, 0.5 * spawning); w.restore();
       }
     }
-    const bob = (e.kind === "wisp" || e.kind === "drone" || e.kind === "shade") && !g.reducedMotion ? Math.sin(e.anim * 3 + e.seed) * 4 - 6 : 0;
+    const bob = (e.kind === "wisp" || e.kind === "drone" || e.kind === "shade" || e.kind === "prism" || e.kind === "wraith") && !g.reducedMotion ? Math.sin(e.anim * 3 + e.seed) * 4 - 6 : 0;
     const liftAll = lift + bob;
     if (e.kind === "turret") {
       w.save(); w.strokeStyle = "#1a2230"; w.lineWidth = 8; w.lineCap = "round";
       w.beginPath(); w.moveTo(e.pos.x, e.pos.y - 24); w.lineTo(e.pos.x + Math.cos(e.aim) * 22, e.pos.y - 24 + Math.sin(e.aim) * 22); w.stroke();
       w.strokeStyle = g.floor!.band.accent; w.lineWidth = 3; w.stroke(); w.restore();
     }
-    drawSprite(w, sprite, e.pos.x, e.pos.y + 6 + liftAll, false, spawning);
+    if (e.kind === "sniper" && e.state === "track") {
+      w.save(); w.globalAlpha = 0.25 + 0.5 * (e.stateT / 0.8); w.strokeStyle = g.floor!.band.bullet; w.lineWidth = 1;
+      w.beginPath(); w.moveTo(e.pos.x, e.pos.y - 18); w.lineTo(e.pos.x + Math.cos(e.aim) * 700, e.pos.y - 18 + Math.sin(e.aim) * 700); w.stroke(); w.restore();
+    }
+    const flip = e.kind === "lancer" || e.kind === "sniper" ? g.player.pos.x < e.pos.x : false;
+    drawSprite(w, sprite, e.pos.x, e.pos.y + 6 + liftAll, flip, spawning * ghost, sx, sy);
     if (e.kind === "eyestalk") {
       const look = angleTo(e.pos, g.player.pos);
       w.fillStyle = "#07050b"; w.fillRect(Math.round(e.pos.x + Math.cos(look) * 4 - 3), Math.round(e.pos.y - 34 + Math.sin(look) * 3 - 3), 6, 6);
     }
-    if (e.hitFlash > 0) drawSprite(w, flashSprite(sprite), e.pos.x, e.pos.y + 6 + liftAll, false, 0.85);
-    else if (telegraph) drawSprite(w, flashSprite(sprite, e.state === "blink" ? "#bb66ff" : "#ff2e4d"), e.pos.x, e.pos.y + 6 + liftAll, false, 0.35 + 0.35 * Math.sin(this.t * 30));
-    if (e.burnT > 0) drawSprite(w, flashSprite(sprite, "#ff9a3c"), e.pos.x, e.pos.y + 6 + liftAll, false, 0.25);
+    if (e.hitFlash > 0) drawSprite(w, flashSprite(sprite), e.pos.x, e.pos.y + 6 + liftAll, flip, 0.85, sx, sy);
+    else if (telegraph) drawSprite(w, flashSprite(sprite, e.state === "blink" ? "#bb66ff" : e.state === "fuse" ? "#ffd23c" : "#ff2e4d"), e.pos.x, e.pos.y + 6 + liftAll, flip, 0.35 + 0.35 * Math.sin(this.t * 30), sx, sy);
+    if (e.burnT > 0) drawSprite(w, flashSprite(sprite, "#ff9a3c"), e.pos.x, e.pos.y + 6 + liftAll, flip, 0.25, sx, sy);
+    if (e.kind === "prism") { this.glowAt(e.pos.x, e.pos.y - 26 + liftAll, 44, g.floor!.band.bullet, 0.45); this.lights.push({ x: e.pos.x, y: e.pos.y - 20, r: 110, a: 0.55, color: g.floor!.band.bullet }); }
+    if (e.kind === "hexer") this.lights.push({ x: e.pos.x, y: e.pos.y - 20, r: 80, a: 0.4, color: "#bb66ff" });
+    if (e.kind === "hive") this.glowAt(e.pos.x, e.pos.y - 34, 30, g.floor!.band.accent, 0.3 + 0.2 * Math.sin(this.t * 3));
+    if (e.kind === "bomber" && e.state === "fuse") this.glowAt(e.pos.x, e.pos.y - 20, 50, "#ff9a3c", 0.6);
     if (e.kind === "cursed" && e.state === "windup") {
       w.save(); w.globalAlpha = 0.25; w.fillStyle = "#ff2e4d";
       w.beginPath(); w.moveTo(e.pos.x, e.pos.y - 8); w.arc(e.pos.x, e.pos.y - 8, e.radius + 46, e.aim - 0.83, e.aim + 0.83); w.closePath(); w.fill(); w.restore();
@@ -351,62 +432,86 @@ export class Renderer {
   }
 
   private drawWarden(e: Enemy) {
-    const w = this.wctx, deep = this.game.depth >= 6;
+    const w = this.wctx, g = this.game, deep = g.depth >= 6, t = g.reducedMotion ? 0 : this.t;
     const x = Math.round(e.pos.x), y = Math.round(e.pos.y);
-    const core = deep ? "#8fe3ff" : "#ff2e4d";
-    const step = this.game.reducedMotion ? 0 : Math.sin(e.anim * 6) * 3;
-    w.fillStyle = "#1a1622"; w.fillRect(x - 30, y - 22 + step, 18, 24); w.fillRect(x + 12, y - 22 - step, 18, 24);
-    w.fillStyle = e.hitFlash > 0 ? "#ffffff" : "#3d3357";
-    w.fillRect(x - 40, y - 92, 80, 72);
-    w.fillStyle = e.hitFlash > 0 ? "#ffffff" : "#4d4260";
-    w.fillRect(x - 54, y - 96, 26, 26); w.fillRect(x + 28, y - 96, 26, 26);
-    w.fillStyle = "#2a2335"; w.fillRect(x - 40, y - 60, 80, 3); w.fillRect(x - 40, y - 40, 80, 3);
-    w.fillStyle = "#4a4452"; for (let i = 0; i < 5; i++) { w.fillRect(x - 50, y - 70 + i * 8, 4, 5); w.fillRect(x + 46, y - 70 + i * 8, 4, 5); }
-    w.fillStyle = "#2a2335"; w.fillRect(x - 18, y - 118, 36, 28);
-    w.fillStyle = core; w.fillRect(x - 12, y - 106, 24, 4);
+    const flash = e.hitFlash > 0, scale = 4;
+    const pal = wardenPalette(deep, flash);
+    const body = maskSprite(`warden:${deep}:${flash}`, WARDEN_BODY, pal, scale);
+    const leg = maskSprite(`wardenLeg:${deep}:${flash}`, WARDEN_LEG, pal, scale);
+    const moving = e.state === "idle" || e.state === "charge";
+    const step = moving && !g.reducedMotion ? Math.sin(e.anim * (e.state === "charge" ? 18 : 7)) * 5 : 0;
+    const breathe = g.reducedMotion ? 0 : Math.sin(t * 2.2) * 2;
+    const core = deep ? "#8fe3ff" : "#ff5a3c";
+    const intro = e.spawnT > 0 ? 1 - e.spawnT / 1.4 : 1;
+    // The Warden rises out of the floor during its introduction.
+    const rise = (1 - intro) * 60;
+    w.save();
+    if (rise > 0) { w.beginPath(); w.rect(x - 120, y - 200, 240, 206); w.clip(); }
+    drawSprite(w, leg, x - 20, y + 4 + Math.min(0, step) + rise, false, 1);
+    drawSprite(w, leg, x + 20, y + 4 + Math.min(0, -step) + rise, false, 1);
+    const top = y - 18 + breathe * 0.5 + rise;
+    drawSprite(w, body, x, top, false, 1, 1, 1 + breathe * 0.004);
+    w.restore();
+    // Swinging chains hang from the gauntlets.
+    w.save(); w.strokeStyle = deep ? "#5d7a8c" : "#6d6780"; w.lineWidth = 3; w.lineCap = "round";
+    for (const side of [-1, 1]) {
+      const hx = x + side * 48, hy = top - 12, swing = Math.sin(t * 2.4 + side) * 0.5 + (e.state === "chains" ? t * 9 * side : 0);
+      w.beginPath(); w.moveTo(hx, hy);
+      for (let i = 1; i <= 5; i++) w.lineTo(hx + Math.sin(swing) * i * 7, hy + Math.cos(swing) * i * 7);
+      w.stroke();
+      w.fillStyle = core; w.fillRect(Math.round(hx + Math.sin(swing) * 38) - 4, Math.round(hy + Math.cos(swing) * 38) - 4, 8, 8);
+    }
+    w.restore();
     const pulse = 0.6 + 0.4 * Math.sin(this.t * (e.phase >= 2 ? 10 : 5));
-    w.fillStyle = core; w.globalAlpha = pulse; w.beginPath(); w.arc(x, y - 58, 10, 0, TAU); w.fill(); w.globalAlpha = 1;
-    this.glowAt(x, y - 58, 60, core, 0.5 * pulse);
-    this.lights.push({ x, y: y - 58, r: 200, a: 0.7, color: core });
-    if (e.stunT > 0) for (let i = 0; i < 3; i++) { const a = this.t * 5 + i * 2.1; w.fillStyle = "#ffd23c"; w.fillRect(x + Math.cos(a) * 30, y - 130 + Math.sin(a) * 8, 5, 5); }
+    const coreY = top - (WARDEN_BODY.length + 2) * scale + 17.5 * scale;
+    this.glowAt(x, coreY, 70 + 20 * pulse, core, 0.55 * pulse);
+    for (const side of [-1, 1]) this.glowAt(x + side * 10, top - 78, 16, deep ? "#8fe3ff" : "#ff2e4d", 0.9);
+    this.lights.push({ x, y: coreY, r: 240, a: 0.8, color: core });
+    if (e.phase >= 2) {
+      // Phase two: the armor cracks and bleeds light.
+      this.emissive.push(() => {
+        w.save(); w.globalCompositeOperation = "lighter"; w.strokeStyle = core; w.globalAlpha = 0.5 + 0.4 * pulse; w.lineWidth = 2;
+        w.beginPath(); w.moveTo(x - 30, top - 70); w.lineTo(x - 18, top - 52); w.lineTo(x - 26, top - 36); w.moveTo(x + 28, top - 66); w.lineTo(x + 16, top - 44); w.lineTo(x + 24, top - 28); w.stroke();
+        w.restore();
+      });
+      if (!g.reducedMotion && Math.random() < 0.3) g.particle({ x: x + (Math.random() - 0.5) * 70, y: top - 40, vx: 0, vy: -40, life: 0.6, size: 2, color: core, kind: "spark", drag: 1, gravity: -20 });
+    }
+    if (e.stunT > 0) for (let i = 0; i < 3; i++) { const a = this.t * 5 + i * 2.1; w.fillStyle = "#ffd23c"; w.fillRect(x + Math.cos(a) * 34, top - 128 + Math.sin(a) * 8, 5, 5); }
   }
 
   private drawBeast(e: Enemy) {
     const w = this.wctx, g = this.game, x = Math.round(e.pos.x), y = Math.round(e.pos.y);
-    const t = g.reducedMotion ? 0 : this.t;
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * TAU + Math.sin(t + i) * 0.2;
-      w.strokeStyle = "#140f1c"; w.lineWidth = 10;
-      w.beginPath(); w.moveTo(x, y - 40);
-      w.quadraticCurveTo(x + Math.cos(a) * 80, y - 40 + Math.sin(a) * 50, x + Math.cos(a + Math.sin(t * 2 + i) * 0.3) * 110, y - 20 + Math.sin(a) * 60);
-      w.stroke();
+    const t = g.reducedMotion ? 0 : this.t, scale = 4, flash = e.hitFlash > 0;
+    // Tendrils writhe behind the body, thick at the root and thin at the tip.
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU + Math.sin(t * 0.8 + i) * 0.25, reach = 120 + (e.phase >= 2 ? 30 : 0);
+      const tipX = x + Math.cos(a + Math.sin(t * 2 + i) * 0.35) * reach, tipY = y - 30 + Math.sin(a) * reach * 0.55;
+      const midX = x + Math.cos(a) * reach * 0.6, midY = y - 50 + Math.sin(a) * reach * 0.35;
+      for (const [width, color] of [[14, "#07050b"], [9, e.phase >= 3 ? "#3a1030" : "#1f1630"], [3, e.phase >= 2 ? "#ff3d7f" : "#4a2a5c"]] as const) {
+        w.strokeStyle = color; w.lineWidth = width; w.lineCap = "round";
+        w.beginPath(); w.moveTo(x, y - 50); w.quadraticCurveTo(midX, midY, tipX, tipY); w.stroke();
+      }
     }
-    const body = e.hitFlash > 0 ? "#ffffff" : "#120d1a";
-    w.fillStyle = body;
-    for (let i = 0; i < 7; i++) {
-      const a = (i / 7) * TAU;
-      w.beginPath(); w.arc(x + Math.cos(a) * 26 + Math.sin(t * 2 + i) * 3, y - 64 + Math.sin(a) * 22, 40, 0, TAU); w.fill();
+    const body = maskSprite(`beast:${Math.min(3, e.phase)}:${flash}`, BEAST_BODY, beastPalette(e.phase, flash), scale);
+    const breathe = g.reducedMotion ? 0 : Math.sin(t * 1.8) * 0.03;
+    const intro = e.spawnT > 0 ? 1 - e.spawnT / 1.4 : 1;
+    const top = y + 10;
+    drawSprite(w, body, x, top, false, intro, 1 + breathe, 1 - breathe);
+    const left = x - body.w / 2, head = top - body.h;
+    // Eyes open with each phase and track the Friend.
+    const look = angleTo({ x, y: y - 80 }, g.player.pos);
+    for (const [ex, ey, phase] of BEAST_EYES) {
+      if (e.phase < phase) continue;
+      const cx = left + (ex + 1) * scale, cy = head + (ey + 1) * scale;
+      const blink = !g.reducedMotion && Math.sin(t * 0.7 + ex) > 0.97 ? 0.2 : 1;
+      w.fillStyle = "#07050b"; w.beginPath(); w.ellipse(cx, cy, 9, 8 * blink, 0, 0, TAU); w.fill();
+      w.fillStyle = "#ccff00"; w.beginPath(); w.ellipse(cx, cy, 7, 6 * blink, 0, 0, TAU); w.fill();
+      w.fillStyle = "#050308"; w.beginPath(); w.ellipse(cx + Math.cos(look) * 3, cy + Math.sin(look) * 2.5, 2, 4 * blink, 0, 0, TAU); w.fill();
+      this.glowAt(cx, cy, 16, "#ccff00", 0.5);
     }
-    w.fillStyle = e.hitFlash > 0 ? "#ffffff" : "#1f1630";
-    w.beginPath(); w.arc(x, y - 70, 46, 0, TAU); w.fill();
-    // Crown of shards.
-    w.fillStyle = "#ccff00";
-    for (let i = 0; i < 5; i++) {
-      const sx = x - 44 + i * 22, h = 22 + (i === 2 ? 16 : i % 2 ? 6 : 10);
-      w.beginPath(); w.moveTo(sx - 6, y - 112); w.lineTo(sx, y - 112 - h); w.lineTo(sx + 6, y - 112); w.fill();
-    }
-    this.glowAt(x, y - 130, 80, "#ccff00", 0.35);
-    // Eyes that follow your Friend.
-    const look = angleTo({ x, y: y - 70 }, g.player.pos);
-    const eyes = e.phase >= 2 ? [[-22, -84], [22, -84], [0, -96], [-34, -64], [34, -64]] : [[-20, -82], [20, -82], [0, -94]];
-    for (const [ex, ey] of eyes) {
-      w.fillStyle = "#ccff00"; w.beginPath(); w.arc(x + ex, y + ey, 7, 0, TAU); w.fill();
-      w.fillStyle = "#050308"; w.beginPath(); w.arc(x + ex + Math.cos(look) * 3, y + ey + Math.sin(look) * 3, 3, 0, TAU); w.fill();
-    }
-    w.fillStyle = "#5c1422"; w.fillRect(x - 30, y - 56, 60, 18);
-    w.fillStyle = "#e9e4ff"; for (let i = 0; i < 7; i++) { w.beginPath(); w.moveTo(x - 30 + i * 9, y - 56); w.lineTo(x - 26 + i * 9, y - 46); w.lineTo(x - 22 + i * 9, y - 56); w.fill(); }
-    if (e.phase >= 3) { w.strokeStyle = "#ff3d7f"; w.lineWidth = 2; w.beginPath(); w.moveTo(x - 30, y - 100); w.lineTo(x - 10, y - 80); w.lineTo(x - 20, y - 60); w.moveTo(x + 24, y - 104); w.lineTo(x + 8, y - 76); w.stroke(); }
-    this.lights.push({ x, y: y - 80, r: 260, a: 0.8, color: "#ccff00" });
+    this.glowAt(x, head + 10, 90, "#ccff00", 0.3);
+    if (e.phase >= 3) this.glowAt(x, top - 60, 140, "#ff3d7f", 0.2 + 0.1 * Math.sin(t * 5));
+    this.lights.push({ x, y: y - 80, r: 280, a: 0.85, color: e.phase >= 3 ? "#ff3d7f" : "#ccff00" });
   }
 
   private drawHazard(h: Hazard) {
@@ -801,6 +906,28 @@ export class Renderer {
         this.lights.push({ x, y: y - 40, r: 120, a: 0.5, color: "#bb66ff" });
         break;
       }
+      case "wardrobe": {
+        // The Dye Altar: a tall mirror showing your Friend as it is dressed, with pots of glowing dye.
+        this.shadow(x, y + 6, 34);
+        w.fillStyle = "#4e3f33"; w.fillRect(x - 30, y - 4, 60, 10);
+        w.fillStyle = "#b8913a"; w.beginPath(); w.ellipse(x, y - 52, 24, 44, 0, 0, TAU); w.fill();
+        const grad = w.createLinearGradient(x - 20, y - 92, x + 20, y - 12);
+        grad.addColorStop(0, "#3a3050"); grad.addColorStop(1, "#140f20");
+        w.fillStyle = grad; w.beginPath(); w.ellipse(x, y - 52, 19, 38, 0, 0, TAU); w.fill();
+        w.save(); w.beginPath(); w.ellipse(x, y - 52, 19, 38, 0, 0, TAU); w.clip();
+        drawSprite(w, g.art.frame(g.skinLook as FriendLook, 2, "down", false, g.reducedMotion ? 0 : Math.floor(this.t / 0.2) % 8, "right"), x, y - 24, true, 0.9);
+        w.restore();
+        const dyes = ["#ff2e4d", "#3ef0ff", "#ffb02e", "#bb66ff", "#ff3d7f"];
+        dyes.forEach((color, i) => {
+          const px = x - 34 + i * 17, py = y + 10;
+          w.fillStyle = "#2a241e"; w.fillRect(px - 5, py - 6, 10, 9);
+          w.fillStyle = color; w.fillRect(px - 4, py - 6, 8, 3);
+          this.glowAt(px, py - 6, 12, color, 0.5 + 0.2 * Math.sin(t * 3 + i));
+        });
+        this.glowAt(x, y - 52, 60, g.glowColor(), 0.25);
+        this.lights.push({ x, y: y - 40, r: 140, a: 0.6, color: g.glowColor() });
+        break;
+      }
       case "rf": {
         w.fillStyle = "#3a2e26"; w.fillRect(x - 4, y - 30, 8, 34);
         w.fillStyle = "#5e4e40"; w.beginPath(); w.moveTo(x - 20, y - 30); w.lineTo(x + 20, y - 30); w.lineTo(x + 16, y - 42); w.lineTo(x - 16, y - 42); w.fill();
@@ -919,9 +1046,9 @@ export class Renderer {
     ctx.translate(-cam.x, -cam.y);
     ctx.textAlign = "center";
     for (const e of g.enemies) {
-      if (e.boss || e.spawnT > 0 || !this.visible(e.pos.x, e.pos.y, 60)) continue;
+      if (e.boss || e.spawnT > 0 || !this.visible(e.pos.x, e.pos.y, 60) || (e.kind === "wraith" && e.state === "fade")) continue;
       const damaged = e.hp < e.maxHp;
-      const top = e.pos.y - (e.kind === "corrupted" ? 88 : e.champion ? 66 : 54);
+      const top = e.pos.y - (e.kind === "corrupted" ? 88 : e.kind === "brute" || e.kind === "hive" ? 80 : e.champion ? 66 : 54);
       if (e.elite || e.champion) {
         ctx.font = `15px ${FONT_UI}`;
         ctx.fillStyle = "#000"; ctx.fillText(e.name, e.pos.x + 1, top - 7);
@@ -946,9 +1073,11 @@ export class Renderer {
       if (it.kind === "shrine" && !it.used && this.visible(it.pos.x, it.pos.y, 60)) this.costPlate(it.pos.x, it.pos.y - (it.shrine === "void" ? 140 : it.shrine === "fate" ? 118 : 70), `${SHRINES[it.shrine!].cost} RF`, SHRINES[it.shrine!].color);
     }
     for (const f of g.floaters) {
-      const a = clamp(f.life / f.max * 1.6, 0, 1);
+      const a = clamp(f.life / f.max * 1.6, 0, 1), age = f.max - f.life;
       ctx.globalAlpha = a;
-      ctx.font = `${f.size}px ${FONT_UI}`;
+      // Numbers pop in large and settle, so hits feel punchy.
+      const pop = g.reducedMotion ? 1 : 1 + Math.max(0, 0.12 - age) * 4;
+      ctx.font = `${Math.round(f.size * pop)}px ${FONT_UI}`;
       ctx.lineWidth = 3; ctx.strokeStyle = "#07050b"; ctx.strokeText(f.text, f.x, f.y);
       ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
     }
@@ -1021,8 +1150,27 @@ export class Renderer {
       ctx.globalAlpha = 1;
     }
     this.drawMinimap();
+    this.drawScore();
     if (!g.ui.touch) this.drawAbilityBar();
-    if (g.boss && !g.boss.dead) this.drawBossBar();
+    if (g.boss && !g.boss.dead) { this.drawBossIntro(g.boss); this.drawBossBar(); }
+  }
+
+  /** Live run score under the minimap. Recomputed a few times a second, not every frame. */
+  private drawScore() {
+    const g = this.game, ctx = this.ctx;
+    if (this.t - this.scoreCache.at > 0.25) this.scoreCache = { at: this.t, text: formatScore(g.scoreFor("running").total) };
+    panel(ctx, 738, 238, 210, 30);
+    ctx.font = `15px ${FONT_UI}`; ctx.fillStyle = "#9a93ad"; ctx.textAlign = "left"; ctx.fillText("SCORE", 748, 258);
+    ctx.font = `20px ${FONT_UI}`; ctx.fillStyle = "#ffd23c"; ctx.textAlign = "right"; ctx.fillText(this.scoreCache.text, 938, 259);
+    ctx.textAlign = "left";
+  }
+
+  /** Cinematic letterbox bars while a boss makes its entrance. */
+  private drawBossIntro(b: Enemy) {
+    if (b.spawnT <= 0 && b.anim > 0.6) return;
+    const ctx = this.ctx, k = b.spawnT > 0 ? Math.min(1, (1.4 - b.spawnT) * 4) : Math.max(0, 1 - b.anim / 0.6);
+    const bar = 56 * k;
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, bar); ctx.fillRect(0, H - bar, W, bar);
   }
 
   private drawAbilityBar() {
@@ -1078,6 +1226,7 @@ export class Renderer {
   private drawBossBar() {
     const g = this.game, ctx = this.ctx, b = g.boss!;
     const x = 364, y = 18, w = 352;
+    if (b.spawnT > 0) return;
     panel(ctx, x - 10, y - 6, w + 20, 56);
     ctx.textAlign = "center";
     ctx.font = `24px ${FONT_DISPLAY}`; ctx.fillStyle = b.kind === "beast" ? "#ccff00" : b.kind === "unminted" ? "#ff3d7f" : "#ff4d6d";
@@ -1164,7 +1313,7 @@ export class Renderer {
     w.fillStyle = "#050308"; w.beginPath(); w.ellipse(cx, cy + 26, 120, 26, 0, 0, TAU); w.fill();
     this.glowAtScreen(cx, cy - 60, 170, "#ccff00", 0.22);
     const frame = g.reducedMotion ? 0 : Math.floor(this.t / 0.18) % 8;
-    drawSprite(w, g.art.frame("hero", 7, "down", false, frame, "right"), cx, cy + 30);
+    drawSprite(w, g.art.frame(g.skinLook as FriendLook, 7, "down", false, frame, "right"), cx, cy + 30);
   }
 
   private drawCamp(dt: number) {
@@ -1216,11 +1365,11 @@ export class Renderer {
     const w = this.wctx, g = this.game, summary = g.ui.summary;
     const fell = summary?.outcome === "fallen" || summary?.outcome === "abandoned";
     w.fillStyle = fell ? "#0b0508" : "#07050b"; w.fillRect(0, 0, W, H);
-    this.emit(230, 640, 400, fell ? "#8a1c2b" : "#ccff00", 0.4, dt);
+    this.emit(170, 640, 300, fell ? "#8a1c2b" : "#ccff00", 0.4, dt);
     this.drawEmbers();
-    this.glowAtScreen(230, 380, 220, fell ? "#c2283f" : "#ccff00", 0.25);
+    this.glowAtScreen(170, 380, 200, fell ? "#c2283f" : "#ccff00", 0.25);
     const frame = g.reducedMotion ? 0 : Math.floor(this.t / 0.18) % 8;
-    drawSprite(w, g.art.frame(fell ? "void" : "hero", 8, "down", false, frame, "right"), 230, 520, false, fell ? 0.8 : 1);
+    drawSprite(w, g.art.frame(fell ? "void" : g.skinLook as FriendLook, 7, "down", false, frame, "right"), 170, 520, false, fell ? 0.8 : 1);
   }
 
   private glowAtScreen(x: number, y: number, r: number, color: string, alpha: number) {
@@ -1359,3 +1508,28 @@ function drawAbilityIcon(ctx: CanvasRenderingContext2D, icon: string, x: number,
 }
 
 
+
+type Look = { mask: readonly (readonly string[])[]; pal: Record<string, string>; scale: number };
+/** Palette and scale for each floor-bestiary enemy. Champions take their modifier's color. */
+function bestiaryLook(kind: string, champ: string | null, accent: string, bullet: string, minion: boolean): Look | null {
+  switch (kind) {
+    case "wisp": return { mask: MASKS.wisp, pal: { "#": champ ?? "#c9c2e6", e: "#07050b", x: bullet }, scale: 3 };
+    case "gunner": return { mask: MASKS.gunner, pal: { "#": champ ?? "#b8ad99", e: "#ff2e4d", x: "#2a2018", s: "#6b5a44" }, scale: 3 };
+    case "drone": return { mask: MASKS.drone, pal: { "#": champ ?? "#2b4a5c", e: accent, x: "#0e1418", s: "#8fe3ff" }, scale: 3 };
+    case "turret": return { mask: MASKS.turret, pal: { "#": champ ?? "#35415a", e: accent, x: "#1a2230" }, scale: 3 };
+    case "mite": return { mask: MASKS.mite, pal: { "#": "#3a5a52", e: accent }, scale: 3 };
+    case "spitter": return { mask: MASKS.spitter, pal: { "#": champ ?? "#6a2a3a", e: "#ffd23c", x: "#2a0a12" }, scale: 3 };
+    case "eyestalk": return { mask: MASKS.eyestalk, pal: { "#": champ ?? "#5c1a2c", e: "#f3eeff", x: "#c2283f" }, scale: 3 };
+    case "bloodling": return { mask: MASKS.bloodling, pal: { "#": champ ?? "#9a1c30", e: "#ffd23c", x: "#3d0d17" }, scale: minion ? 2 : 3 };
+    case "shade": return { mask: MASKS.shade, pal: { "#": champ ?? "#140f20", e: bullet, x: accent }, scale: 3 };
+    case "bomber": return { mask: MASKS.bomber, pal: { "#": champ ?? "#3a3444", e: "#ff9a3c", x: "#120d18", k: "#6b5a44", s: "#ffd23c" }, scale: 3 };
+    case "lancer": return { mask: MASKS.lancer, pal: { "#": champ ?? "#d8cfbf", e: "#ff2e4d", x: "#2a2018", l: "#f3eeff" }, scale: 3 };
+    case "hexer": return { mask: MASKS.hexer, pal: { "#": champ ?? "#2c1f3d", e: "#bb66ff", x: "#07050b", g: "#bb66ff", s: "#8a6a3a" }, scale: 3 };
+    case "sniper": return { mask: MASKS.sniper, pal: { "#": champ ?? "#3b4d5c", e: bullet, b: "#8fe3ff" }, scale: 3 };
+    case "brute": return { mask: MASKS.brute, pal: { "#": champ ?? "#8a2a3a", e: "#ffd23c", x: "#2a0a12" }, scale: minion ? 3 : 4 };
+    case "hive": return { mask: MASKS.hive, pal: { "#": champ ?? "#5a3a2a", e: accent, x: "#1a0f08" }, scale: 4 };
+    case "wraith": return { mask: MASKS.wraith, pal: { "#": champ ?? "#9a93c9", e: "#ccff00", x: "#07050b" }, scale: 3 };
+    case "prism": return { mask: MASKS.prism, pal: { "#": champ ?? "#1a1030", l: "#e9e4ff", e: bullet }, scale: 3 };
+    default: return null;
+  }
+}

@@ -2,10 +2,11 @@ import type { RfTransaction } from "../economy/TokenEconomy";
 import type { GateTier, ShrineTier } from "../economy/terms";
 import type { EventKind } from "./content";
 import type { Item } from "./items";
+import type { RunScore } from "./score";
 import type { BoonId } from "./stats";
 
 export type Screen = "title" | "camp" | "run" | "summary";
-export type CampTab = "descend" | "friend" | "stash" | "codex" | "hall" | "rf";
+export type CampTab = "descend" | "friend" | "wardrobe" | "stash" | "codex" | "hall" | "rf";
 export type RevealTone = "good" | "bad" | "neutral" | "legendary" | "mythic" | "void";
 export type FollowUp = "arena-unminted" | "arena-cursed" | "merchant" | "loot";
 
@@ -37,6 +38,8 @@ export type RunSummary = Readonly<{
   friendLabel: string; family: string; depth: number; kills: number; elites: number; bosses: readonly string[];
   rarest: Item | null; rfStarted: number; rfEarned: number; rfSpent: number; rfRemaining: number;
   timeMs: number; level: number; secured: number; lost: number; seed: number; transactions: readonly RfTransaction[];
+  /** The run's score breakdown, and the session's running total after this run. */
+  score: RunScore; lifetimeScore: number; best: boolean;
 }>;
 
 export type CodexEntry = { name: string; rarity: Item["rarity"]; slot: Item["slot"]; count: number };
