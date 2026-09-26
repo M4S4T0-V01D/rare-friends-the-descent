@@ -2,7 +2,7 @@
 
 **Your Rare Friend descends into a dungeon where $RAREFRIENDS is the currency of risk.**
 
-A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Your own Generations NFT is the playable hero. It fights through procedurally generated floors of cursed crypts, finds randomized loot, and at every turn faces the same question: *spend 5 RF now, save for 10, or risk everything for 25?* Every run ends with a **score**, and RF can also dress your Friend in **cosmetic glows, skins and trails** at the camp. The dungeon is drawn in the Rare Friends style: near-black, white and grey, with faded color and dithered light.
+A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Your own Generations NFT is the playable hero. It fights through procedurally generated floors of cursed crypts, finds randomized loot, and at every turn faces the same question: *spend 5 RF now, save for 10, or risk everything for 25?* Every run ends with a **score**, and RF can also dress your Friend in **cosmetic glows, skins and trails** at the camp. The dungeon is drawn in the Rare Friends style: near-black, white and grey, with faded color and soft light.
 
 | | |
 |---|---|
@@ -39,7 +39,7 @@ Every price lives in one file ([`src/economy/terms.ts`](src/economy/terms.ts)), 
 
 ### The Rare Friends look
 
-Rare Friends are black and white, so the dungeon is too. The whole world is graded toward monochrome (color faded to about a quarter, deeper blacks), and the light mask is computed at quarter resolution and **dithered through a 4×4 Bayer matrix**, so torchlight and glows fall off in chunky pixel bands instead of smooth gradients. Glows, bullets and telegraphs still light the dark and keep a hint of their color, so every attack stays readable. Panels and menus use neutral blacks and greys, keeping the lime RF accent. It is on by default; **Pause → Settings → Rare Friends look** switches back to full color.
+Rare Friends are black and white, so the dungeon is too. The whole world is graded toward monochrome (color faded to about a quarter, deeper blacks). Glows, bullets and telegraphs still light the dark and keep a hint of their color, so every attack stays readable. The lighting mask is drawn at quarter resolution and smoothly upscaled, which keeps soft light for a fraction of the cost. Panels and menus use neutral blacks and greys, keeping the lime RF accent. It is on by default; **Pause → Settings → Rare Friends look** switches back to full color.
 
 ### Sound
 
@@ -110,7 +110,7 @@ Title → wallet → Friend → camp → **Depth 1**. The first room holds three
 
 ## The $RAREFRIENDS economy (simulated)
 
-**You start each descent with 25 RF.** If your balance is below 25 when a descent begins, a "Descent stipend (simulated preview)" tops it back up to 25, recorded in the ledger. This keeps the preview playable; a real economy would drop it (see below). RF is only ever spent by your own choice. Dying never takes RF.
+**Every Friend starts its first session with 25 RF, and that is the only free RF.** After that there are no top-ups: each descent begins with exactly what your Friend carried out of the camp, so RF you spend on cosmetics or lose to bad gambles stays spent, and RF you earn in the dungeon is what funds the next descent. RF is only ever spent by your own choice. Dying never takes RF. You can play with 0 RF; you just cannot pay for shrines, gates, rerolls, revives or mini-games.
 
 ### What RF buys
 
@@ -211,6 +211,17 @@ Every run ends with a score, shown line by line on the summary screen (counting 
 | RF earned | 15 per RF |
 
 **How the run ends multiplies the total:** conquered (escaped after The Rare Beast) **×2**, escaped at a Waystone **×1.5**, fell in the dark **×0.75**, abandoned **×0.5**. Dying with a bag full of Legendaries still scores them, but escaping with them is worth twice as much. The formula lives in [`src/game/score.ts`](src/game/score.ts) and is pinned by unit tests.
+
+### Share your run
+
+The run-complete screen has two share buttons:
+
+- **Post on X** opens X's post composer with a line about your run (Friend, outcome, depth, score, kills, bosses) and a link back to the game, and puts an image of your scoreboard on your clipboard so you can paste it straight into the post.
+- **Copy image** copies the scoreboard image, ready to paste into any chat or post.
+
+The image is a 1200×675 card in the Rare Friends look: your Friend's canonical black-on-white artwork, the outcome, your score (with a NEW BEST badge), depth, kills, guardians, bosses, rarest loot, RF earned and time.
+
+How it works: the game runs in the FriendSDK's scripts-only sandbox, which cannot use the clipboard or open windows. So it draws the card and sends a share request to The Descent's trusted host page ([`host/shareRelay.ts`](host/shareRelay.ts)) with `postMessage`. The host accepts requests only from the game's own frame and checks the image type and size and the text length. It then writes the image to the clipboard and, for a post, opens `x.com/intent/post`, building the URL itself from its own page address. If no host answers or the browser blocks the clipboard, the game shows the card instead, so you can right-click to copy or save it (with the post text ready to copy).
 
 ### Death, revival and extraction
 
@@ -317,7 +328,7 @@ If your Playwright version has no matching browser download (for example in a sa
 | Path | What it is |
 |---|---|
 | `index.tsx`, `game.json`, `host.css`, `style.css` | FriendSDK game entry, required SDK definition, trusted runtime theme, game UI styles |
-| `host/` | Trusted host page: SDK wallet session, discovery and `ConnectedGameHost`, plus the Friend picker with thumbnails and the session lock |
+| `host/` | Trusted host page: SDK wallet session, discovery and `ConnectedGameHost`, the Friend picker with thumbnails and the session lock, and the share relay (clipboard and X) |
 | `src/economy/` | `terms.ts` (every price and reward), `TokenEconomy.ts` (the interface), `SimulatedTokenEconomy.ts` |
 | `src/game/` | Engine: `Game.ts` (run loop, combat, rooms, RF actions, room music, wardrobe, guardians, mini-games, bestiary tracking), `lore.ts` (bestiary pages), `dungeon.ts`, `enemies.ts` and `bestiary.ts` (bullet patterns), `kit.ts` (per-Friend kits), `items.ts`, `stats.ts`, `score.ts` (run scoring), `content.ts` (shrines, events, rosters, cosmetics) |
 | `src/render/` | Canvas renderer, dungeon art, sprites (canonical Friend artwork plus original enemy art), `bossArt.ts` (mirrored pixel-art boss bodies) |
@@ -338,7 +349,7 @@ If your Playwright version has no matching browser download (for example in a sa
 | `npm run test:unit` | 23 tests: guardian rooms on every boss-less floor from depth 2, a bestiary page for every creature, mini-game prices and payouts, per-floor themes and rosters (including all 8 new enemies), floor growth with depth plus full-tile reachability, economy ledger, bigint RF units, insufficient funds, all prices (cosmetics included) in the 5/10/25 family, small rewards, every odds table sums to 100%, prices come from the economy terms, generation determinism, reachability of every room (300 floors), floor-1 script, depth-2 Void shrine, loot and stats, player/enemy balance caps, run scoring and outcome multipliers, cosmetic catalogue, every sprite mask is a clean rectangle | 23/23 pass |
 | `npm run check` | FriendSDK game validation (imports, sandbox boundary, definition) | Pass |
 | `npm run build` | Static preview build | Pass |
-| `npm run test:browser` | 29 end-to-end checks in headless Chromium against **the site as shipped** (The Descent host plus the SDK runtime pieces) with the SDK's own mock wallet and RPC fixture: picker thumbnails, Friend locked in during play, walking the camp and descending the great stairs, every floor mood, every special-room tune and family voice, title and verified Friend, keyboard movement, locked-room combat with real key presses, first loot, level-up, **5 RF** shrine (and its tune fading in inside the shrine room and out after leaving), +3 RF treasure, **5 → 10 → 25** rerolls with no 4th, **5 RF** gate, events, **10 RF** revive, **25 RF** full revival, **25 RF** Void shrine (including the secret-boss path and +25 RF), merchant **5 RF** and **10 RF** buys, potion, pause, mute, reduced motion, depth-3 boss with +5 RF, Waystone, escape summary with its score breakdown, restart, death and End Run, **10 RF + 5 RF** Dye Altar buys (Corrupted skin, Blood Moon glow) and free swaps, the bestiary unlocking and opening with B, a guardian fight paying +3 RF, a **5 RF** Shell Game won by following the real shuffle (+15 RF) and a **5 RF** Rune Gallery paying by runes shattered, artwork-load error with retry, wrong-network unmount and recheck, browser refresh, touch joystick and buttons, zero console errors | 29/29 pass |
+| `npm run test:browser` | 29 end-to-end checks in headless Chromium against **the site as shipped** (The Descent host plus the SDK runtime pieces) with the SDK's own mock wallet and RPC fixture: picker thumbnails, Friend locked in during play, walking the camp and descending the great stairs, every floor mood, every special-room tune and family voice, title and verified Friend, keyboard movement, locked-room combat with real key presses, first loot, level-up, **5 RF** shrine (and its tune fading in inside the shrine room and out after leaving), +3 RF treasure, **5 → 10 → 25** rerolls with no 4th, **5 RF** gate, events, **10 RF** revive, **25 RF** full revival, **25 RF** Void shrine (including the secret-boss path and +25 RF), merchant **5 RF** and **10 RF** buys, potion, pause, mute, reduced motion, depth-3 boss with +5 RF, Waystone, escape summary with its score breakdown, **Copy image** putting a 1200×675 PNG scoreboard on the clipboard and **Post on X** opening X's composer with the run text and a link back, restart with no free RF top-up, death and End Run, **10 RF + 5 RF** Dye Altar buys (Corrupted skin, Blood Moon glow) and free swaps, the bestiary unlocking and opening with B, a guardian fight paying +3 RF, a **5 RF** Shell Game won by following the real shuffle (+15 RF) and a **5 RF** Rune Gallery paying by runes shattered, artwork-load error with retry, wrong-network unmount and recheck, browser refresh, touch joystick and buttons, zero console errors | 29/29 pass |
 | `npm run test:real` (or `TARGET_URL=<preview> node scripts/test-real-gate.mjs`) | **Live Robinhood mainnet**, read-only, also run against the published GitHub Pages preview: a stand-in wallet that refuses every signing method reports a real holder's public address. The real SDK picker discovered the holder's 5 hardwired Friends, freshly verified ownership, and the game loaded that Friend's on-chain artwork. An address with only a generation-0 Friend was refused, and a wrong-network wallet was stopped before play. | 3/3 pass |
 | `npm run playtest` | A bot plays the real engine at accelerated speed using only player controls, reporting depth, deaths, damage by source and RF flow | Used for balance. After the difficulty pass, a bot that never dodges usually falls at depths 2–4 (often to the Dungeon Warden) and takes about 3× the damage per floor it used to; a bot that sidesteps bullets reaches about depth 5–6 instead of clearing all 9 floors. Deep runs earn about 40–110 RF. |
 
@@ -347,7 +358,7 @@ If your Playwright version has no matching browser download (for example in a sa
 ## Known issues and limitations
 
 - **Session-only progress.** The FriendSDK sandbox has no storage and the bridge has no save API, so the stash, codex, hall, scores, bought cosmetics and RF ledger reset on reload. The global leaderboard is a placeholder for the same reason.
-- **Cosmetics and the stipend.** Because the preview tops your purse back up to 25 RF at each descent, cosmetics are easy to afford here. With a real economy (no stipend), they become a genuine RF sink.
+- **No free top-ups.** After the starting 25 RF, a player who spends everything must earn RF back in the dungeon (kills, treasure, guardians, bosses, mini-games) before paying for anything again.
 - **Two RF numbers are visible.** The SDK runtime's own "Friend wallet" panel shows its reference chance-game preview balance (20 RF). The Descent does not use that ledger; the in-game **$RAREFRIENDS** panel is this game's simulated purse. The pause menu explains this.
 - **The public Robinhood RPC can reject bursts.** Friend discovery occasionally fails on the first try; the SDK picker's **Retry loading Friends** button resolves it.
 - **Phones:** the game is landscape 3:2. On a portrait phone the frame is small, and the SDK's wallet toolbar takes proportionally more space. Touch controls work; landscape is recommended.
@@ -365,7 +376,7 @@ The game is structured so the simulated economy can become a real one without re
 2. **Contract-decided outcomes.** Shrine, gate, gamble and event rolls move from browser randomness to the SDK's Dice RNG flow. The odds tables in `content.ts` become the contract's fixed terms.
 3. **Backed rewards.** RF faucets (bosses, treasure, bounties) are paid from a funded prize reserve. Every faucet is already a small fixed amount in `terms.ts`, which keeps reserves predictable. Sinks such as shrines and gates can burn RF or route it back into that reserve.
 4. **Persistence.** The stash, heirlooms and leaderboard need a save API that SDK v0.1.2 does not provide.
-5. **Remove the preview stipend.** In a real economy, players bring RF from their Friend's wallet.
+5. **Starting balance.** The preview grants 25 simulated RF once per session. In a real economy, players bring RF from their Friend's wallet instead.
 
 **Capability gaps in SDK v0.1.2** (to raise with the Rare Friends team): no additional-currency, upgrade or persistence APIs; the chance-game client supports one consumable and one outcome table, which cannot express 5/10/25 multi-tier spends directly.
 
