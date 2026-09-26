@@ -11,10 +11,11 @@ import type { FriendLook } from "../render/sprites";
 import type { CampTab, UiState } from "../game/types";
 import { FriendPortrait, formatTime, ItemCard, Rf, SimulatedTag, TxList } from "./components";
 import { Modals } from "./modals";
+import { BestiaryView } from "./bestiary";
 
 export function Overlay({ game }: { game: Game }) {
   const ui = useSyncExternalStore(game.store.subscribe, game.store.get);
-  return <div className={`dx-overlay${ui.settings.reducedMotion ? " dx-reduced" : ""}`}>
+  return <div className={`dx-overlay${ui.settings.reducedMotion ? " dx-reduced" : ""}${ui.settings.faded ? " dx-faded" : ""}`}>
     {ui.screen === "title" && <TitleScreen game={game} />}
     {ui.screen === "camp" && <CampScreen game={game} ui={ui} />}
     {ui.screen === "summary" && ui.summary && <SummaryScreen game={game} ui={ui} />}
@@ -65,7 +66,7 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
   }, [game]);
-  const tabs: [CampTab, string][] = [["descend", "Descend"], ["friend", "Friend"], ["wardrobe", "Wardrobe"], ["stash", `Stash ${game.stash.length}`], ["codex", "Codex"], ["hall", "Hall"], ["rf", "$RF"]];
+  const tabs: [CampTab, string][] = [["descend", "Descend"], ["friend", "Friend"], ["wardrobe", "Wardrobe"], ["bestiary", "Bestiary"], ["stash", `Stash ${game.stash.length}`], ["codex", "Codex"], ["hall", "Hall"], ["rf", "$RF"]];
   const balance = ui.balance;
   return <div className="dx-scrim dx-camp-scrim">
     <div className="dx-camp-panel" role="dialog" aria-modal="true" aria-label="Camp menu">
@@ -114,6 +115,7 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
           </div>
         </div>}
         {tab === "wardrobe" && <Wardrobe game={game} ui={ui} />}
+        {tab === "bestiary" && <BestiaryView game={game} />}
         {tab === "stash" && <>
           <p className="dx-dim">Loot you escape with (or secure at a Waystone) lands here. Pick one heirloom to carry into your next descent. Session only: reloading clears it.</p>
           {game.stash.length ? <div className="dx-grid">{game.stash.map(item => <ItemCard key={item.id} item={item} compact

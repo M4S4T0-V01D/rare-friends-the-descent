@@ -1,11 +1,11 @@
 import { normalize, type Vec } from "./math";
 
-export type Action = "attack" | "dodge" | "bolt" | "nova" | "potion" | "interact" | "character" | "log" | "pause" | "mute";
+export type Action = "attack" | "dodge" | "bolt" | "nova" | "potion" | "interact" | "character" | "log" | "pause" | "mute" | "bestiary";
 
 const KEY_ACTIONS: Readonly<Record<string, Action>> = {
   j: "attack", " ": "dodge", shift: "dodge", k: "dodge", q: "bolt", l: "bolt", r: "nova", n: "nova",
   f: "potion", h: "potion", e: "interact", enter: "interact", c: "character", i: "character", tab: "log",
-  escape: "pause", p: "pause", m: "mute",
+  escape: "pause", p: "pause", m: "mute", b: "bestiary",
 };
 const MOVE_KEYS = new Set(["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"]);
 

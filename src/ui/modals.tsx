@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { GAMBLER_PAYOUTS, RF_COSTS, type MerchantOffer } from "../economy/terms";
+import { GAMBLER_PAYOUTS, RF_COSTS, SHELL_GAME, type MerchantOffer } from "../economy/terms";
+import { BestiaryView } from "./bestiary";
 import { EVENTS, GATES, MERCHANT, SHRINES } from "../game/content";
 import type { Game } from "../game/Game";
 import { RARITY_STYLE, SLOT_LABEL } from "../game/items";
@@ -25,6 +26,10 @@ export function Modals({ game, ui }: { game: Game; ui: UiState }) {
     case "character": return <CharacterModal game={game} />;
     case "log": return <LogModal game={game} ui={ui} />;
     case "pause": return <PauseModal game={game} ui={ui} />;
+    case "bestiary": return <Dialog className="dx-bestiary-dialog" title="Bestiary" subtitle="CREATURES OF THE DESCENT" labelColor="#d8d8d8" onClose={() => game.closeModal()}>
+      <BestiaryView game={game} />
+    </Dialog>;
+    case "shells": return <ShellsModal key={m.id} game={game} ui={ui} />;
   }
 }
 
@@ -111,8 +116,48 @@ function EventModal({ game, ui, modal }: { game: Game; ui: UiState; modal: Extra
         : <button type="button" className="dx-btn dx-btn-primary" data-autofocus disabled={ui.busy} onClick={act}>{def.action}<kbd>Enter</kbd></button>}</>}>
     <p className="dx-shrine-tagline">{def.prompt}</p>
     {def.cost > 0 && <p className="dx-shrine-cost" style={{ color: def.cost >= 25 ? "#ff3d7f" : "#ccff00" }}>{def.cost} RF</p>}
-    <OddsTable rows={rows} />
+    {def.rules ? <ul className="dx-rules" aria-label="Rules">{def.rules.map(line => <li key={line}>{line}</li>)}</ul> : <OddsTable rows={rows} />}
     {def.cost > 0 && <Balance ui={ui} cost={def.cost} />}
+  </Dialog>;
+}
+
+/**
+ * The Shell Game, played for real: the rune starts under one cup, the cups swap exactly as the
+ * game rolled them, and you win if you follow the right one.
+ */
+function ShellsModal({ game, ui }: { game: Game; ui: UiState }) {
+  const shells = game.shellGame!;
+  const [phase, setPhase] = useState<"show" | "shuffle" | "pick">("show");
+  const [slots, setSlots] = useState<number[]>([0, 1, 2]);
+  useEffect(() => {
+    const timers: number[] = [];
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    timers.push(window.setTimeout(() => setPhase("shuffle"), 1300));
+    let order = [0, 1, 2];
+    shells.swaps.forEach(([a, b], i) => {
+      timers.push(window.setTimeout(() => {
+        order = order.map(slot => (slot === a ? b : slot === b ? a : slot));
+        setSlots(order);
+      }, 1500 + i * (shells.swapMs + 60)));
+    });
+    timers.push(window.setTimeout(() => setPhase("pick"), 1600 + shells.swaps.length * (shells.swapMs + 60) + (reduced ? 0 : 150)));
+    return () => timers.forEach(t => window.clearTimeout(t));
+  }, [shells]);
+  const done = shells.picked !== null;
+  const lifted = phase === "show" || done;
+  const pickSlot = (slot: number) => { if (phase === "pick" && !done) void game.pickShell(slots.indexOf(slot)); };
+  return <Dialog className="dx-shells" title="The Shell Game" subtitle="5 RF MINI-GAME" labelColor="#ffd23c" onClose={done ? () => game.closeModal() : undefined}
+    keys={{ "1": () => pickSlot(0), "2": () => pickSlot(1), "3": () => pickSlot(2), enter: () => { if (done) game.closeModal(); } }}
+    footer={done ? <button type="button" className="dx-btn dx-btn-primary" data-autofocus onClick={() => game.closeModal()}>Leave the table<kbd>Enter</kbd></button> : undefined}>
+    <p className="dx-shrine-tagline">{phase === "show" ? "Watch the rune…" : phase === "shuffle" ? "Keep your eyes on the cup." : done ? (shells.won ? `Found it! +${SHELL_GAME.payout} RF` : "Wrong cup. The rune was elsewhere.") : "Which cup? Click it, or press 1, 2 or 3."}</p>
+    <div className="dx-cups" style={{ ["--swap" as string]: `${shells.swapMs}ms` }}>
+      {[0, 1, 2].map(cup => <button key={cup} type="button" className={`dx-cup${lifted ? " dx-lifted" : ""}${done && shells.picked === cup ? (shells.won ? " dx-cup-win" : " dx-cup-lose") : ""}`}
+        style={{ left: `${slots[cup] * 33.333}%` }} disabled={phase !== "pick" || done} onClick={() => pickSlot(slots[cup])} aria-label={`Cup ${slots[cup] + 1}`}>
+        <span className="dx-cup-body" />
+        {cup === shells.ball && <span className="dx-cup-rune" aria-hidden="true">◆</span>}
+      </button>)}
+    </div>
+    <Balance ui={ui} cost={0} />
   </Dialog>;
 }
 
@@ -249,9 +294,11 @@ function PauseModal({ game, ui }: { game: Game; ui: UiState }) {
         {toggle("screenShake", "Screen shake")}
         {toggle("damageNumbers", "Damage numbers")}
         {toggle("crt", "CRT scanlines")}
+        {toggle("faded", "Rare Friends look (faded color, dithered light)")}
         <p>
           <button type="button" className="dx-btn" onClick={() => game.setModal({ kind: "character" })}>Character (C)</button>{" "}
-          <button type="button" className="dx-btn" onClick={() => game.setModal({ kind: "log" })}>RF activity (Tab)</button>
+          <button type="button" className="dx-btn" onClick={() => game.setModal({ kind: "log" })}>RF activity (Tab)</button>{" "}
+          <button type="button" className="dx-btn" onClick={() => game.setModal({ kind: "bestiary" })}>Bestiary (B)</button>
         </p>
       </div>
       <div>
@@ -263,7 +310,7 @@ function PauseModal({ game, ui }: { game: Game; ui: UiState }) {
           <li><kbd>R</kbd> {game.kit.signature.name} · {game.kit.signature.energy} energy</li>
           <li><kbd>Space</kbd>/<kbd>Shift</kbd> {game.kit.dodge.name}{game.kit.dodge.charges > 1 ? ` (${game.kit.dodge.charges} charges)` : ""}</li>
           <li><kbd>F</kbd> potion · <kbd>E</kbd> interact</li>
-          <li><kbd>C</kbd> character · <kbd>Tab</kbd> RF log · <kbd>Esc</kbd> pause</li>
+          <li><kbd>C</kbd> character · <kbd>B</kbd> bestiary · <kbd>Tab</kbd> RF log · <kbd>Esc</kbd> pause</li>
         </ul>
         <h3>About $RAREFRIENDS here</h3>
         <p className="dx-dim">Every RF price, reward and outcome in The Descent is <b>simulated</b>. No real tokens move and no transactions are sent. Your Friend's ownership was verified by the FriendSDK runtime. The runtime's Friend wallet panel shows the SDK's own reference preview balance, which this game does not spend. Reloading starts a new session.</p>

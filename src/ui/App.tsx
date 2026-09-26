@@ -62,7 +62,7 @@ export function DescentApp({ friendId, client, paused }: GameComponentProps) {
   useEffect(() => {
     if (status !== "ready" || !loaded || !canvas.current || !stage.current || !root.current) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const settings: Settings = { sound: true, music: true, reducedMotion: reduced, screenShake: !reduced, damageNumbers: true, crt: !reduced };
+    const settings: Settings = { sound: true, music: true, reducedMotion: reduced, screenShake: !reduced, damageNumbers: true, crt: !reduced, faded: true };
     const economy = new SimulatedTokenEconomy(0n);
     void economy.reward(rf(RF_STARTING_BALANCE), "Starting balance (simulated)", "stipend");
     const label = `${loaded.family} #${friendId}`;

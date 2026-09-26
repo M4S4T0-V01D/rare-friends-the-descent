@@ -16,7 +16,7 @@ export const RF_COSTS = {
   reroll: [5, 10, 25],
   revive: { partial: 10, full: 25 },
   merchant: { potion: 5, relic: 10, rareItem: 10, legendaryGamble: 25, cursedBox: 5 },
-  event: { well: 5, stranger: 10, blackDoor: 25, gambler: 5, goldenDoor: 10 },
+  event: { well: 5, stranger: 10, blackDoor: 25, gambler: 5, goldenDoor: 10, gallery: 5, shells: 5, coinDash: 10 },
   /** Wardrobe cosmetics at the camp's Dye Altar, by tier. */
   cosmetic: { common: 5, rare: 10, legendary: 25 },
 } as const;
@@ -34,7 +34,21 @@ export const RF_REWARDS = {
   goblinCoin: 1,
   /** Searching The Corpse can turn up a few RF. */
   corpseFind: 3,
+  /** A guardian (the mini-boss before each floor's stairs). */
+  guardian: 3,
 } as const;
+
+/**
+ * Pay-to-play mini-games. Skill decides the payout, and a good player comes out ahead.
+ * Rune Gallery (5 RF): runes shattered in 15 s. Coin Dash (10 RF): 1 RF per coin grabbed, up to 20.
+ * The Shell Game (5 RF): find the rune under the right cup and win 15 RF.
+ */
+export const GALLERY_PAYOUTS = [
+  { hits: 18, payout: 20 }, { hits: 14, payout: 15 }, { hits: 10, payout: 10 }, { hits: 7, payout: 5 },
+] as const;
+export const GALLERY_SECONDS = 15;
+export const COIN_DASH = { seconds: 15, coins: 20, perCoin: 1 } as const;
+export const SHELL_GAME = { payout: 15, cups: 3 } as const;
 
 /** Base chance that a normal enemy drops +1 RF. Luck and RF-find items raise it. */
 export const RF_NORMAL_ENEMY_CHANCE = 0.06;

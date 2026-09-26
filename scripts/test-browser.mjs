@@ -223,7 +223,10 @@ await testSite({
       assert.equal((await st()).modal, "event");
       await shot("10-event");
       await press("Enter", 1500);
-      const s = await waitFor(s => s.modal === "reveal" || s.modal === "none" || s.locked !== null, "event outcome");
+      let s = await waitFor(s => s.modal === "reveal" || s.modal === "none" || s.modal === "shells" || s.locked !== null, "event outcome");
+      // Floor 1 can roll a mini-game: finish it so the run carries on.
+      if (s.modal === "shells") { await waitFor(s => s.modal === "shells", "shells", 1000); await page.waitForTimeout(9000); await press("1", 600); await press("Enter", 400); s = await st(); }
+      if (s.miniGame) { await call("g.miniGame.until = g.time"); s = await waitFor(s => s.modal === "reveal", "mini-game result"); await page.waitForTimeout(600); }
       if (s.modal === "reveal") { await shot("11-event-reveal"); await press("Enter", 400); }
       if ((await st()).locked !== null) await clearRoom();
     });
@@ -338,6 +341,70 @@ await testSite({
       assert.equal((await st()).settings.sound, false, "muted");
       await press("m", 200);
       assert.equal((await st()).settings.sound, true, "unmuted");
+    });
+
+    await step("bestiary: seen creatures unlock pages, opened with B", async () => {
+      let s = await st();
+      assert(s.bestiary.includes("cursed"), "the first room's Cursed Friends are recorded");
+      await focusGame();
+      await press("b", 500);
+      assert.equal((await st()).modal, "bestiary");
+      await game.getByRole("option", { name: "Cursed Friend" }).click();
+      await game.getByText(/still remembers how to run/).waitFor();
+      await game.getByRole("option", { name: "Unknown creature" }).first().waitFor();
+      await shot("19b-bestiary");
+      await press("Escape", 300);
+      s = await st();
+      assert.equal(s.modal, "none");
+    });
+
+    await step("guardian: a titled mini-boss guards the stairs and pays +3 RF", async () => {
+      let s = await st();
+      const room = s.rooms.find(r => r.type === "guardian");
+      assert(room, "depth 2 ends its main path at a guardian room");
+      await call("g.player.iframes = 99; g.player.hp = g.stats.maxHp");
+      await teleport(room.x, room.y + 90);
+      s = await waitFor(s => s.boss && s.locked !== null, "guardian awakens");
+      const title = s.boss.name;
+      await page.waitForTimeout(1800);
+      await shot("19c-guardian");
+      await call("g.debugKillRoom()");
+      s = await waitFor(s => !s.boss && s.locked === null, "guardian slain");
+      assert(s.history.some(t => t.reason.startsWith("Guardian:") && t.amount === 3), `+3 RF for ${title}`);
+      while ((await st()).modal === "levelUp") await press("1", 400);
+      await call("g.player.iframes = 0");
+    });
+
+    await step("mini-games: 5 RF Shell Game pays 15 RF for the right cup; 5 RF Rune Gallery pays by runes", async () => {
+      if ((await st()).balance < 20) await call("return g.debugGrant(20)");
+      const setUp = event => call(`const it = g.interactables.find(i => i.kind === "event"); it.event = "${event}"; it.used = false; g.setModal({ kind: "event", id: it.id, event: "${event}" }); return it.id;`);
+      await setUp("shells");
+      await game.getByText(/Pick the right cup/).waitFor();
+      let b0 = (await st()).balance;
+      await press("Enter", 600);
+      assert.equal((await st()).modal, "shells");
+      assert.equal((await st()).balance, b0 - 5);
+      const slot = await call("const sg = g.shellGame; let order = [0, 1, 2]; for (const [a, b] of sg.swaps) order = order.map(s => s === a ? b : s === b ? a : s); return order[sg.ball];");
+      await waitFor(s => s.modal === "shells", "shells", 500);
+      await game.getByText(/Which cup\?/).waitFor({ timeout: 15000 });
+      await press(String(slot + 1), 700);
+      await game.getByText(/Found it!/).waitFor();
+      await shot("19d-shells");
+      let s = await st();
+      assert.equal(s.balance, b0 + 10, "paid 5, won 15");
+      assert.equal(s.history.at(-1).reason, "The Shell Game: found the rune");
+      await press("Enter", 400);
+      await setUp("gallery");
+      b0 = (await st()).balance;
+      await press("Enter", 600);
+      await waitFor(s => s.miniGame && s.foes.some(f => f.kind === "target"), "runes appear");
+      await shot("19e-gallery");
+      await call("g.miniGame.score = 14; g.miniGame.until = g.time");
+      s = await waitFor(s => s.modal === "reveal", "gallery result");
+      assert.equal(s.balance, b0 - 5 + 15, "14 runes pay 15 RF");
+      await page.waitForTimeout(600);
+      await press("Enter", 400);
+      await waitFor(s => s.modal === "none", "back to the dungeon");
     });
 
     await step("depth 3 boss fight: +5 RF, waystone secures loot, escape shows the summary", async () => {

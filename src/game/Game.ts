@@ -1,7 +1,7 @@
 import { AudioEngine, type MusicMode, type RoomSong, type SfxName } from "../audio/audio";
 import { InsufficientRfError, rf, wholeRf, type RfCategory, type RfTransaction, type TokenEconomy } from "../economy/TokenEconomy";
 import {
-  GAMBLER_PAYOUTS, RF_COSTS, RF_GOBLIN_MAX_COINS, RF_NORMAL_ENEMY_CHANCE, RF_REWARDS, RF_STARTING_BALANCE,
+  COIN_DASH, GALLERY_PAYOUTS, GALLERY_SECONDS, SHELL_GAME, GAMBLER_PAYOUTS, RF_COSTS, RF_GOBLIN_MAX_COINS, RF_NORMAL_ENEMY_CHANCE, RF_REWARDS, RF_STARTING_BALANCE,
   type GateTier, type MerchantOffer, type ReviveKind,
 } from "../economy/terms";
 import type { FriendArt } from "../render/sprites";
@@ -9,7 +9,8 @@ import {
   CURSED_BOX, DEFAULT_COSMETICS, EVENTS, GATES, type CosmeticSlot, type RosterKind, GOLDEN_DOOR_RARITIES, LEGENDARY_GAMBLE, MERCHANT, SHRINES, bandForFloor, cosmetic,
 } from "./content";
 import { generateArena, generateFloor, roomAt, roomCenter, TILE, T, type Floor, type Rect, type Room } from "./dungeon";
-import { createEnemy, rollModifiers, updateEnemy, type SpawnOptions, type World } from "./enemies";
+import { createEnemy, dmgScale, GUARDIAN_TITLES, rollModifiers, updateEnemy, type SpawnOptions, type World } from "./enemies";
+import { LORE, type BestiaryKind } from "./lore";
 import type {
   ChestKind, Enemy, EnemyKind, Floater, Hazard, Interactable, Particle, Pickup, Player, Projectile,
 } from "./entities";
@@ -30,12 +31,17 @@ export type FriendIdentity = Readonly<{ id: bigint; label: string; family: strin
 export type Renderer = { render(dt: number): void; floorChanged(): void };
 
 type Wave = { kind: EnemyKind; options: SpawnOptions }[];
-type Encounter = { roomId: number; waves: Wave[]; next: number; reward: "none" | "chest" | "horde" | "arena"; chestKind?: ChestKind; bonus?: GateTier };
+type Encounter = { roomId: number; waves: Wave[]; next: number; reward: "none" | "chest" | "horde" | "arena"; chestKind?: ChestKind; bonus?: GateTier; guardian?: EnemyKind };
+/** A pay-to-play mini-game running in an event room. */
+export type MiniGame = { kind: "gallery" | "coinDash"; eventId: number; roomId: number; until: number; score: number; spawned: number; nextSpawn: number; nextRock: number };
+/** The Shell Game: the rune sits under cup `ball`; `swaps` are the slot pairs exchanged, in order. */
+export type ShellGame = { eventId: number; ball: number; swaps: readonly [number, number][]; swapMs: number; picked: number | null; won: boolean | null };
+export type BestiaryRecord = { kills: number; guardians: string[] };
 
 type RunState = {
   seed: number; started: number; kills: number; elites: number; bosses: string[]; rarest: Item | null;
   rfStart: number; rfEarned: number; rfSpent: number; firstTx: number; maxDepth: number;
-  firstLootGiven: boolean; combatRoomsCleared: number; nextChestMin: Rarity | null; beastDefeated: boolean;
+  firstLootGiven: boolean; combatRoomsCleared: number; nextChestMin: Rarity | null; beastDefeated: boolean; guardians: number;
 };
 
 const PLAYER_RADIUS = 14;
@@ -101,6 +107,10 @@ export class Game implements World {
   readonly codex = new Map<string, CodexEntry>();
   readonly hall: RunSummary[] = [];
   runsStarted = 0;
+  /** Creatures your Friend has seen this session, with kills and slain guardians. */
+  readonly bestiary = new Map<BestiaryKind, BestiaryRecord>();
+  miniGame: MiniGame | null = null;
+  shellGame: ShellGame | null = null;
   /** Every run's score this session, added together. */
   lifetimeScore = 0;
   bestScore = 0;
@@ -291,7 +301,8 @@ export class Game implements World {
           case "lostFriend": return "lostFriend";
           case "gambler": return "gambler";
           case "blackDoor": return "voidShrine";
-          case "goldenDoor": return "treasure";
+          case "goldenDoor": case "coinDash": return "treasure";
+          case "gallery": case "shells": return "gambler";
           default: return "mystery";
         }
       default: return null;
@@ -393,7 +404,7 @@ export class Game implements World {
     this.run = {
       seed, started: performance.now(), kills: 0, elites: 0, bosses: [], rarest: null,
       rfStart: wholeRf(this.economy.getBalance()), rfEarned: 0, rfSpent: 0, firstTx: this.economy.getHistory().length,
-      maxDepth: 1, firstLootGiven: false, combatRoomsCleared: 0, nextChestMin: null, beastDefeated: false,
+      maxDepth: 1, firstLootGiven: false, combatRoomsCleared: 0, nextChestMin: null, beastDefeated: false, guardians: 0,
     };
     this.level = 1;
     this.boons.clear();
@@ -446,7 +457,7 @@ export class Game implements World {
 
   private resetFloorEntities() {
     this.enemies = []; this.projectiles = []; this.hazards = []; this.pickups = []; this.interactables = [];
-    this.particles = []; this.floaters = []; this.corpses = []; this.lockedRoom = null; this.encounter = null; this.boss = null; this.flowField = null;
+    this.particles = []; this.floaters = []; this.corpses = []; this.lockedRoom = null; this.miniGame = null; this.shellGame = null; this.encounter = null; this.boss = null; this.flowField = null;
   }
 
   // ─── Floor content ─────────────────────────────────────────────────────────
@@ -701,6 +712,7 @@ export class Game implements World {
     this.updatePickups(dt);
     this.updateInteractables(dt);
     this.updateEncounter();
+    this.updateMiniGame(dt);
     this.updateEffects(dt);
     this.updateCamera(dt);
     if (!p.dead && this.ui.pendingLevels > 0 && this.lockedRoom === null && this.modal.kind === "none") this.openLevelUp();
@@ -785,11 +797,13 @@ export class Game implements World {
     if (input.consume("potion")) this.drinkPotion();
     if (input.consume("interact")) this.interact();
     if (this.screen === "camp") {
+      if (input.consume("bestiary")) this.openCampPanel("bestiary");
       if (input.consume("character")) this.openCampPanel("friend");
       if (input.consume("log")) this.openCampPanel("rf");
       if (input.consume("pause")) this.openCampPanel("descend");
     } else {
       if (input.consume("character")) this.setModal({ kind: "character" });
+      if (input.consume("bestiary")) this.setModal({ kind: "bestiary" });
       if (input.consume("log")) this.setModal({ kind: "log" });
       if (input.consume("pause")) this.setModal({ kind: "pause" });
     }
@@ -989,7 +1003,7 @@ export class Game implements World {
     e.hp -= dmg;
     e.hitFlash = 0.1;
     if (o.knock && o.from) {
-      const resist = e.boss || e.speed === 0 ? 0.12 : e.elite || e.kind === "brute" ? 0.45 : 1;
+      const resist = e.boss || e.speed === 0 ? 0.12 : e.guardian ? 0.2 : e.elite || e.kind === "brute" ? 0.45 : 1;
       const dir = normalize(e.pos.x - o.from.x, e.pos.y - o.from.y);
       e.knock.x += dir.x * o.knock * resist;
       e.knock.y += dir.y * o.knock * resist;
@@ -1010,8 +1024,11 @@ export class Game implements World {
     if (e.dead) return;
     e.dead = true;
     e.hp = 0;
+    if (e.kind === "target") { this.shatterRune(e); return; }
     const run = this.run, s = this.stats;
     if (run) { run.kills++; if (e.elite) run.elites++; }
+    const record = this.bestiary.get(e.kind as BestiaryKind);
+    if (record) record.kills++;
     this.gainXp(e.xp);
     if (s.healOnKill > 0) this.heal(s.healOnKill);
     this.sfx("enemyDie");
@@ -1021,7 +1038,8 @@ export class Game implements World {
     if (e.mods.includes("explosive")) this.hazard({ shape: "circle", pos: { ...e.pos }, radius: 90, delay: 0.7, dmg: e.dmg * 1.3, color: "#ff9a3c", source: e });
     if (e.mods.includes("cursed")) this.hazard({ shape: "circle", pos: { ...e.pos }, radius: 60, delay: 0.3, dmg: e.dmg * 0.2, linger: 3, tick: 0.5, color: "#7a2cff", curse: true });
     if (e.boss) { this.bossDefeated(e); return; }
-    this.corpses.push({ e, t: 0.4 });
+    this.corpses.push({ e, t: e.guardian ? 0.7 : 0.4 });
+    if (e.guardian) this.guardianDefeated(e);
     if (e.kind === "bomber") this.hazard({ shape: "circle", pos: { ...e.pos }, radius: 66, delay: 0.35, dmg: e.dmg * 0.6, color: "#ff9a3c", source: e, knock: 200 });
     if (e.mods.includes("splitting") && !e.minion && e.kind !== "goblin") {
       for (let i = 0; i < 2; i++) {
@@ -1197,7 +1215,34 @@ export class Game implements World {
       this.sfx("roar");
       this.banner(boss.name, `${this.friend.label} vs ${boss.name}`, kind === "beast" ? "#ccff00" : "#ff2e4d", "boss");
       encounter.waves = [];
-    } else this.spawnWave(encounter);
+    } else {
+      this.spawnWave(encounter);
+      if (encounter.guardian) {
+        const guardian = this.enemies.find(e => e.guardian && !e.dead && e.roomId === room.id);
+        if (guardian) {
+          guardian.pos = { x: roomCenter(room).x, y: roomCenter(room).y - 40 };
+          this.boss = guardian;
+          this.audio.setMusicMode("boss");
+          this.sfx("roar");
+          this.banner(guardian.name, `Guardian of depth ${this.depth} · a giant ${LORE[guardian.kind as BestiaryKind]?.name ?? guardian.kind}`, "#ff4d6d", "boss");
+        }
+      }
+    }
+  }
+
+  /** A guardian falls: the boss bar goes, the floor's music returns and it pays a little RF. The room's chest follows when the escort is gone. */
+  private guardianDefeated(e: Enemy) {
+    if (this.boss === e) this.boss = null;
+    if (this.run) this.run.guardians++;
+    const record = this.bestiary.get(e.kind as BestiaryKind);
+    if (record && !record.guardians.includes(e.name)) record.guardians.push(e.name);
+    this.audio.setMusicMode(this.placeMusic());
+    this.audio.cue("reveal-rare");
+    this.shake(12);
+    this.burst(e.pos.x, e.pos.y - e.radius, "#f3eeff", 60, 320);
+    this.banner(`${e.name} SLAIN`, "Guardian defeated", "#ccff00", "boss");
+    void this.grant(RF_REWARDS.guardian, `Guardian: ${titleCase(e.name)}`, "elite");
+    if (Math.random() < 0.5) this.dropPickup("potion", e.pos, {});
   }
 
   private planEncounter(room: Room): Encounter {
@@ -1225,6 +1270,14 @@ export class Game implements World {
     let chestKind: ChestKind | undefined;
     if (d === 1 && run.combatRoomsCleared === 0) waves = [[{ kind: "cursed", options: {} }, { kind: "cursed", options: {} }, { kind: "cursed", options: {} }]];
     else if (room.type === "elite") { waves = [[elite(eliteMods), ...normals(budget * 0.5)]]; chestKind = "elite"; }
+    else if (room.type === "guardian") {
+      // The floor's guardian: a giant, titled form of one of this floor's creatures, with a small escort.
+      const kinds = roster.map(([kind]) => kind).filter(kind => kind !== "mite" && GUARDIAN_TITLES[kind]);
+      const kind = this.rng.pick(kinds.length ? kinds : ["cursed" as RosterKind]);
+      const mods = rollModifiers(this.rng, d < 5 ? 1 : 2).filter(mod => mod !== "storming" && mod !== "swarm");
+      waves = [[{ kind, options: { guardian: true, mods } }, ...normals(budget * 0.35)]];
+      return { roomId: room.id, waves, next: 0, reward: "chest", chestKind: "elite", guardian: kind };
+    }
     else if (room.type === "bonus" && room.bonus === "cursed") { waves = [[elite(Math.min(3, eliteMods + 1)), ...(d >= 4 ? [elite(eliteMods)] : normals(3))]]; chestKind = "elite"; }
     else if (room.type === "bonus" && room.bonus === "abyssal") { waves = [normals(budget), [elite(eliteMods), ...normals(budget * 0.6)], [elite(eliteMods + 1), elite(eliteMods)]]; chestKind = "bonus"; }
     else if (room.type === "bonus") { waves = budget > 8 ? [normals(budget * 0.55), normals(budget * 0.55)] : [normals(budget)]; chestKind = "bonus"; }
@@ -1246,6 +1299,92 @@ export class Game implements World {
       void enemy;
     }
     if (encounter.next > 1) this.toast(`WAVE ${encounter.next}`, "#ff2e4d");
+  }
+
+  /** First sight of a creature unlocks its bestiary page. */
+  private discoverCreature(e: Enemy) {
+    const kind = e.kind as BestiaryKind;
+    if (!LORE[kind]) return;
+    this.bestiary.set(kind, { kills: 0, guardians: [] });
+    this.toast(`BESTIARY: ${LORE[kind].name} recorded${this.ui.touch ? "" : " (B)"}`, "#d8d8d8");
+  }
+
+  // ─── Mini-games ────────────────────────────────────────────────────────────
+
+  private startMiniGame(kind: MiniGame["kind"], it: Interactable) {
+    this.miniGame = { kind, eventId: it.id, roomId: it.roomId, until: this.time + (kind === "gallery" ? GALLERY_SECONDS : COIN_DASH.seconds), score: 0, spawned: 0, nextSpawn: this.time + 0.6, nextRock: this.time + 1.2 };
+    this.setModal({ kind: "none" });
+    this.banner(kind === "gallery" ? "THE RUNE GALLERY" : "THE COIN DASH", kind === "gallery" ? "Shatter the runes!" : "Grab the coins, dodge the rocks!", "#ffd23c", "clear");
+    this.audio.cue("action-start");
+  }
+
+  private updateMiniGame(dt: number) {
+    const game = this.miniGame;
+    if (!game || this.player.dead) return;
+    if (this.time >= game.until) { void this.finishMiniGame(game); return; }
+    if (game.kind === "gallery") {
+      // Two runes at a time; each fades faster as your score climbs.
+      const alive = this.enemies.filter(e => e.kind === "target" && !e.dead);
+      for (const rune of alive) {
+        rune.fleeT += dt;
+        if (rune.fleeT > Math.max(0.9, 1.9 - game.score * 0.06)) { rune.dead = true; this.burst(rune.pos.x, rune.pos.y - 16, "#9e9e9e", 6, 80); }
+      }
+      if (alive.filter(r => !r.dead).length < 2 && this.time >= game.nextSpawn) {
+        const rune = this.spawn("target", this.pointNearPlayer(game.roomId, 110, 330), game.roomId);
+        rune.fleeT = 0;
+        game.nextSpawn = this.time + 0.25;
+      }
+    } else {
+      if (this.time >= game.nextSpawn && game.spawned < COIN_DASH.coins) {
+        const at = this.randomFloorPoint(game.roomId, 60);
+        this.pickups.push({ id: this.nextId++, kind: "coin", pos: at, vel: { x: 0, y: 0 }, t: 0, magnet: false, delay: 0.2 });
+        game.spawned++;
+        game.nextSpawn = this.time + (COIN_DASH.seconds - 2) / COIN_DASH.coins;
+      }
+      if (this.time >= game.nextRock) {
+        const p = this.player.pos;
+        this.hazard({ shape: "circle", pos: { x: p.x + this.rng.range(-70, 70), y: p.y + this.rng.range(-60, 60) }, radius: 44, delay: 0.85, dmg: 8 * dmgScale(this.depth), color: "#b0b0b0" });
+        game.nextRock = this.time + Math.max(0.45, 0.8 - this.depth * 0.03);
+      }
+    }
+  }
+
+  private shatterRune(e: Enemy) {
+    if (!this.miniGame) return;
+    this.miniGame.score++;
+    this.sfx("coin");
+    this.burst(e.pos.x, e.pos.y - 16, "#ffd23c", 14, 200);
+    this.particle({ x: e.pos.x, y: e.pos.y - 16, vx: 0, vy: 0, life: 0.3, size: 30, color: "#ffd23c", kind: "ring", drag: 0, gravity: 0 });
+    this.miniGame.nextSpawn = this.time + 0.15;
+  }
+
+  private async finishMiniGame(game: MiniGame) {
+    this.miniGame = null;
+    for (const e of this.enemies) if (e.kind === "target") e.dead = true;
+    for (const pk of this.pickups) if (pk.kind === "coin") { pk.t = -1; this.burst(pk.pos.x, pk.pos.y, "#9e9e9e", 4, 60); }
+    this.hazards = this.hazards.filter(h => h.owner === "player" || h.fired);
+    const it = this.interactable(game.eventId);
+    const def = it?.event ? EVENTS[it.event] : null;
+    const payout = game.kind === "gallery" ? (GALLERY_PAYOUTS.find(row => game.score >= row.hits)?.payout ?? 0) : game.score * COIN_DASH.perCoin;
+    if (payout > 0) await this.grant(payout, `${titleCase(def?.name ?? "Mini-game")}: ${game.score} ${game.kind === "gallery" ? "runes" : "coins"}`, "event-reward");
+    const noun = game.kind === "gallery" ? "RUNES SHATTERED" : "COINS GRABBED";
+    const cost = def?.cost ?? 0;
+    this.setModal({ kind: "reveal", title: `${game.score} ${noun}`, subtitle: def?.name, suspense: 0.4, rf: payout || undefined,
+      lines: [payout > 0 ? `You win ${payout} RF${payout > cost ? `, ${payout - cost} RF ahead` : payout === cost ? ", breaking even" : ""}.` : "Not enough. The house keeps your stake."],
+      tone: payout > cost ? "legendary" : payout > 0 ? "good" : "bad" });
+  }
+
+  /** Shell Game: the player chooses a cup (by identity, which the UI tracks through the shuffle). */
+  async pickShell(cup: number) {
+    const shells = this.shellGame;
+    if (this.modal.kind !== "shells" || !shells || shells.picked !== null || cup < 0 || cup >= SHELL_GAME.cups) return;
+    shells.picked = cup;
+    shells.won = cup === shells.ball;
+    if (shells.won) {
+      await this.grant(SHELL_GAME.payout, `The Shell Game: found the rune`, "event-reward");
+      this.audio.cue("reward");
+    } else { this.sfx("deny"); this.audio.cue("impact"); }
+    this.patch({});
   }
 
   private updateEncounter() {
@@ -1343,6 +1482,7 @@ export class Game implements World {
       e.hitFlash -= dt;
       if (e.spawnT > 0) { e.spawnT -= dt; continue; }
       if (!p.dead) updateEnemy(e, this, dt);
+      if (e.kind !== "target" && !this.bestiary.has(e.kind as BestiaryKind) && dist(e.pos, p.pos) < 520) this.discoverCreature(e);
       // Safeguard: nothing may hide in a doorway or wall of a locked room, so a fight can always be finished.
       if (e.roomId === this.lockedRoom && this.floor) {
         const r = this.roomRect(e.roomId);
@@ -1494,7 +1634,7 @@ export class Game implements World {
       pickup.vel.x *= decay; pickup.vel.y *= decay;
       if (p.dead || pickup.delay > 0) continue;
       const d = dist(pickup.pos, p.pos);
-      const magnetRange = pickup.kind === "rf" ? 130 + s.luck : pickup.kind === "potion" ? 80 : pickup.t > 0.5 ? 44 : 0;
+      const magnetRange = pickup.kind === "rf" ? 130 + s.luck : pickup.kind === "potion" ? 80 : pickup.kind === "coin" ? 30 : pickup.t > 0.5 ? 44 : 0;
       if (pickup.magnet || d < magnetRange) {
         const dir = normalize(p.pos.x - pickup.pos.x, p.pos.y - pickup.pos.y);
         const speed = pickup.magnet ? 700 : 480;
@@ -1512,6 +1652,12 @@ export class Game implements World {
       pickup.t = -1;
       void this.grant(pickup.amount ?? 1, pickup.reason ?? "RF", pickup.category ?? "enemy");
       this.burst(pickup.pos.x, pickup.pos.y, "#ccff00", 8, 120);
+    } else if (pickup.kind === "coin") {
+      pickup.t = -1;
+      if (this.miniGame?.kind === "coinDash") this.miniGame.score++;
+      this.sfx("coin");
+      this.floater(pickup.pos.x, pickup.pos.y - 20, "+1", "#ffd23c", 15);
+      this.burst(pickup.pos.x, pickup.pos.y, "#ffd23c", 6, 100);
     } else if (pickup.kind === "potion") {
       if (p.potions >= this.stats.potionMax) {
         if (p.hp >= this.stats.maxHp) return;
@@ -1702,6 +1848,7 @@ export class Game implements World {
   closeModal() {
     const modal = this.modal;
     if (modal.kind === "death" || modal.kind === "levelUp" || modal.kind === "waystone") return;
+    if (modal.kind === "shells" && this.shellGame?.picked === null) return;
     if (modal.kind === "reveal" && modal.followUp) { this.followUp(modal.followUp, modal.followId); return; }
     this.setModal({ kind: "none" });
   }
@@ -1856,6 +2003,15 @@ export class Game implements World {
     const reveal = (title: string, lines: string[], tone: Extract<Modal, { kind: "reveal" }>["tone"], extra: Partial<Extract<Modal, { kind: "reveal" }>> = {}) =>
       this.setModal({ kind: "reveal", title, subtitle: def.name, lines, tone, suspense: def.cost >= 25 ? 1.8 : 0.7, ...extra });
     const room = this.floor!.rooms[it.roomId];
+    if (modal.event === "gallery" || modal.event === "coinDash") { this.startMiniGame(modal.event, it); return; }
+    if (modal.event === "shells") {
+      // Swaps get quicker and more numerous with depth. The UI animates exactly these swaps.
+      const count = Math.min(14, 5 + this.depth), swaps: [number, number][] = [];
+      for (let i = 0; i < count; i++) { const a = this.rng.int(0, 2), b = (a + this.rng.int(1, 2)) % 3; swaps.push([a, b]); }
+      this.shellGame = { eventId: it.id, ball: this.rng.int(0, 2), swaps, swapMs: Math.max(230, 520 - this.depth * 30), picked: null, won: null };
+      this.setModal({ kind: "shells", id: it.id });
+      return;
+    }
     if (modal.event === "gambler") {
       const row = this.rng.table(GAMBLER_PAYOUTS);
       if (row.payout > 0) {
@@ -2218,7 +2374,7 @@ export class Game implements World {
   /** Score for the run so far, as if it ended now with `outcome`. */
   scoreFor(outcome: ScoreOutcome, items: readonly Item[] = this.allCarried()): RunScore {
     const run = this.run;
-    return scoreRun({ depth: this.depth, kills: run?.kills ?? 0, elites: run?.elites ?? 0, bosses: run?.bosses ?? [], level: this.level, items, rfEarned: run?.rfEarned ?? 0, outcome });
+    return scoreRun({ depth: this.depth, kills: run?.kills ?? 0, elites: run?.elites ?? 0, guardians: run?.guardians ?? 0, bosses: run?.bosses ?? [], level: this.level, items, rfEarned: run?.rfEarned ?? 0, outcome });
   }
 
   // ─── Effects and camera ────────────────────────────────────────────────────
@@ -2263,6 +2419,8 @@ export class Game implements World {
       pickups: this.pickups.length, particles: this.particles.length, settings: this.settings, pendingLevels: this.ui.pendingLevels,
       score: this.run ? this.scoreFor("running").total : 0, lifetimeScore: this.lifetimeScore, roomSong: this.audio.currentRoomSong,
       worn: { ...this.worn }, owned: [...this.ownedCosmetics],
+      bestiary: [...this.bestiary.keys()], miniGame: this.miniGame ? { kind: this.miniGame.kind, score: this.miniGame.score } : null,
+      shells: this.shellGame ? { ball: this.shellGame.ball, swaps: this.shellGame.swaps.length, won: this.shellGame.won } : null,
     };
   }
 
@@ -2290,7 +2448,7 @@ function freshPlayer(pos: Vec): Player {
 
 const PRISM = ["#ff3d7f", "#ff9a3c", "#ffd23c", "#ccff00", "#6ee07a", "#3ef0ff", "#4fb0ff", "#bb66ff"] as const;
 
-function isFightRoom(room: Room) { return room.type === "combat" || room.type === "elite" || room.type === "bonus" || room.type === "boss"; }
+function isFightRoom(room: Room) { return room.type === "combat" || room.type === "elite" || room.type === "guardian" || room.type === "bonus" || room.type === "boss"; }
 const SMALL_WORDS = new Set(["of", "the", "a", "to"]);
 export function titleCase(text: string) {
   return text.toLowerCase().split(" ").map((word, i) => (i > 0 && SMALL_WORDS.has(word) ? word : word.replace(/(^|-)\S/g, m => m.toUpperCase()))).join(" ");
