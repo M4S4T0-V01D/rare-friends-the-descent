@@ -85,7 +85,7 @@ try {
       await page.locator(".gallery img").evaluateAll(imgs => imgs.forEach(i => { i.loading = "eager"; }));
       await page.waitForFunction(() => [...document.querySelectorAll(".gallery img")].every(i => i.complete));
       const widths = await page.locator(".gallery img").evaluateAll(imgs => imgs.map(i => i.naturalWidth));
-      assert(widths.length === 9 && widths.every(w => w > 0), `images loaded (${widths})`);
+      assert(widths.length >= 30 && widths.every(w => w > 0), `all ${widths.length} screenshots loaded (${widths.filter(w => !w).length} missing)`);
     });
 
     await step(`${tag}: a family's voice plays on click`, async () => {

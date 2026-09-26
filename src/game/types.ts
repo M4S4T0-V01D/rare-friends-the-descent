@@ -6,7 +6,7 @@ import type { RunScore } from "./score";
 import type { BoonId } from "./stats";
 
 export type Screen = "title" | "camp" | "run" | "summary";
-export type CampTab = "descend" | "friend" | "wardrobe" | "bestiary" | "stash" | "codex" | "hall" | "rf";
+export type CampTab = "descend" | "friend" | "wardrobe" | "bestiary" | "stash" | "codex" | "hall" | "rf" | "blessing" | "sanctuary";
 export type RevealTone = "good" | "bad" | "neutral" | "legendary" | "mythic" | "void";
 export type FollowUp = "arena-unminted" | "arena-cursed" | "merchant" | "loot";
 

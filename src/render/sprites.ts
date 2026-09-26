@@ -747,8 +747,11 @@ export function flashSprite(sprite: Sprite, color = "#ffffff"): Sprite {
   return result;
 }
 
-export type FriendLook = "hero" | "corrupted" | "canonical" | "void" | "ghost" | "stone" | "gold" | "frost" | "shadow" | "ember";
+export type FriendLook = "canon" | "hero" | "corrupted" | "canonical" | "void" | "ghost" | "stone" | "gold" | "frost" | "shadow" | "ember"
+  | "moss" | "ocean" | "rose" | "bone" | "ink" | "neon" | "brass" | "glass";
 const LOOKS: Readonly<Record<FriendLook, { body: string; outline: string; background?: string }>> = {
+  // The Friend's own colors, as minted: black pixels with a white outline. The default in the dungeon.
+  canon: { body: "#000000", outline: "#ffffff" },
   hero: { body: "#f3eeff", outline: "#0a0710" },
   corrupted: { body: "#ff2e4d", outline: "#1a0008" },
   canonical: { body: "#000000", outline: "#ffffff", background: "#ffffff" },
@@ -759,6 +762,14 @@ const LOOKS: Readonly<Record<FriendLook, { body: string; outline: string; backgr
   frost: { body: "#bfefff", outline: "#0d2a3d" },
   shadow: { body: "#6b4fa0", outline: "#0b0616" },
   ember: { body: "#ff9a3c", outline: "#2a0a00" },
+  moss: { body: "#6ee07a", outline: "#0e2410" },
+  ocean: { body: "#3ecbff", outline: "#04202e" },
+  rose: { body: "#ff8fb3", outline: "#3a0a1c" },
+  bone: { body: "#e8dcc0", outline: "#3a2e1f" },
+  ink: { body: "#0b0710", outline: "#f3eeff" },
+  neon: { body: "#39ff14", outline: "#002a00" },
+  brass: { body: "#e8c07a", outline: "#3a2a10" },
+  glass: { body: "#dcd6f7", outline: "#6d64a0" },
 };
 
 /**
@@ -796,6 +807,16 @@ export class FriendArt {
     const sprite = { canvas, w, h };
     this.frames.set(key, sprite);
     return sprite;
+  }
+
+  /** The top-middle of the Friend's silhouette in this frame (mask coordinates), where a hat sits. */
+  crown(facing: SpriteFacing, walking: boolean, frame: number, side: "left" | "right"): { col: number; row: number } {
+    const rows = this.rows(facing, walking, frame, side);
+    const top = rows.findIndex(r => r.includes("#"));
+    if (top < 0) return { col: 7.5, row: 0 };
+    const cols: number[] = [];
+    for (let y = top; y < Math.min(rows.length, top + 2); y++) [...rows[y]].forEach((c, x) => { if (c === "#") cols.push(x); });
+    return { col: (Math.min(...cols) + Math.max(...cols)) / 2, row: top };
   }
 
   private rows(facing: SpriteFacing, walking: boolean, frame: number, side: "left" | "right"): readonly string[] {

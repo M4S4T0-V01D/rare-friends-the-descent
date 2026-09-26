@@ -6,7 +6,7 @@ import { creaturePortrait } from "../render/renderer";
 import { flashSprite } from "../render/sprites";
 
 /** One creature's portrait, or a dark silhouette until your Friend has seen it. */
-function CreaturePortrait({ game, kind, known, size }: { game: Game; kind: BestiaryKind; known: boolean; size: number }) {
+export function CreaturePortrait({ game, kind, known, size }: { game: Game; kind: BestiaryKind; known: boolean; size: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;

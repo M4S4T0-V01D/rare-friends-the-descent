@@ -83,12 +83,15 @@ export type Interactable = {
   chest?: { kind: ChestKind; minRarity: Rarity; boost: number; options?: Item[]; rerolls: number; rfPaid: boolean };
   stock?: Record<string, number>; label: string; t: number;
   /** Camp only: what using this spot opens, or a decorative prop. */
-  station?: "descend" | "friend" | "wardrobe" | "stash" | "codex" | "hall" | "rf"; prop?: "statue" | "tent" | "fire" | "lantern" | "pillar" | "crates" | "bedroll";
+  station?: "descend" | "friend" | "wardrobe" | "stash" | "codex" | "hall" | "rf" | "blessing" | "sanctuary";
+  prop?: "statue" | "tent" | "fire" | "lantern" | "pillar" | "crates" | "bedroll" | "banner" | "brazier" | "fountain" | "flowers";
 };
 
 export type Particle = {
   x: number; y: number; vx: number; vy: number; life: number; max: number; size: number;
   color: string; kind: "glow" | "spark" | "smoke" | "pixel" | "ring" | "text"; drag: number; gravity: number; grow?: number;
+  /** For "text" particles: the glyph drawn (hearts, bubbles). */
+  text?: string;
 };
 
 export type Floater = { x: number; y: number; vy: number; text: string; color: string; life: number; max: number; size: number };

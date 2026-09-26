@@ -78,6 +78,37 @@ await testSite({
     await page.waitForTimeout(600);
     await shot("bestiary");
     await page.keyboard.press("Escape");
+
+    // Back at camp: the wardrobe, the Blessing Shrine, and the camp restored tier by tier.
+    await settle();
+    await call("g.endRun('escaped'); g.enterCamp(); g.debugGrant(2000)");
+    await waitFor(s => s.screen === "camp");
+    // A Friend wearing earned rewards: the Little Archivist, the Crown of the First Friend and the Genesis Halo.
+    await call(`for (const id of ["pet-archivist", "pet-bloom", "pet-hourengine", "pet-reflection", "pet-firstfriend", "hat-genesis", "glow-genesis"]) g.ownedCosmetics.add(id);
+      for (const id of ["pet-archivist", "hat-genesis", "glow-genesis"]) g.wearCosmetic(id)`);
+    const stairs2 = (await st()).interactables.find(it => it.label === "THE DESCENT");
+    for (let tier = 0; tier <= 3; tier++) {
+      await call("g.campTier = arg; g.enterCamp(); g.wearCosmetic('pet-archivist')", tier);
+      await teleport(stairs2.x, stairs2.y + 330);
+      await page.waitForTimeout(1200);
+      await shot(`camp-tier-${tier}`);
+    }
+    await teleport(stairs2.x - 120, stairs2.y + 200);
+    await page.waitForTimeout(1200);
+    await shot("rewards-worn");
+    const panel = async (tab, name, scrollTo) => {
+      await call("g.openCampPanel(arg)", tab);
+      await page.waitForTimeout(500);
+      if (scrollTo) await game.getByRole("heading", { name: scrollTo }).first().scrollIntoViewIfNeeded();
+      await page.waitForTimeout(300);
+      await shot(name);
+      await call("g.closeCampPanel()");
+    };
+    await panel("wardrobe", "wardrobe-pets", /^Pets/);
+    await panel("wardrobe", "wardrobe-hats", /^Hats/);
+    await panel("wardrobe", "wardrobe-skins", /^Skins/);
+    await panel("blessing", "blessing-shrine");
+    await panel("sanctuary", "sanctuary");
   },
 });
 await cleanup();

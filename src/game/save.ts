@@ -7,7 +7,7 @@
  * it, RF included, is simulated. Anything read back is untrusted: `sanitizeSave` rebuilds it field by field,
  * dropping what does not fit, so a damaged or hand-edited save can never break the game.
  */
-import { COSMETICS, DEFAULT_COSMETICS, type CosmeticSlot } from "./content";
+import { BLESSINGS, CAMP_TIERS, COSMETICS, DEFAULT_COSMETICS, type CosmeticSlot } from "./content";
 import { RARITIES, SLOTS, STAT_INFO, POWERS, type Affix, type Item, type PowerId, type StatKey } from "./items";
 import { LORE, type BestiaryKind } from "./lore";
 import type { CodexEntry, RunSummary, Settings } from "./types";
@@ -37,6 +37,10 @@ export type SaveData = {
   owned: string[];
   worn: Record<CosmeticSlot, string>;
   settings: Partial<Settings>;
+  /** A blessing bought at the camp's shrine that the next descent will carry. */
+  blessing?: string | null;
+  /** Camp restoration tier, 0–3. */
+  campTier?: number;
 };
 
 // ─── Sanitizing ──────────────────────────────────────────────────────────────
@@ -128,6 +132,8 @@ export function sanitizeSave(raw: unknown, friendId: string): SaveData | null {
     heirloomId: heirloom, codex, hall: arr(o.hall, MAX_HALL).map(sanitizeSummary).filter((s): s is RunSummary => Boolean(s)),
     runsStarted: int(o.runsStarted, 0, 1e7), lifetimeScore: int(o.lifetimeScore, 0, 1e12), bestScore: int(o.bestScore, 0, 1e12),
     bestiary, owned, worn, settings,
+    blessing: BLESSINGS.some(b => b.id === o.blessing) ? o.blessing as string : null,
+    campTier: int(o.campTier, 0, CAMP_TIERS.length - 1, 0),
   };
 }
 

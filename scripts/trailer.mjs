@@ -177,6 +177,40 @@ if (!process.env.REUSE) {
         await settle();
       }
 
+      if (REEL) {
+        // The lower acts: a fight in the Rot Garden, then four of the new bosses.
+        const bossFight = async (depth, ms) => {
+          while ((await st()).depth < depth) await nextFloor();
+          await wait(2000);
+          const room = (await st()).rooms.find(r => r.type === "boss");
+          await call("g.debugTeleport(arg[0], arg[1])", [room.x, room.y + 120]);
+          await bot(true);
+          await waitFor(s => s.boss, 8000);
+          await record(ms);
+          await bot(false);
+          await call("const b = g.boss; if (b) { b.invulnT = 0; b.hp = 1; g.dealDamage(b, 1000, { source: 'nova' }); }");
+          await wait(400);
+        };
+        await bossFight(12, 6000);
+        while ((await st()).depth < 16) await nextFloor();
+        await wait(2800);
+        await toCombat(); await bot(true); await fight(5500); await bot(false);
+        await bossFight(24, 6000);
+        await bossFight(27, 6000);
+        await bossFight(30, 7500);
+        // Home again: the Grand Sanctuary, and a Friend wearing what it earned.
+        await wait(2500);
+        await call(`g.endRun("conquered"); g.campTier = 3; g.enterCamp();
+          for (const id of ["pet-archivist", "hat-genesis", "glow-genesis"]) { g.ownedCosmetics.add(id); g.wearCosmetic(id); }`);
+        await wait(600);
+        const stairs3 = (await st()).interactables.find(it => it.label === "THE DESCENT");
+        await call("g.debugTeleport(arg[0], arg[1])", [stairs3.x, stairs3.y + 330]);
+        await wait(300);
+        const home = now();
+        await page.keyboard.down("w"); await wait(2400); await page.keyboard.up("w"); await wait(900);
+        trailer.push({ start: home, end: now() });
+      }
+
       const b64 = await call(`return new Promise(done => {
         const r = window.__rec;
         r.rec.onstop = async () => {

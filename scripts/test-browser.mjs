@@ -510,13 +510,60 @@ await testSite({
       s = await waitFor(s => s.worn.glow === "glow-crimson", "crimson glow worn");
       assert.equal(s.balance, b0 - 15);
       await game.getByRole("button", { name: /Canonical/ }).click();
-      s = await waitFor(s => s.worn.skin === "skin-hero", "owned looks can be swapped for free");
+      s = await waitFor(s => s.worn.skin === "skin-canonical", "owned looks can be swapped for free (the default is the Friend's own black-and-white)");
       assert.equal(s.balance, b0 - 15);
       await game.getByRole("button", { name: /Corrupted/ }).click();
       await shot("23b-wardrobe");
       await game.getByRole("button", { name: "Close camp menu" }).click();
       await page.waitForTimeout(400);
       await shot("23c-camp-corrupted");
+    });
+
+    await step("wardrobe: a bought pet follows the Friend and a hat sits on its head; boss pets are earned, not bought", async () => {
+      await call("return g.debugGrant(40)");
+      await game.getByRole("button", { name: "Camp menu" }).click();
+      await game.getByRole("tab", { name: "Wardrobe" }).click();
+      const b0 = (await st()).balance;
+      await game.getByRole("button", { name: /Tiny Wisp/ }).click();
+      await waitFor(s => s.worn.pet === "pet-wisp", "wisp pet worn");
+      await game.getByRole("button", { name: /Party Hat/ }).click();
+      const s = await waitFor(s => s.worn.hat === "hat-party", "party hat worn");
+      assert.equal(s.balance, b0 - 35, "25 RF pet + 10 RF hat");
+      assert(await game.getByRole("button", { name: /Little Archivist/ }).isDisabled(), "boss pets are earned, not bought");
+      assert.ok(s.owned.includes("pet-warden"), "beating the Dungeon Warden (depth 3, earlier) earned the Pocket Warden");
+      await game.getByRole("button", { name: "Close camp menu" }).click();
+      await page.waitForTimeout(600);
+      await shot("23d-camp-pet-and-hat");
+    });
+
+    await step("mason's table: 100 RF restores the camp to Cleared Ruins", async () => {
+      await call("return g.debugGrant(100)");
+      await game.getByRole("button", { name: "Camp menu" }).click();
+      await game.getByRole("tab", { name: "Sanctuary" }).click();
+      const b0 = (await st()).balance;
+      await game.getByRole("button", { name: /Restore to Cleared Ruins/ }).click();
+      const s = await waitFor(s => s.campTier === 1 && s.screen === "camp", "camp restored");
+      assert.equal(s.balance, b0 - 100);
+      assert.equal((await lastTx()).reason, "Camp restoration: Cleared Ruins");
+      await page.waitForTimeout(800);
+      await shot("23e-camp-cleared");
+    });
+
+    await step("blessing shrine: 25 RF buys a boost that the next descent carries, then it is used up", async () => {
+      await call("return g.debugGrant(25)");
+      await game.getByRole("button", { name: "Camp menu" }).click();
+      await game.getByRole("tab", { name: "Blessing" }).click();
+      const b0 = (await st()).balance;
+      await game.getByRole("button", { name: /^⚔?\s*Might/ }).click();
+      let s = await waitFor(s => s.blessing === "might", "blessing pending");
+      assert.equal(s.balance, b0 - 25);
+      assert(await game.getByRole("button", { name: /Vigor/ }).isDisabled(), "one blessing at a time");
+      await shot("23f-blessing");
+      await game.getByRole("button", { name: "Close camp menu" }).click();
+      await call("g.descend()");
+      s = await waitFor(s => s.screen === "run", "descended");
+      assert.equal(s.blessing, null, "the blessing is used up");
+      assert.ok((await call("return g.buffs.map(b => b.id)")).includes("blessing-might"), "the descent carries Might");
     });
 
     await step("audio: every place has its own mood and every family its own voice", async () => {

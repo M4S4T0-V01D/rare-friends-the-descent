@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { RF_REWARDS, RF_STARTING_BALANCE } from "../economy/terms";
+import { RF_COSTS, RF_REWARDS, RF_STARTING_BALANCE } from "../economy/terms";
 import { wholeRf } from "../economy/TokenEconomy";
 import { titleCase, type Game } from "../game/Game";
 import { SHORT } from "../game/kit";
 import { RARITIES, RARITY_STYLE } from "../game/items";
-import { COSMETICS, type Cosmetic, type CosmeticSlot } from "../game/content";
+import { BLESSINGS, blessing, CAMP_TIERS, COSMETIC_SLOTS, COSMETICS, type Cosmetic, type CosmeticSlot } from "../game/content";
+import type { BestiaryKind } from "../game/lore";
+import { hatSprite } from "../render/wardrobeArt";
 import { formatScore, OUTCOME_LABEL } from "../game/score";
 import { relayShare, renderScoreCard, shareText, type ShareAction } from "./share";
 import { BASE_ATK, BASE_HP, ATK_PER_LEVEL, HP_PER_LEVEL } from "../game/stats";
@@ -12,7 +14,7 @@ import type { FriendLook } from "../render/sprites";
 import type { CampTab, UiState } from "../game/types";
 import { FriendPortrait, formatTime, ItemCard, Rf, saveLine, SimulatedTag, TxList } from "./components";
 import { Modals } from "./modals";
-import { BestiaryView } from "./bestiary";
+import { BestiaryView, CreaturePortrait } from "./bestiary";
 
 export function Overlay({ game }: { game: Game }) {
   const ui = useSyncExternalStore(game.store.subscribe, game.store.get);
@@ -45,7 +47,7 @@ function TitleScreen({ game }: { game: Game }) {
 /** Walking around the camp: a light overlay; stations open the camp panel. */
 function CampScreen({ game, ui }: { game: Game; ui: UiState }) {
   return <section className="dx-camp" aria-label="The Camp">
-    <div className="dx-camp-title"><p className="dx-kicker">THE CAMP</p><h1>Ruined Sanctuary</h1></div>
+    <div className="dx-camp-title"><p className="dx-kicker">THE CAMP</p><h1>{CAMP_TIERS[game.campTier].name}</h1></div>
     <div className="dx-camp-rfchip"><span>$RAREFRIENDS</span><strong>{ui.balance} RF</strong><SimulatedTag /></div>
     <div className="dx-camp-hint">
       <p>{ui.touch ? "Drag to walk · tap USE at the glowing stations" : "WASD walk · E use · walk down the great stairs to descend"}</p>
@@ -68,7 +70,7 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
   }, [game]);
-  const tabs: [CampTab, string][] = [["descend", "Descend"], ["friend", "Friend"], ["wardrobe", "Wardrobe"], ["bestiary", "Bestiary"], ["stash", `Stash ${game.stash.length}`], ["codex", "Codex"], ["hall", "Hall"], ["rf", "$RF"]];
+  const tabs: [CampTab, string][] = [["descend", "Descend"], ["friend", "Friend"], ["wardrobe", "Wardrobe"], ["blessing", "Blessing"], ["sanctuary", "Sanctuary"], ["bestiary", "Bestiary"], ["stash", `Stash ${game.stash.length}`], ["codex", "Codex"], ["hall", "Hall"], ["rf", "$RF"]];
   const balance = ui.balance;
   return <div className="dx-scrim dx-camp-scrim">
     <div className="dx-camp-panel" role="dialog" aria-modal="true" aria-label="Camp menu">
@@ -138,6 +140,8 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
           </li>)}</ol> : <p>No descents yet.</p>}
           <p className="dx-dim">Global leaderboard: coming soon. FriendSDK v0.1.2 has no persistence API yet.</p>
         </>}
+        {tab === "blessing" && <BlessingShrine game={game} ui={ui} />}
+        {tab === "sanctuary" && <Sanctuary game={game} ui={ui} />}
         {tab === "rf" && <>
           <p><b>{balance} RF</b> <SimulatedTag /> · session ledger</p>
           <TxList transactions={[...game.economy.getHistory()].reverse()} />
@@ -148,7 +152,40 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
   </div>;
 }
 
-const SLOT_TITLES: Readonly<Record<CosmeticSlot, string>> = { glow: "Glows", skin: "Skins", trail: "Trails" };
+const SLOT_TITLES: Readonly<Record<CosmeticSlot, string>> = { glow: "Glows", skin: "Skins", trail: "Trails", pet: "Pets", hat: "Hats", finisher: "Finishers" };
+const SLOT_NOTES: Readonly<Record<CosmeticSlot, string>> = {
+  glow: "The light around your Friend.", skin: "Recolors your Friend's canonical pixels; the shape never changes.", trail: "What your steps leave behind.",
+  pet: "A little follower. Every boss leaves you its own pet the first time it falls.", hat: "Worn on top of your Friend's head.", finisher: "What foes turn into when your Friend defeats them.",
+};
+
+/** The Blessing Shrine: one boost of your choice for the whole next descent. */
+function BlessingShrine({ game, ui }: { game: Game; ui: UiState }) {
+  const pending = blessing(game.pendingBlessing);
+  return <div className="dx-blessings">
+    <p>Kneel at the shrine and pay <Rf amount={RF_COSTS.blessing} /> <SimulatedTag /> for a boost of your choice. It lasts your whole next descent, then fades.</p>
+    {pending ? <p className="dx-blessing-pending" style={{ borderColor: pending.color }}><b style={{ color: pending.color }}>{pending.icon} {pending.name}</b> · {pending.text}. Your next descent is blessed.</p>
+      : <p className="dx-dim">One blessing at a time. You carry <Rf amount={ui.balance} />.</p>}
+    <div className="dx-blessing-grid">{BLESSINGS.map(b => <button key={b.id} type="button" className="dx-blessing" style={{ borderColor: b.color }}
+      disabled={Boolean(pending) || ui.busy || ui.balance < RF_COSTS.blessing} onClick={() => void game.buyBlessing(b.id)}>
+      <span className="dx-blessing-icon" style={{ color: b.color }} aria-hidden="true">{b.icon}</span><strong>{b.name}</strong><small>{b.text}</small>
+    </button>)}</div>
+  </div>;
+}
+
+/** The mason's table: restore the sanctuary in three tiers. Looks only. */
+function Sanctuary({ game, ui }: { game: Game; ui: UiState }) {
+  const tier = game.campTier, next = tier + 1 < CAMP_TIERS.length ? tier + 1 : null, price = next ? RF_COSTS.camp[tier] : 0;
+  return <div className="dx-sanctuary">
+    <p>Restore the ancient sanctuary, one tier at a time. Each tier changes how the camp looks; none of them changes your Friend's power.</p>
+    <ol className="dx-tiers">{CAMP_TIERS.map((t, i) => <li key={t.name} className={i <= tier ? "dx-tier-done" : i === next ? "dx-tier-next" : ""}>
+      <b>{t.name}</b>{i > 0 && <> · <Rf amount={RF_COSTS.camp[i - 1]} /></>}{i <= tier && <span className="dx-dim"> · {i === tier ? "current" : "done"}</span>}
+      <br /><small className="dx-dim">{t.text}</small>
+    </li>)}</ol>
+    {next ? <button type="button" className="dx-btn dx-btn-primary" disabled={ui.busy || ui.balance < price} onClick={() => void game.restoreCamp()}>
+      {ui.balance < price ? `Need ${price - ui.balance} more RF` : <>Restore to {CAMP_TIERS[next].name} · <Rf amount={price} /></>}
+    </button> : <p><b>The sanctuary is fully restored.</b></p>}
+  </div>;
+}
 
 /** The Dye Altar: spend RF on cosmetics that recolor (never reshape) your Friend. */
 function Wardrobe({ game, ui }: { game: Game; ui: UiState }) {
@@ -160,26 +197,47 @@ function Wardrobe({ game, ui }: { game: Game; ui: UiState }) {
         <p className="dx-dim">{game.saveInfo.available ? "Bought cosmetics are saved with your Friend." : "Bought cosmetics last for this session."} You carry <Rf amount={ui.balance} /> <SimulatedTag /></p>
       </div>
     </div>
-    {(["glow", "skin", "trail"] as const).map(slot => <section key={slot}>
-      <h3>{SLOT_TITLES[slot]}</h3>
+    {COSMETIC_SLOTS.map(slot => <section key={slot}>
+      <h3>{SLOT_TITLES[slot]} <small className="dx-dim">{COSMETICS.filter(c => c.slot === slot && game.ownedCosmetics.has(c.id)).length}/{COSMETICS.filter(c => c.slot === slot).length} · {SLOT_NOTES[slot]}</small></h3>
       <div className="dx-cosmetics">{COSMETICS.filter(c => c.slot === slot).map(c => <CosmeticCard key={c.id} game={game} ui={ui} item={c} />)}</div>
     </section>)}
   </div>;
 }
 
+const SWATCH: Readonly<Record<string, string>> = {
+  prism: "linear-gradient(90deg,#ff3d7f,#ffd23c,#ccff00,#3ef0ff,#bb66ff)", aurora: "linear-gradient(90deg,#6ee07a,#3ef0ff,#8f6fd8)",
+  null: "radial-gradient(circle,#050308 45%,#ff3d7f 70%,transparent 72%)", eclipse: "radial-gradient(circle,#050308 45%,#ffb02e 70%,transparent 72%)",
+  heartbeat: "radial-gradient(circle,#ff2e4d 20%,#5c0a16 70%)", genesis: "radial-gradient(circle,#ffffff 30%,#ffd23c 70%,transparent 72%)",
+};
+
 function CosmeticCard({ game, ui, item }: { game: Game; ui: UiState; item: Cosmetic }) {
-  const owned = game.ownedCosmetics.has(item.id), worn = game.worn[item.slot] === item.id;
-  const short = !owned && ui.balance < item.cost;
-  const swatch = item.color === "prism" ? "linear-gradient(90deg,#ff3d7f,#ffd23c,#ccff00,#3ef0ff,#bb66ff)"
-    : item.color === "null" ? "radial-gradient(circle,#050308 45%,#ff3d7f 70%,transparent 72%)" : item.color;
-  return <button type="button" className={`dx-cosmetic${worn ? " dx-worn" : ""}${owned ? " dx-owned" : ""}`} disabled={(short || ui.busy) && !owned}
+  const owned = game.ownedCosmetics.has(item.id), worn = game.worn[item.slot] === item.id, locked = !owned && Boolean(item.unlock);
+  const short = !owned && !locked && ui.balance < item.cost;
+  const look = item.look === "prism" ? "corrupted" : item.look;
+  const art = look ? <FriendPortrait art={game.art} look={look as FriendLook} scale={3} className="dx-cosmetic-art" />
+    : item.slot === "pet" && item.art ? <CreaturePortrait game={game} kind={item.art as BestiaryKind} known={!locked} size={48} />
+    : item.slot === "hat" && item.art && item.art !== "none" ? <HatPreview id={item.art} />
+    : <span className="dx-swatch" style={{ background: SWATCH[item.color] ?? item.color }} aria-hidden="true" />;
+  return <button type="button" className={`dx-cosmetic${worn ? " dx-worn" : ""}${owned ? " dx-owned" : ""}${locked ? " dx-locked" : ""}`} disabled={(short || ui.busy || locked) && !owned}
     onClick={() => void game.buyCosmetic(item.id)} aria-pressed={worn}>
-    {item.look ? <FriendPortrait art={game.art} look={item.look as FriendLook} scale={3} className="dx-cosmetic-art" />
-      : <span className="dx-swatch" style={{ background: swatch }} aria-hidden="true" />}
+    {art}
     <strong>{item.name}</strong>
-    <small>{item.text}</small>
-    <span className="dx-cosmetic-price">{worn ? "WORN" : owned ? "Wear" : item.cost === 0 ? "Free" : short ? `Need ${item.cost - ui.balance} more RF` : <Rf amount={item.cost} />}</span>
+    <small>{locked ? `🔒 ${item.unlock}` : item.text}</small>
+    <span className="dx-cosmetic-price">{worn ? "WORN" : owned ? "Wear" : locked ? "Unique" : item.cost === 0 ? "Free" : short ? `Need ${item.cost - ui.balance} more RF` : <Rf amount={item.cost} />}</span>
   </button>;
+}
+
+function HatPreview({ id }: { id: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current, sprite = hatSprite(id, 4);
+    if (!canvas || !sprite) return;
+    canvas.width = 48; canvas.height = 48;
+    const ctx = canvas.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sprite.canvas as CanvasImageSource, (48 - sprite.w) / 2, (48 - sprite.h) / 2);
+  }, [id]);
+  return <canvas ref={ref} className="dx-creature" aria-hidden="true" />;
 }
 
 function SummaryScreen({ game, ui }: { game: Game; ui: UiState }) {

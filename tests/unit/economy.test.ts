@@ -54,7 +54,9 @@ test("every price stays inside the small 5 / 10 / 25 family", () => {
 });
 
 test("rewards stay small", () => {
-  for (const [name, amount] of Object.entries(RF_REWARDS)) assert.ok(amount >= 1 && amount <= 25, `${name}: ${amount}`);
+  // Everything the dungeon pays is small (1 to 25 RF); the one big payday is conquering the Descent.
+  for (const [name, amount] of Object.entries(RF_REWARDS)) if (name !== "finalBoss") assert.ok(amount >= 1 && amount <= 25, `${name}: ${amount}`);
+  assert.equal(RF_REWARDS.finalBoss, 100, "beating The First Friend pays 100 RF");
   assert.equal(RF_REWARDS.secretBoss, 25);
   assert.equal(RF_REWARDS.boss, 10);
 });

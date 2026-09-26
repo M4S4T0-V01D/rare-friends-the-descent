@@ -20,8 +20,9 @@ function sample(): SaveData {
     stash: items, heirloomId: items[1].id, codex: [["Glass Heart|legendary", { name: "Glass Heart", rarity: "legendary", slot: "charm", count: 2 }]],
     hall: [], runsStarted: 4, lifetimeScore: 12_345, bestScore: 8_000,
     bestiary: [["cursed", { kills: 31, guardians: ["The First Husk"] }]],
-    owned: ["glow-lime", "skin-hero", "trail-none", "skin-corrupted"], worn: { glow: "glow-lime", skin: "skin-corrupted", trail: "trail-none" },
-    settings: { music: false, crt: false },
+    owned: ["glow-lime", "skin-canonical", "trail-none", "pet-none", "hat-none", "fin-dissolve", "skin-corrupted", "pet-archivist"],
+    worn: { glow: "glow-lime", skin: "skin-corrupted", trail: "trail-none", pet: "pet-archivist", hat: "hat-none", finisher: "fin-dissolve" },
+    settings: { music: false, crt: false }, blessing: "might", campTier: 2,
   };
 }
 
@@ -53,6 +54,9 @@ test("damaged or hand-edited saves are cleaned, never trusted", () => {
   assert.equal(save.heirloomId, null, "the heirloom must be in the stash");
   assert(!save.owned.includes("glow-made-up"), "unknown cosmetics are dropped");
   assert.equal(save.worn.glow, "glow-lime", "an unowned look cannot be worn");
+  const tampered = sanitizeSave({ ...JSON.parse(JSON.stringify(sample())), blessing: "godmode", campTier: 99 }, "7730")!;
+  assert.equal(tampered.blessing, null, "only real blessings load");
+  assert.equal(tampered.campTier, 3, "the camp tier is clamped");
   assert.equal(save.ledger.length, 3, "invalid ledger entries are dropped");
   assert.deepEqual(save.bestiary.map(([kind]) => kind), ["cursed"]);
   assert.deepEqual(save.settings, { sound: false });

@@ -1,7 +1,7 @@
 import { GATES, SHRINES } from "../game/content";
 import { CELL_H, CELL_W, TILE, type Rect } from "../game/dungeon";
 import { MODIFIER_INFO } from "../game/enemies";
-import type { Enemy, Hazard, Interactable, Pickup } from "../game/entities";
+import type { Enemy, Hazard, Interactable, Pickup, Player } from "../game/entities";
 import { titleCase, type Game } from "../game/Game";
 import { RARITY_STYLE, rarityRank } from "../game/items";
 import { angleTo, clamp, TAU } from "../game/math";
@@ -11,7 +11,8 @@ import { CHUNK, makeGlow, paintChunk, shade, tintedGlow } from "./world";
 import { drawSprite, flashSprite, MASKS, maskSprite, type FriendArt, type FriendLook, type Sprite } from "./sprites";
 import { BEAST_BODY, BEAST_EYES, beastPalette, WARDEN_BODY, WARDEN_LEG, wardenPalette } from "./bossArt";
 import { ARCHIVIST_BODY, BLOOM_BODY, BOSS_PALETTES, CANTOR_BODY, DEPTH_MASKS, DEPTH_PALETTE, FIRSTFRIEND_BODY, FORGEMASTER_BODY, HOURENGINE_BODY } from "./depthArt";
-import { BOSS_COLOR, type ActBoss } from "../game/content";
+import { BOSS_COLOR, cosmetic, type ActBoss } from "../game/content";
+import { hatSprite } from "./wardrobeArt";
 import { formatScore } from "../game/score";
 
 const W = 960, H = 640;
@@ -169,12 +170,15 @@ export class Renderer {
     this.drawAfterimages(dt);
     const stairs = g.interactables.find(it => it.kind === "station" && it.station === "descend" && this.visible(it.pos.x, it.pos.y, 260));
     if (stairs) this.drawStairs(stairs, "steps");
+    if (g.screen === "camp" && g.campTier >= 1 && stairs) this.drawCarpet(stairs.pos.x, stairs.pos.y + 44, floor.start.y + 120);
     const drawables: { y: number; draw: () => void }[] = [];
     if (stairs) for (const side of [-1, 1]) drawables.push({ y: stairs.pos.y + 35, draw: () => this.drawStairs(stairs, side === -1 ? "left" : "right") });
     for (const it of g.interactables) if (this.visible(it.pos.x, it.pos.y, 160)) drawables.push({ y: it.pos.y, draw: () => this.drawInteractable(it) });
     for (const p of g.pickups) if (this.visible(p.pos.x, p.pos.y, 40)) drawables.push({ y: p.pos.y, draw: () => this.drawPickup(p) });
     for (const e of g.enemies) if (this.visible(e.pos.x, e.pos.y, 120)) drawables.push({ y: e.pos.y, draw: () => this.drawEnemy(e) });
     drawables.push({ y: g.player.pos.y, draw: () => this.drawPlayer() });
+    const pet = this.updatePet(dt);
+    if (pet) drawables.push({ y: pet.y, draw: () => this.drawPet(pet) });
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
     if (stairs) this.drawStairs(stairs, "lintel");
@@ -342,7 +346,27 @@ export class Renderer {
         w.globalCompositeOperation = "lighter"; w.globalAlpha = 0.5 + 0.2 * Math.sin(this.t * 4); w.strokeStyle = "#ff3d7f"; w.lineWidth = 2;
         w.beginPath(); w.ellipse(p.pos.x, p.pos.y - 14, 31, 35, 0, 0, TAU); w.stroke(); w.restore();
       });
-    } else this.glowAt(p.pos.x, p.pos.y - 14, 56, glow, g.worn.glow === "glow-lime" ? 0.22 : 0.34);
+    } else if (g.worn.glow === "glow-eclipse") {
+      // Eclipse: a disc of darkness ringed in gold fire.
+      this.emissive.push(() => {
+        w.save(); w.globalAlpha = 0.6; w.fillStyle = "#050308";
+        w.beginPath(); w.ellipse(p.pos.x, p.pos.y - 14, 30, 34, 0, 0, TAU); w.fill();
+        w.globalCompositeOperation = "lighter"; w.strokeStyle = "#ffb02e";
+        for (let i = 0; i < 3; i++) { w.globalAlpha = 0.25 + 0.15 * Math.sin(this.t * 3 + i); w.lineWidth = 3 - i; w.beginPath(); w.ellipse(p.pos.x, p.pos.y - 14, 32 + i * 3, 36 + i * 3, 0, 0, TAU); w.stroke(); }
+        w.restore();
+      });
+    } else {
+      const beat = g.worn.glow === "glow-heartbeat" ? Math.max(0, Math.sin(this.t * 7)) ** 6 + Math.max(0, Math.sin(this.t * 7 - 0.9)) ** 6 * 0.6 : 0;
+      this.glowAt(p.pos.x, p.pos.y - 14, 56 + beat * 20, glow, (g.worn.glow === "glow-lime" ? 0.22 : 0.34) + beat * 0.3);
+      if (g.worn.glow === "glow-genesis") {
+        this.emissive.push(() => {
+          w.save(); w.globalCompositeOperation = "lighter"; w.strokeStyle = "#ffd23c"; w.lineWidth = 2;
+          w.globalAlpha = 0.5; w.beginPath(); w.ellipse(p.pos.x, p.pos.y - 14, 34, 12, this.t * 0.5, 0, TAU); w.stroke();
+          w.strokeStyle = "#ffffff"; w.globalAlpha = 0.35; w.beginPath(); w.ellipse(p.pos.x, p.pos.y - 14, 28, 10, -this.t * 0.7, 0, TAU); w.stroke();
+          w.restore();
+        });
+      }
+    }
     const frame = g.reducedMotion ? 0 : Math.floor((p.moving ? p.walkTime : this.t) / (p.moving ? 0.1 : 0.16)) % 8;
     const sprite = g.art.frame(g.skinLook as FriendLook, 3, p.facing, p.moving || p.dashTime > 0, frame, p.side);
     if (p.dashTime > 0 && !g.reducedMotion && (this.afterimages.length === 0 || this.afterimages[this.afterimages.length - 1].life < 0.36)) {
@@ -357,6 +381,7 @@ export class Renderer {
     drawSprite(w, sprite, p.pos.x, p.pos.y + 6 + bob, false, alpha);
     if (p.hitFlash > 0) drawSprite(w, flashSprite(sprite, "#ff4d6d"), p.pos.x, p.pos.y + 6 + bob, false, 0.7);
     if (p.chill > 0) drawSprite(w, flashSprite(sprite, "#8fe3ff"), p.pos.x, p.pos.y + 6 + bob, false, 0.3);
+    this.drawHat(sprite, p.facing, p.moving || p.dashTime > 0, frame, p.side, p.pos.x, p.pos.y + 6 + bob, alpha);
     w.restore();
     this.lights.push({ x: p.pos.x, y: p.pos.y - 10, r: 340, a: 1 });
     if (g.worn.glow !== "glow-lime") this.lights.push({ x: p.pos.x, y: p.pos.y - 10, r: 120, a: 0.6, color: glow });
@@ -797,6 +822,10 @@ export class Renderer {
         w.globalCompositeOperation = "lighter";
         w.globalAlpha = a * 0.8; w.strokeStyle = p.color; w.lineWidth = 3 + 6 * a;
         w.beginPath(); w.arc(p.x, p.y, p.size * (1 - a * 0.6), 0, TAU); w.stroke();
+      } else if (p.kind === "text") {
+        w.globalCompositeOperation = "source-over";
+        w.globalAlpha = a; w.fillStyle = p.color; w.font = `${Math.round(p.size)}px ${FONT_UI}`; w.textAlign = "center";
+        w.fillText(p.text ?? "•", p.x, p.y);
       } else if (p.kind === "glow") {
         w.globalCompositeOperation = "lighter";
         w.globalAlpha = a * 0.6;
@@ -846,6 +875,51 @@ export class Renderer {
       drawItemIcon(w, p.item.slot, p.pos.x, p.pos.y - 8 + bob, style.color);
       this.lights.push({ x: p.pos.x, y: p.pos.y, r: 70 + rank * 14, a: 0.6, color: style.color });
     }
+  }
+
+  /** A rug (then a red-and-gold carpet) from the campfire up to the great stairs, once the camp is restored. */
+  private drawCarpet(x: number, top: number, bottom: number) {
+    const w = this.wctx, grand = this.game.campTier >= 2;
+    w.fillStyle = grand ? "#5c1422" : "#4a3a2c"; w.fillRect(x - 34, top, 68, bottom - top);
+    w.fillStyle = grand ? "#ffd23c" : "#6a5540"; w.fillRect(x - 34, top, 4, bottom - top); w.fillRect(x + 30, top, 4, bottom - top);
+    if (grand) { w.fillStyle = "#8a2438"; for (let y = top + 20; y < bottom; y += 40) w.fillRect(x - 6, y, 12, 12); }
+  }
+
+  /** The worn pet follows a step behind, bobbing. Purely visual: it has no position in the game itself. */
+  private petPos: { x: number; y: number; id: string } | null = null;
+  private updatePet(dt: number) {
+    const g = this.game, id = g.worn.pet, p = g.player;
+    if (id === "pet-none" || p.dead) { this.petPos = null; return null; }
+    const art = cosmetic(id)?.art;
+    if (!art) return null;
+    const behind = p.facing === "left" ? 1 : p.facing === "right" ? -1 : p.side === "left" ? 1 : -1;
+    const target = { x: p.pos.x + behind * 38, y: p.pos.y + (p.facing === "up" ? 26 : -4) };
+    if (!this.petPos || this.petPos.id !== id || Math.hypot(this.petPos.x - target.x, this.petPos.y - target.y) > 400) this.petPos = { ...target, id };
+    const k = 1 - Math.exp(-5 * dt);
+    this.petPos.x += (target.x - this.petPos.x) * k; this.petPos.y += (target.y - this.petPos.y) * k;
+    return { x: this.petPos.x, y: this.petPos.y, art, flip: p.pos.x < this.petPos.x };
+  }
+  private drawPet(pet: { x: number; y: number; art: string; flip: boolean }) {
+    const w = this.wctx, g = this.game, t = g.reducedMotion ? 0 : this.t;
+    const sprite = petSprite(pet.art, g.art, Math.floor(t / 0.22) % 2);
+    if (!sprite) return;
+    const hover = Math.sin(t * 4) * 3;
+    this.shadow(pet.x, pet.y + 2, 9);
+    drawSprite(w, sprite, pet.x, pet.y + hover, pet.flip, 1);
+    this.lights.push({ x: pet.x, y: pet.y - 10, r: 60, a: 0.35 });
+  }
+
+  /** The worn hat, sitting on the top of this frame of the Friend's own artwork. */
+  private drawHat(sprite: Sprite, facing: Player["facing"], walking: boolean, frame: number, side: "left" | "right", x: number, y: number, alpha: number) {
+    const g = this.game, id = cosmetic(g.worn.hat)?.art;
+    if (!id || g.worn.hat === "hat-none") return;
+    const hat = hatSprite(id, 3);
+    if (!hat) return;
+    const head = g.art.crown(facing, walking, frame, side), scale = sprite.w / 18;
+    const hx = x - sprite.w / 2 + (head.col + 1.5) * scale, hy = y - sprite.h + (head.row + 1) * scale + 3;
+    const float = id === "halo" ? -8 + (g.reducedMotion ? 0 : Math.sin(this.t * 3) * 2) : 0;
+    drawSprite(this.wctx, hat, hx, hy + float, false, alpha);
+    if (id === "halo" || id === "genesis" || id === "crown") this.glowAt(hx, hy - 8 + float, 26, id === "halo" ? "#ffe38a" : "#ffd23c", 0.3);
   }
 
   /**
@@ -1024,12 +1098,19 @@ export class Renderer {
         w.fillStyle = "#ccff00"; w.globalAlpha = glow;
         for (let i = 0; i < 5; i++) w.fillRect(x - 28 + i * 13, y - 8, 7, 3);
         w.globalAlpha = 1;
-        const sprite = g.art.frame("stone", 6, "down", false, 0, "right");
+        const grand = g.campTier >= 3;
+        const sprite = g.art.frame(grand ? "bone" : "stone", 6, "down", false, 0, "right");
         drawSprite(w, sprite, x, y - 18);
-        // Age: cracks and moss on the carved Friend.
-        w.strokeStyle = "#2e2923"; w.lineWidth = 2; w.beginPath();
-        w.moveTo(x - 20, y - 90); w.lineTo(x - 8, y - 70); w.lineTo(x - 14, y - 52); w.moveTo(x + 18, y - 64); w.lineTo(x + 8, y - 44); w.stroke();
-        w.fillStyle = "#4f6b2a"; for (const [mx, my] of [[-24, -40], [-18, -36], [20, -30], [26, -34], [-4, -100], [10, -96]]) w.fillRect(x + mx, y + my, 4, 3);
+        if (grand) {
+          // Restored: polished stone, a gold-trimmed plinth.
+          w.fillStyle = "#ffd23c"; w.fillRect(x - 42, y - 24, 84, 2); w.fillRect(x - 38, y + 8, 76, 2);
+          this.glowAt(x, y - 60, 70, "#ffd23c", 0.18);
+        } else {
+          // Age: cracks and moss on the carved Friend.
+          w.strokeStyle = "#2e2923"; w.lineWidth = 2; w.beginPath();
+          w.moveTo(x - 20, y - 90); w.lineTo(x - 8, y - 70); w.lineTo(x - 14, y - 52); w.moveTo(x + 18, y - 64); w.lineTo(x + 8, y - 44); w.stroke();
+          w.fillStyle = "#4f6b2a"; for (const [mx, my] of [[-24, -40], [-18, -36], [20, -30], [26, -34], [-4, -100], [10, -96]]) w.fillRect(x + mx, y + my, 4, 3);
+        }
         this.glowAt(x, y - 8, 60, "#ccff00", 0.18 * glow);
         this.lights.push({ x, y: y - 60, r: 150, a: 0.55, color: "#ccff00" });
         break;
@@ -1061,6 +1142,14 @@ export class Renderer {
         break;
       }
       case "pillar": {
+        if (g.campTier >= 2) {
+          // Rebuilt: a whole column with a capital, standing tall again.
+          w.fillStyle = "#62503e"; w.fillRect(x - 12, y - 76, 24, 84);
+          w.fillStyle = "#7a6044"; w.fillRect(x - 18, y - 84, 36, 10); w.fillRect(x - 16, y + 2, 32, 6);
+          w.fillStyle = "#4a3a2c"; for (let i = 0; i < 3; i++) w.fillRect(x - 8 + i * 7, y - 72, 2, 72);
+          if (g.campTier >= 3) { w.fillStyle = "#ffd23c"; w.fillRect(x - 18, y - 84, 36, 2); }
+          break;
+        }
         w.fillStyle = "#4e3f33"; w.fillRect(x - 14, y - 40, 28, 48);
         w.fillStyle = "#5e4e40"; w.fillRect(x - 18, y - 46, 36, 8);
         w.fillStyle = "#3a2e26"; w.fillRect(x - 14, y - 20, 28, 2); w.fillRect(x + 4, y - 40, 2, 20);
@@ -1070,6 +1159,40 @@ export class Renderer {
       case "crates": {
         w.fillStyle = "#5c3a1c"; w.fillRect(x - 18, y - 16, 20, 18); w.fillRect(x, y - 10, 18, 12); w.fillRect(x - 10, y - 30, 16, 14);
         w.strokeStyle = "#3a2410"; w.lineWidth = 2; w.strokeRect(x - 18, y - 16, 20, 18); w.strokeRect(x, y - 10, 18, 12); w.strokeRect(x - 10, y - 30, 16, 14);
+        break;
+      }
+      case "banner": {
+        w.fillStyle = "#3a2e26"; w.fillRect(x - 1, y - 60, 3, 64);
+        const sway = g.reducedMotion ? 0 : Math.sin(t * 1.5 + x) * 2;
+        w.fillStyle = "#5c1422"; w.beginPath(); w.moveTo(x + 2, y - 58); w.lineTo(x + 24 + sway, y - 56); w.lineTo(x + 22 + sway, y - 26); w.lineTo(x + 13 + sway, y - 32); w.lineTo(x + 2, y - 26); w.fill();
+        w.fillStyle = "#ccff00"; w.fillRect(x + 9 + sway, y - 48, 6, 6); w.fillStyle = "#ffd23c"; w.fillRect(x + 2, y - 58, 22, 2);
+        break;
+      }
+      case "brazier": {
+        w.fillStyle = "#3a2e26"; w.fillRect(x - 3, y - 20, 6, 24); w.fillRect(x - 10, y + 2, 20, 3);
+        w.fillStyle = "#62503e"; w.fillRect(x - 12, y - 26, 24, 8);
+        this.drawFlame(x, y - 28, 1.2, "#ffb347");
+        this.lights.push({ x, y: y - 30, r: 170, a: 0.8 * this.flicker(x), color: "#ffb347" });
+        break;
+      }
+      case "fountain": {
+        w.fillStyle = "#62503e"; w.beginPath(); w.ellipse(x, y, 46, 20, 0, 0, TAU); w.fill();
+        w.fillStyle = "#1a4a5c"; w.beginPath(); w.ellipse(x, y - 2, 38, 15, 0, 0, TAU); w.fill();
+        w.fillStyle = "#7a6044"; w.fillRect(x - 6, y - 40, 12, 38); w.fillRect(x - 14, y - 44, 28, 6);
+        w.fillStyle = "#ffd23c"; w.fillRect(x - 14, y - 44, 28, 2);
+        w.save(); w.strokeStyle = "#a8e6ff"; w.lineWidth = 2; w.globalAlpha = 0.7;
+        for (const side of [-1, 1]) { w.beginPath(); w.moveTo(x, y - 46); w.quadraticCurveTo(x + side * 18, y - 64, x + side * 28, y - 8); w.stroke(); }
+        for (let i = 0; i < 2; i++) { const k = ((t * 0.8 + i / 2) % 1); w.globalAlpha = 0.5 * (1 - k); w.beginPath(); w.ellipse(x, y - 2, 10 + k * 26, 4 + k * 10, 0, 0, TAU); w.stroke(); }
+        w.restore();
+        this.lights.push({ x, y: y - 20, r: 140, a: 0.5, color: "#7fd4ff" });
+        break;
+      }
+      case "flowers": {
+        for (let i = 0; i < 5; i++) {
+          const fx = x - 14 + i * 7, fy = y - ((i * 5) % 7);
+          w.fillStyle = "#2c4a2a"; w.fillRect(fx, fy - 6, 2, 8);
+          w.fillStyle = ["#ff8fb3", "#ffd23c", "#bb66ff", "#ffffff", "#ff3d7f"][i]; w.fillRect(fx - 2, fy - 10, 6, 5);
+        }
         break;
       }
       case "bedroll": {
@@ -1141,6 +1264,28 @@ export class Renderer {
         });
         this.glowAt(x, y - 52, 60, g.glowColor(), 0.25);
         this.lights.push({ x, y: y - 40, r: 140, a: 0.6, color: g.glowColor() });
+        break;
+      }
+      case "blessing": {
+        // A small kneeling shrine: a carved Friend head on a plinth, crowned with a candle ring.
+        const pending = g.pendingBlessing !== null;
+        w.fillStyle = "#3a322a"; w.fillRect(x - 20, y - 14, 40, 18);
+        w.fillStyle = "#4e443a"; w.fillRect(x - 24, y - 18, 48, 6);
+        drawSprite(w, g.art.frame("stone", 3, "down", false, 0, "right"), x, y - 18);
+        const pulse = 0.5 + 0.4 * Math.sin(t * 2);
+        for (let i = 0; i < 5; i++) { const a = (i / 5) * TAU + t * 0.4; this.drawFlame(x + Math.cos(a) * 26, y - 70 + Math.sin(a) * 8, 0.6, pending ? "#ccff00" : "#ffb347"); }
+        this.glowAt(x, y - 50, 60, pending ? "#ccff00" : "#ffb347", 0.25 * pulse);
+        this.lights.push({ x, y: y - 40, r: 130, a: 0.6, color: pending ? "#ccff00" : "#ffb347" });
+        break;
+      }
+      case "sanctuary": {
+        // The mason's table: a workbench with chisels and a scroll of plans.
+        w.fillStyle = "#5c3a1c"; w.fillRect(x - 22, y - 16, 44, 8); w.fillRect(x - 20, y - 8, 4, 12); w.fillRect(x + 16, y - 8, 4, 12);
+        w.fillStyle = "#e8dcc0"; w.fillRect(x - 16, y - 22, 20, 7); w.fillStyle = "#8a6a4a"; w.fillRect(x - 16, y - 22, 2, 7);
+        w.fillStyle = "#8d8577"; w.fillRect(x + 8, y - 22, 10, 6);
+        w.fillStyle = "#6a6a74"; w.fillRect(x + 4, y - 20, 2, 5);
+        if (g.campTier < 3) { w.fillStyle = "#ccff00"; w.globalAlpha = 0.5 + 0.4 * Math.sin(t * 3); w.fillRect(x - 2, y - 36, 4, 8); w.fillRect(x - 2, y - 26, 4, 3); w.globalAlpha = 1; }
+        this.lights.push({ x, y: y - 20, r: 90, a: 0.45, color: "#ffd23c" });
         break;
       }
       case "rf": {
@@ -1782,6 +1927,24 @@ function bestiaryLook(kind: string, champ: string | null, accent: string, bullet
       if (!mask || !look) return null;
       const { scale, ...pal } = look;
       return { mask, pal: { ...pal, "#": champ ?? pal["#"] } as Record<string, string>, scale: minion ? Math.max(2, scale - 1) : scale };
+    }
+  }
+}
+
+/** A pet: a pocket-sized creature (half a monster's size, a boss at one pixel per pixel). */
+export function petSprite(kind: string, art: FriendArt, frame: number): Sprite | null {
+  switch (kind) {
+    case "warden": return maskSprite("pet:warden", WARDEN_BODY, wardenPalette(false, false), 1);
+    case "beast": return maskSprite("pet:beast", BEAST_BODY, beastPalette(1, false), 1);
+    case "reflection": return art.frame("ghost", 2, "down", true, frame * 4, "right");
+    case "unminted": return art.frame("void", 2, "down", true, frame * 4, "right");
+    case "goblin": return maskSprite(`pet:goblin:${frame}`, MASKS.goblin[frame % MASKS.goblin.length], { "#": "#7a6632", x: "#2a2010", e: "#ffd23c", s: "#ccff00" }, 2);
+    default: {
+      if (ACT_BOSS_ART[kind]) return maskSprite(`pet:${kind}`, ACT_BOSS_ART[kind], BOSS_PALETTES[kind], 1);
+      const look = bestiaryLook(kind, null, "#ccff00", "#ff8fb3", false);
+      if (!look) return null;
+      const f = look.mask.length > 1 ? frame % look.mask.length : 0;
+      return maskSprite(`pet:${kind}:${f}`, look.mask[f], look.pal, 2);
     }
   }
 }

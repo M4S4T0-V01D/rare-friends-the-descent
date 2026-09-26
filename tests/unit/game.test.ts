@@ -7,7 +7,7 @@ import { Rng } from "../../src/game/rng.ts";
 import { BASE_ATK, BASE_HP, BOONS, computeStats, FAMILY_TRAITS, HP_PER_LEVEL, xpForLevel } from "../../src/game/stats.ts";
 import { COIN_DASH, GALLERY_PAYOUTS, RF_COSTS, RF_DENOMINATIONS, SHELL_GAME } from "../../src/economy/terms.ts";
 import { BESTIARY_ORDER, LORE } from "../../src/game/lore.ts";
-import { COSMETICS, DEFAULT_COSMETICS } from "../../src/game/content.ts";
+import { BLESSINGS, BOSS_PETS, CAMP_TIERS, CONQUEST_COSMETICS, COSMETICS, DEFAULT_COSMETICS } from "../../src/game/content.ts";
 import { dmgScale, GUARDIAN_TITLES, hpScale } from "../../src/game/enemies.ts";
 import { generateCamp } from "../../src/game/camp.ts";
 import { OUTCOME_MULTIPLIER, RARITY_POINTS, scoreRun } from "../../src/game/score.ts";
@@ -204,6 +204,29 @@ test("cosmetics are priced in the RF denominations and every slot has a free def
   }
   assert.ok(COSMETICS.some(c => c.look === "corrupted"), "you can wear the Corrupted Friends' crimson");
   assert.equal(new Set(COSMETICS.map(c => c.id)).size, COSMETICS.length);
+});
+
+test("the wardrobe: six categories, pricier tiers, boss pets that cannot be bought", () => {
+  const bySlot = (slot: string) => COSMETICS.filter(c => c.slot === slot);
+  for (const [slot, before] of [["glow", 9], ["skin", 9], ["trail", 5]] as const) assert.ok(bySlot(slot).length >= before + 7, `${slot}: at least seven new options`);
+  for (const slot of ["pet", "hat", "finisher"]) assert.ok(bySlot(slot).filter(c => c.cost > 0).length >= 7, `${slot}: a new category with at least seven to buy`);
+  assert.ok(COSMETICS.some(c => c.cost === 100) && COSMETICS.some(c => c.cost === 50), "pricier tiers exist");
+  for (const [boss, pet] of Object.entries(BOSS_PETS)) {
+    const item = COSMETICS.find(c => c.id === pet)!;
+    assert.ok(item && item.slot === "pet" && item.unlock, `${boss} leaves a unique pet`);
+  }
+  for (const kind of ["warden", "beast", "archivist", "forgemaster", "bloom", "cantor", "hourengine", "reflection", "firstfriend"]) assert.ok(BOSS_PETS[kind], `${kind} has a pet`);
+  for (const id of CONQUEST_COSMETICS) assert.ok(COSMETICS.find(c => c.id === id)?.unlock, `${id} is earned by conquering the Descent`);
+  // The default look is the Friend's own: black pixels with a white outline. White-on-black is a cosmetic.
+  assert.equal(COSMETICS.find(c => c.id === DEFAULT_COSMETICS.skin)?.look, "canon");
+  assert.ok((COSMETICS.find(c => c.look === "hero")?.cost ?? 0) > 0, "the white look is bought");
+});
+
+test("the camp: a 25 RF blessing for the next descent, and three restorations at 100, 250 and 500 RF", () => {
+  assert.equal(RF_COSTS.blessing, 25);
+  assert.ok(BLESSINGS.length >= 5 && BLESSINGS.every(b => Object.keys(b.mods).length > 0));
+  assert.deepEqual([...RF_COSTS.camp], [100, 250, 500]);
+  assert.equal(CAMP_TIERS.length, 4, "the ruined base look plus three restorations");
 });
 
 test("every floor without a boss ends its main path at a guardian, from depth 2", () => {

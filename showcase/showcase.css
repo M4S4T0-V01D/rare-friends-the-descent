@@ -99,3 +99,6 @@ footer p { margin: 0 0 6px; }
   .families, .gallery { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+.stats { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 18px; margin: 0 auto 22px; padding: 0; color: var(--dim); font-size: 20px; }
+.stats b { color: var(--rf); font-weight: 400; font-size: 28px; margin-right: 4px; }

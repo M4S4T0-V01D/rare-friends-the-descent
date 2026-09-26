@@ -5,7 +5,7 @@
  */
 
 /** The denominations a price may use. Tests pin every cost to this list. */
-export const RF_DENOMINATIONS = [5, 10, 15, 20, 25, 30, 50] as const;
+export const RF_DENOMINATIONS = [5, 10, 15, 20, 25, 30, 50, 100, 250, 500] as const;
 
 export const RF_STARTING_BALANCE = 25;
 
@@ -18,7 +18,11 @@ export const RF_COSTS = {
   merchant: { potion: 5, relic: 10, rareItem: 10, legendaryGamble: 25, cursedBox: 5 },
   event: { well: 5, stranger: 10, blackDoor: 25, gambler: 5, goldenDoor: 10, gallery: 5, shells: 5, coinDash: 10 },
   /** Wardrobe cosmetics at the camp's Dye Altar, by tier. */
-  cosmetic: { common: 5, rare: 10, legendary: 25 },
+  cosmetic: { common: 5, rare: 10, legendary: 25, epic: 50, mythic: 100 },
+  /** The Blessing Shrine at the top of the camp: one boost of your choice for the next descent. */
+  blessing: 25,
+  /** Restoring the camp, one tier at a time: Cleared Ruins, Rebuilt Sanctuary, Grand Sanctuary. */
+  camp: [100, 250, 500],
 } as const;
 
 export const RF_REWARDS = {
@@ -31,7 +35,7 @@ export const RF_REWARDS = {
   boss: 10,
   secretBoss: 25,
   /** The First Friend, at the bottom of the Descent (depth 30). */
-  finalBoss: 25,
+  finalBoss: 100,
   /** Each coin a fleeing Loot Goblin drops. */
   goblinCoin: 1,
   /** Searching The Corpse can turn up a few RF. */
@@ -75,7 +79,8 @@ export type ReviveKind = keyof typeof RF_COSTS.revive;
 export function allCosts(): readonly { label: string; amount: number }[] {
   const rows: { label: string; amount: number }[] = [];
   for (const [group, table] of Object.entries(RF_COSTS)) {
-    if (Array.isArray(table)) table.forEach((amount, index) => rows.push({ label: `${group} #${index + 1}`, amount }));
+    if (typeof table === "number") rows.push({ label: group, amount: table });
+    else if (Array.isArray(table)) table.forEach((amount, index) => rows.push({ label: `${group} #${index + 1}`, amount }));
     else for (const [name, amount] of Object.entries(table)) rows.push({ label: `${group}.${name}`, amount: amount as number });
   }
   return rows;

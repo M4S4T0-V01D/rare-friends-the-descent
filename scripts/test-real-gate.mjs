@@ -1,24 +1,19 @@
 // Live ownership-gate check against Robinhood mainnet (chain 4663), read-only.
 // A stand-in browser wallet reports an account and chain and refuses every signing method, so no
 // transaction can ever be requested. All ownership, generation and artwork reads hit the real public RPC.
-// Usage: npm run build && node scripts/test-real-gate.mjs
+// Usage: npm run build && MY_WALLET=0xYourOwnAddress node scripts/test-real-gate.mjs
+// It never looks up anyone else's wallet or scans the collection: the holder scenario uses only the address you pass
+// in MY_WALLET (your own), and discovery goes through the SDK's owner-filtered picker exactly as in play.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
-import { createPublicClient, http, parseAbi } from "viem";
 import { createGameServer } from "@rarefriends/friendsdk/serve";
 
 const RPC = "https://rpc.mainnet.chain.robinhood.com";
-const GENERATIONS = "0x14C49e6118F46525dE9ab41a51cBAA3c6EBF181D";
-const SAMPLE_ID = 7730n; // the FriendSDK's own sample Friend
 const OUT = "artifacts/real-gate";
 await mkdir(OUT, { recursive: true });
-
-const chain = createPublicClient({ transport: http(RPC) });
-const abi = parseAbi(["function ownerOf(uint256) view returns (address)", "function generation(uint256) view returns (uint8)"]);
-const holder = await chain.readContract({ address: GENERATIONS, abi, functionName: "ownerOf", args: [SAMPLE_ID] });
-const generation = await chain.readContract({ address: GENERATIONS, abi, functionName: "generation", args: [SAMPLE_ID] });
-console.log(`Friend #${SAMPLE_ID} is held by ${holder} (generation ${generation}) at block ${await chain.getBlockNumber()}`);
+const holder = /^0x[0-9a-fA-F]{40}$/.test(process.env.MY_WALLET ?? "") ? process.env.MY_WALLET : null;
+if (!holder) console.log("MY_WALLET not set: skipping the holder scenario (set it to your own address to run it).");
 
 // Set TARGET_URL to check a published preview (for example the GitHub Pages site) instead of ./site.
 const target = process.env.TARGET_URL;
@@ -74,9 +69,9 @@ async function scenario(name, { account, chainId }, check) {
   }
 }
 
-await scenario("a real Generations holder passes the gate and plays with on-chain artwork", { account: holder, chainId: "0x1237" }, async page => {
+if (holder) await scenario("your own wallet passes the gate and plays with on-chain artwork", { account: holder, chainId: "0x1237" }, async page => {
   await page.getByRole("button", { name: /^Connect (wallet|Browser wallet)$/ }).click();
-  const friend = page.getByRole("button", { name: new RegExp(`^Friend #${SAMPLE_ID}\\b`) });
+  const friend = page.getByRole("button", { name: /^Friend #\d+\b/ }).first();
   // The public RPC can reject bursts; the SDK picker offers a retry, which a player would press.
   for (let attempt = 1; attempt <= 5; attempt++) {
     const retry = page.getByRole("button", { name: "Retry loading Friends" });
@@ -114,7 +109,7 @@ await scenario("an account without Generations NFTs cannot play", { account: "0x
   await page.screenshot({ path: `${OUT}/04-no-friends.png` });
 });
 
-await scenario("the wrong network is detected before play", { account: holder, chainId: "0x1" }, async page => {
+await scenario("the wrong network is detected before play", { account: holder ?? "0x000000000000000000000000000000000000dEaD", chainId: "0x1" }, async page => {
   await page.getByRole("button", { name: /^Connect (wallet|Browser wallet)$/ }).click();
   await page.getByRole("button", { name: /Switch to Robinhood/ }).waitFor({ timeout: 30000 });
   assert.equal(await page.locator("iframe").count(), 0, "no game frame on the wrong network");

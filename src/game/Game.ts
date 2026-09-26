@@ -7,7 +7,7 @@ import {
 import type { FriendArt } from "../render/sprites";
 import {
   CURSED_BOX, DEFAULT_COSMETICS, EVENTS, GATES, type CosmeticSlot, type RosterKind, GOLDEN_DOOR_RARITIES, LEGENDARY_GAMBLE, MERCHANT, SHRINES, bandForFloor, cosmetic,
-  BOSS_COLOR, bossForDepth, FINAL_FLOOR,
+  BOSS_COLOR, bossForDepth, FINAL_FLOOR, BOSS_PETS, CONQUEST_COSMETICS, blessing, CAMP_TIERS, COSMETIC_SLOT_NAMES,
 } from "./content";
 import { generateArena, generateFloor, roomAt, roomCenter, TILE, T, type Floor, type Rect, type Room } from "./dungeon";
 import { createEnemy, dmgScale, GUARDIAN_TITLES, rollModifiers, updateEnemy, type SpawnOptions, type World } from "./enemies";
@@ -130,7 +130,11 @@ export class Game implements World {
   private saveCheckAt = 0;
   private saving = false;
   private saveWarned = false;
-  /** Wardrobe: cosmetics bought with RF at the Dye Altar, and which are worn. Session only. */
+  /** A blessing bought at the camp's shrine, waiting for the next descent (then used up). */
+  pendingBlessing: string | null = null;
+  /** How far the camp has been restored: 0 ruined, 1 cleared, 2 rebuilt, 3 grand. */
+  campTier = 0;
+  /** Wardrobe: cosmetics bought with RF at the Dye Altar (or earned), and which are worn. Saved with the Friend. */
   readonly ownedCosmetics = new Set<string>(Object.values(DEFAULT_COSMETICS));
   readonly worn: Record<CosmeticSlot, string> = { ...DEFAULT_COSMETICS };
 
@@ -292,7 +296,7 @@ export class Game implements World {
 
   /** The walkable camp: a ruined Rare Friends sanctuary above the Descent. */
   private enterCamp() {
-    const camp = generateCamp();
+    const camp = generateCamp(this.campTier);
     this.resetFloorEntities();
     this.floor = camp.floor;
     for (const thing of camp.things) this.addInteractable(thing);
@@ -349,6 +353,7 @@ export class Game implements World {
     const item = cosmetic(id);
     if (!item) return;
     if (this.ownedCosmetics.has(id)) { this.wearCosmetic(id); return; }
+    if (item.unlock) { this.toast(`Locked: ${item.unlock}`, "#9a93ad"); return; }
     if (!(await this.pay(item.cost, `Dye Altar: ${item.name}`, "cosmetic"))) return;
     this.ownedCosmetics.add(id);
     this.worn[item.slot] = id;
@@ -370,13 +375,20 @@ export class Game implements World {
   }
 
   /** The Friend's skin look, from the wardrobe. */
-  get skinLook() { return cosmetic(this.worn.skin)?.look ?? "hero"; }
+  get skinLook() {
+    const look = cosmetic(this.worn.skin)?.look ?? "canon";
+    return look === "prism" ? PRISM_LOOKS[Math.floor(this.time * 4) % PRISM_LOOKS.length] : look;
+  }
 
   /** The Friend's glow color right now. Prismatic cycles; Null Halo has a burning rim. */
   glowColor(t = this.time): string {
     const color = cosmetic(this.worn.glow)?.color ?? "#ccff00";
     if (color === "prism") return PRISM[Math.floor(t * 5) % PRISM.length];
     if (color === "null") return "#ff3d7f";
+    if (color === "aurora") return AURORA[Math.floor(t * 1.5) % AURORA.length];
+    if (color === "heartbeat") return "#c2283f";
+    if (color === "eclipse") return "#ffb02e";
+    if (color === "genesis") return Math.floor(t * 2) % 2 ? "#ffd23c" : "#ffffff";
     return color;
   }
 
@@ -396,7 +408,97 @@ export class Game implements World {
       case "trail-runes":
         this.particle({ x: p.pos.x, y: p.pos.y + 4, vx: 0, vy: 0, life: 0.7, size: 11, color: "#ccff00", kind: "ring", drag: 0, gravity: 0 });
         break;
+      case "trail-snow":
+        this.particle({ x, y: y - 30 - Math.random() * 10, vx: (Math.random() - 0.5) * 12, vy: 18, life: 1, size: 2, color: "#e9f6ff", kind: "pixel", drag: 0.5, gravity: 10 });
+        break;
+      case "trail-petals":
+        this.particle({ x, y: y - 24, vx: (Math.random() - 0.5) * 30, vy: 10, life: 1, size: 3, color: Math.random() < 0.5 ? "#ff8fb3" : "#ffb3cc", kind: "pixel", drag: 1, gravity: 30 });
+        break;
+      case "trail-bubbles":
+        this.particle({ x, y: y - 6, vx: (Math.random() - 0.5) * 8, vy: -26, life: 0.9, size: 9 + Math.random() * 5, color: "#a8e6ff", kind: "text", text: "○", drag: 0.5, gravity: -10 });
+        break;
+      case "trail-cogs":
+        this.particle({ x, y: y - 6, vx: (Math.random() - 0.5) * 40, vy: -50, life: 0.7, size: 3, color: Math.random() < 0.5 ? "#e8c07a" : "#ffd23c", kind: "pixel", drag: 1, gravity: 220 });
+        break;
+      case "trail-hearts":
+        this.particle({ x, y: y - 20, vx: (Math.random() - 0.5) * 10, vy: -30, life: 0.9, size: 12, color: "#ff3d7f", kind: "text", text: "♥", drag: 0.5, gravity: -10 });
+        break;
+      case "trail-coins":
+        this.particle({ x, y: y - 10, vx: (Math.random() - 0.5) * 70, vy: -110, life: 0.8, size: 3, color: "#ffd23c", kind: "spark", drag: 0.5, gravity: 420 });
+        break;
+      case "trail-glitch":
+        this.particle({ x: x + (Math.random() - 0.5) * 16, y: y - Math.random() * 30, vx: 0, vy: 0, life: 0.25, size: 3 + Math.random() * 6, color: Math.random() < 0.5 ? "#3ef0ff" : "#ff3d7f", kind: "pixel", drag: 0, gravity: 0 });
+        break;
+      case "trail-static":
+        for (let i = 0; i < 2; i++) this.particle({ x, y: y - Math.random() * 24, vx: (Math.random() - 0.5) * 160, vy: (Math.random() - 0.5) * 160, life: 0.18, size: 2, color: i ? "#e9f6ff" : "#8fe3ff", kind: "spark", drag: 3, gravity: 0 });
+        break;
     }
+  }
+
+  /** The worn finisher: what a fallen foe turns into. Purely visual. */
+  private finisher(e: Enemy) {
+    const x = e.pos.x, y = e.pos.y - e.radius * 0.6, r = e.radius;
+    const spray = (n: number, colors: readonly string[], speed: number, kind: "pixel" | "spark", gravity: number, size = 3) => {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * TAU, v = speed * (0.4 + Math.random() * 0.6);
+        this.particle({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - speed * 0.3, life: 0.6 + Math.random() * 0.4, size, color: colors[i % colors.length], kind, drag: 1.2, gravity });
+      }
+    };
+    switch (this.worn.finisher) {
+      case "fin-confetti": spray(22, ["#ff3d7f", "#ffd23c", "#ccff00", "#3ef0ff", "#bb66ff"], 260, "pixel", 300); break;
+      case "fin-embers": spray(20, ["#ff9a3c", "#ffd23c", "#ff5a3c"], 200, "spark", -60); break;
+      case "fin-frost": spray(16, ["#bfe8ff", "#e9f6ff", "#8fe3ff"], 240, "pixel", 380, 4); this.particle({ x, y, vx: 0, vy: 0, life: 0.4, size: r * 2.6, color: "#bfe8ff", kind: "ring", drag: 0, gravity: 0 }); break;
+      case "fin-petals": spray(18, ["#ff8fb3", "#ffb3cc"], 180, "pixel", 60, 4); break;
+      case "fin-coins": spray(14, ["#ffd23c", "#ffb02e"], 280, "spark", 520); break;
+      case "fin-void":
+        for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU; this.particle({ x: x + Math.cos(a) * r * 2, y: y + Math.sin(a) * r * 2, vx: -Math.cos(a) * r * 5, vy: -Math.sin(a) * r * 5, life: 0.4, size: 3, color: i % 2 ? "#ff3d7f" : "#12081c", kind: "pixel", drag: 0, gravity: 0 }); }
+        this.particle({ x, y, vx: 0, vy: 0, life: 0.5, size: r * 1.6, color: "#ff3d7f", kind: "ring", drag: 0, gravity: 0 });
+        break;
+      case "fin-glitch": for (let i = 0; i < 10; i++) this.particle({ x: x + (Math.random() - 0.5) * r * 3, y: y + (Math.random() - 0.5) * r * 3, vx: (Math.random() - 0.5) * 40, vy: 0, life: 0.3, size: 3 + Math.random() * 8, color: i % 2 ? "#3ef0ff" : "#ff3d7f", kind: "pixel", drag: 0, gravity: 0 }); break;
+      case "fin-thunder":
+        for (let i = 0; i < 8; i++) this.particle({ x: x + (Math.random() - 0.5) * 10, y: y - 20 - i * 18, vx: 0, vy: 0, life: 0.22, size: 5, color: "#e9f6ff", kind: "glow", drag: 0, gravity: 0 });
+        this.particle({ x, y, vx: 0, vy: 0, life: 0.35, size: r * 3, color: "#8fe3ff", kind: "ring", drag: 0, gravity: 0 });
+        this.shake(2);
+        break;
+    }
+  }
+
+  /** Earned cosmetics: unlocked for good, with a moment of celebration. */
+  private unlockCosmetic(id: string) {
+    const item = cosmetic(id);
+    if (!item || this.ownedCosmetics.has(id)) return;
+    this.ownedCosmetics.add(id);
+    const title = COSMETIC_SLOT_NAMES[item.slot];
+    this.toast(`NEW ${title}: ${item.name}! Wear it at the Dye Altar`, "#ffd23c", `unlock-${id}`);
+    this.audio.cue("reveal-legendary");
+  }
+
+  /** The Blessing Shrine: pay 25 RF to carry one boost of your choice through the whole next descent. */
+  async buyBlessing(id: string) {
+    const choice = blessing(id);
+    if (!choice || this.pendingBlessing) return;
+    if (!(await this.pay(RF_COSTS.blessing, `Blessing Shrine: ${choice.name}`, "shrine"))) return;
+    this.pendingBlessing = choice.id;
+    this.audio.cue("reveal-rare");
+    this.burst(this.player.pos.x, this.player.pos.y - 20, choice.color, 40, 240);
+    this.toast(`Your next descent is blessed with ${choice.name}`, choice.color);
+    this.patch({});
+  }
+
+  /** The mason's table: restore the camp one tier at a time. Looks only; it changes no stats. */
+  async restoreCamp() {
+    const tier = this.campTier;
+    if (tier >= CAMP_TIERS.length - 1) return;
+    const price = RF_COSTS.camp[tier];
+    if (!(await this.pay(price, `Camp restoration: ${CAMP_TIERS[tier + 1].name}`, "cosmetic"))) return;
+    this.campTier = tier + 1;
+    const pos = { ...this.player.pos };
+    this.enterCamp();
+    this.player.pos = pos;
+    this.camera = { x: pos.x - 480, y: pos.y - 330 };
+    this.audio.cue("reveal-legendary");
+    this.banner(CAMP_TIERS[this.campTier].name.toUpperCase(), "The sanctuary is restored", "#ffd23c", "level");
+    this.patch({ campPanel: null });
   }
 
   openCampPanel(tab: CampTab) {
@@ -450,10 +552,15 @@ export class Game implements World {
       this.stash = this.stash.filter(item => item.id !== heirloom.id);
       this.heirloomId = null;
     }
+    const blessed = blessing(this.pendingBlessing);
+    if (blessed) {
+      this.addBuff({ id: `blessing-${blessed.id}`, name: blessed.name.toUpperCase(), kind: "blessing", mods: blessed.mods, run: true, color: blessed.color, icon: blessed.icon });
+      this.pendingBlessing = null;
+    }
     this.refreshStats();
     this.player.hp = this.stats.maxHp;
     this.player.energy = this.stats.energyMax;
-    this.player.potions = 2;
+    this.player.potions = 2 + (blessed?.id === "wellspring" ? 2 : 0);
     this.player.dodgeCharges = this.kit.dodge.charges;
     this.patch({ screen: "run", modal: { kind: "none" }, summary: null, pendingLevels: 0, toasts: [], campPanel: null });
     this.enterFloor(1);
@@ -1064,6 +1171,7 @@ export class Game implements World {
     this.sfx("enemyDie");
     this.burst(e.pos.x, e.pos.y - e.radius * 0.5, e.boss ? "#ccff00" : e.elite ? "#ff2e4d" : "#8f6fd8", e.boss ? 80 : e.elite ? 30 : 16, e.boss ? 360 : 220);
     this.particle({ x: e.pos.x, y: e.pos.y - e.radius * 0.5, vx: 0, vy: 0, life: 0.35, size: e.radius * 2.4, color: e.elite ? "#ff2e4d" : "#8f6fd8", kind: "ring", drag: 0, gravity: 0 });
+    if (!this.reducedMotion) this.finisher(e);
     if (s.powers.has("voidHeart")) this.hazard({ shape: "circle", pos: { ...e.pos }, radius: 80, delay: 0.05, dmg: s.atk * 0.8, owner: "player", color: "#ff3d7f", knock: 200 });
     if (e.mods.includes("explosive")) this.hazard({ shape: "circle", pos: { ...e.pos }, radius: 90, delay: 0.7, dmg: e.dmg * 1.3, color: "#ff9a3c", source: e });
     if (e.mods.includes("cursed")) this.hazard({ shape: "circle", pos: { ...e.pos }, radius: 60, delay: 0.3, dmg: e.dmg * 0.2, linger: 3, tick: 0.5, color: "#7a2cff", curse: true });
@@ -1490,6 +1598,9 @@ export class Game implements World {
     const room = floor.rooms[e.roomId];
     run.bosses.push(e.name);
     this.boss = null;
+    // The first time each boss falls, it leaves a pocket-sized version of itself behind.
+    const pet = BOSS_PETS[e.kind];
+    if (pet) this.unlockCosmetic(pet);
     this.audio.setMusicMode(this.placeMusic());
     this.audio.cue("reveal-legendary");
     this.shake(16);
@@ -1506,6 +1617,7 @@ export class Game implements World {
       // The bottom of the Descent: the run is conquered once your Friend escapes with it.
       run.conquered = true;
       void this.grant(RF_REWARDS.finalBoss, "Final boss: The First Friend", "boss");
+      for (const id of CONQUEST_COSMETICS) this.unlockCosmetic(id);
       this.dropItem(center, generateItem(this.rng, this.depth, { rarity: "mythic" }));
       this.dropItem({ x: center.x + 40, y: center.y }, generateItem(this.rng, this.depth, { rarity: "legendary" }));
       this.banner("THE DESCENT CONQUERED", `${this.friend.label} reached the bottom of the stairs`, "#ffffff", "boss");
@@ -2451,6 +2563,7 @@ export class Game implements World {
       stash, heirloomId: this.run ? null : this.heirloomId, codex: [...this.codex], hall: this.hall.map(run => ({ ...run, transactions: [] })),
       runsStarted: this.runsStarted, lifetimeScore: this.lifetimeScore, bestScore: this.bestScore, bestiary: [...this.bestiary].map(([kind, r]) => [kind, { kills: r.kills, guardians: [...r.guardians] }]),
       owned: [...this.ownedCosmetics], worn: { ...this.worn }, settings: { ...this.settings },
+      blessing: this.pendingBlessing, campTier: this.campTier,
     };
   }
 
@@ -2465,6 +2578,8 @@ export class Game implements World {
     this.bestScore = save.bestScore;
     for (const [kind, record] of save.bestiary) this.bestiary.set(kind, { kills: record.kills, guardians: [...record.guardians] });
     for (const id of save.owned) this.ownedCosmetics.add(id);
+    this.pendingBlessing = save.blessing ?? null;
+    this.campTier = save.campTier ?? 0;
     Object.assign(this.worn, save.worn);
     reserveItemIds(Math.max(0, ...save.stash.map(i => i.id), ...save.hall.map(r => r.rarest?.id ?? 0)));
     this.lastSaveJson = JSON.stringify({ ...this.exportSave(), savedAt: 0 });
@@ -2532,7 +2647,7 @@ export class Game implements World {
       foes: this.enemies.map(e => ({ id: e.id, kind: e.kind, name: e.name, x: e.pos.x, y: e.pos.y, hp: e.hp, spawning: e.spawnT > 0 })),
       pickups: this.pickups.length, particles: this.particles.length, settings: this.settings, pendingLevels: this.ui.pendingLevels,
       score: this.run ? this.scoreFor("running").total : 0, lifetimeScore: this.lifetimeScore, roomSong: this.audio.currentRoomSong,
-      worn: { ...this.worn }, owned: [...this.ownedCosmetics],
+      worn: { ...this.worn }, owned: [...this.ownedCosmetics], campTier: this.campTier, blessing: this.pendingBlessing,
       bestiary: [...this.bestiary.keys()], miniGame: this.miniGame ? { kind: this.miniGame.kind, score: this.miniGame.score } : null,
       shells: this.shellGame ? { ball: this.shellGame.ball, swaps: this.shellGame.swaps.length, won: this.shellGame.won } : null,
     };
@@ -2573,6 +2688,8 @@ const PRISM = ["#ff3d7f", "#ff9a3c", "#ffd23c", "#ccff00", "#6ee07a", "#3ef0ff",
 
 function isFightRoom(room: Room) { return room.type === "combat" || room.type === "elite" || room.type === "guardian" || room.type === "bonus" || room.type === "boss"; }
 const SMALL_WORDS = new Set(["of", "the", "a", "to"]);
+const AURORA = ["#6ee07a", "#3ef0ff", "#8f6fd8", "#3ecbff"] as const;
+const PRISM_LOOKS = ["corrupted", "ember", "gold", "neon", "ocean", "shadow", "rose", "frost"] as const;
 export function titleCase(text: string) {
   return text.toLowerCase().split(" ").map((word, i) => (i > 0 && SMALL_WORDS.has(word) ? word : word.replace(/(^|-)\S/g, m => m.toUpperCase()))).join(" ");
 }

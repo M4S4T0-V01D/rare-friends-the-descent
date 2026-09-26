@@ -294,13 +294,23 @@ export const BOSS_COLOR: Readonly<Record<ActBoss, string>> = {
  * Wardrobe cosmetics, bought with (simulated) RF at the camp's Dye Altar. They only recolor your
  * Friend's canonical pixels and add light: the on-chain artwork's shape is never altered.
  */
-export type CosmeticSlot = "glow" | "skin" | "trail";
-export type Cosmetic = Readonly<{ id: string; slot: CosmeticSlot; name: string; text: string; cost: number; color: string; look?: FriendLookId }>;
+export type CosmeticSlot = "glow" | "skin" | "trail" | "pet" | "hat" | "finisher";
+export const COSMETIC_SLOTS: readonly CosmeticSlot[] = ["glow", "skin", "trail", "pet", "hat", "finisher"];
+export const COSMETIC_SLOT_NAMES: Readonly<Record<CosmeticSlot, string>> = { glow: "GLOW", skin: "SKIN", trail: "TRAIL", pet: "PET", hat: "HAT", finisher: "FINISHER" };
+/**
+ * `unlock` marks a unique cosmetic that cannot be bought: it is earned (the first time each boss falls,
+ * and for conquering the Descent). `art` names the pet's creature or the hat's shape for the renderer.
+ */
+export type Cosmetic = Readonly<{ id: string; slot: CosmeticSlot; name: string; text: string; cost: number; color: string; look?: FriendLookId; art?: string; unlock?: string }>;
 /** Mirrors FriendLook in the renderer, kept here so game code does not import rendering. */
-export type FriendLookId = "hero" | "corrupted" | "void" | "ghost" | "stone" | "gold" | "frost" | "shadow" | "ember";
+export type FriendLookId = "canon" | "hero" | "corrupted" | "void" | "ghost" | "stone" | "gold" | "frost" | "shadow" | "ember"
+  | "moss" | "ocean" | "rose" | "bone" | "ink" | "neon" | "brass" | "glass" | "prism";
 
 const C = RF_COSTS.cosmetic;
+const pet = (id: string, name: string, text: string, cost: number, color: string, art: string, unlock?: string): Cosmetic => ({ id: `pet-${id}`, slot: "pet", name, text, cost, color, art, unlock });
+const hat = (id: string, name: string, text: string, cost: number, color: string, unlock?: string): Cosmetic => ({ id: `hat-${id}`, slot: "hat", name, text, cost, color, art: id, unlock });
 export const COSMETICS: readonly Cosmetic[] = [
+  // Glows: the light around your Friend.
   { id: "glow-lime", slot: "glow", name: "Signal Lime", text: "The glow every Friend is born with.", cost: 0, color: "#ccff00" },
   { id: "glow-crimson", slot: "glow", name: "Blood Moon", text: "A deep crimson halo.", cost: C.common, color: "#ff2e4d" },
   { id: "glow-cyan", slot: "glow", name: "Relay Cyan", text: "Cold light from the Signal Vaults.", cost: C.common, color: "#3ef0ff" },
@@ -308,22 +318,124 @@ export const COSMETICS: readonly Cosmetic[] = [
   { id: "glow-gold", slot: "glow", name: "Hoard Gold", text: "Shines like a Legendary drop.", cost: C.rare, color: "#ffb02e" },
   { id: "glow-rose", slot: "glow", name: "Void Rose", text: "The Shrine of the Void's own pink.", cost: C.rare, color: "#ff3d7f" },
   { id: "glow-frost", slot: "glow", name: "Frostlight", text: "A pale, frozen shimmer.", cost: C.rare, color: "#8fe3ff" },
+  { id: "glow-forge", slot: "glow", name: "Forge Ember", text: "The orange of the Ember Forge's crucible.", cost: C.rare, color: "#ff5a3c" },
+  { id: "glow-moss", slot: "glow", name: "Rot Moss", text: "A soft green grown in the Rot Garden.", cost: C.rare, color: "#6ee07a" },
+  { id: "glow-tide", slot: "glow", name: "Tidal Blue", text: "The drowned light of the Sunken Choir.", cost: C.rare, color: "#3ecbff" },
+  { id: "glow-brass", slot: "glow", name: "Brass Hour", text: "Warm clockwork brass.", cost: C.legendary, color: "#e8c07a" },
+  { id: "glow-silver", slot: "glow", name: "Silvered", text: "Bright as the Mirror Halls.", cost: C.legendary, color: "#e9e4ff" },
   { id: "glow-prism", slot: "glow", name: "Prismatic", text: "Cycles through every color. Very rare, very loud.", cost: C.legendary, color: "prism" },
   { id: "glow-null", slot: "glow", name: "Null Halo", text: "A halo of darkness with a burning rim.", cost: C.legendary, color: "null" },
-  { id: "skin-hero", slot: "skin", name: "Canonical", text: "Your Friend as it was minted, lit for the dark.", cost: 0, color: "#f3eeff", look: "hero" },
+  { id: "glow-dawn", slot: "glow", name: "Dawn", text: "The first light after a very long night.", cost: C.epic, color: "#ffe38a" },
+  { id: "glow-aurora", slot: "glow", name: "Aurora", text: "Slow ribbons of green, cyan and violet.", cost: C.epic, color: "aurora" },
+  { id: "glow-heartbeat", slot: "glow", name: "Heartbeat", text: "A crimson glow that beats like a heart.", cost: C.epic, color: "heartbeat" },
+  { id: "glow-eclipse", slot: "glow", name: "Eclipse", text: "A disc of darkness ringed in gold fire.", cost: C.mythic, color: "eclipse" },
+  { id: "glow-genesis", slot: "glow", name: "Genesis Halo", text: "White and gold, like the first Friend.", cost: 0, color: "genesis", unlock: "Conquer the Descent (beat The First Friend at depth 30)" },
+  // Skins: recolor your Friend's canonical pixels (the shape never changes).
+  { id: "skin-canonical", slot: "skin", name: "Canonical", text: "Your Friend as it was minted: black pixels, white outline.", cost: 0, color: "#0b0710", look: "canon" },
+  { id: "skin-hero", slot: "skin", name: "Moonlit", text: "White pixels with a black outline, bright against the dark.", cost: C.common, color: "#f3eeff", look: "hero" },
   { id: "skin-stone", slot: "skin", name: "Statue Stone", text: "Carved like the camp's guardians.", cost: C.common, color: "#8d8577", look: "stone" },
+  { id: "skin-bone", slot: "skin", name: "Bone White", text: "Old ivory from the Ossuary.", cost: C.common, color: "#e8dcc0", look: "bone" },
   { id: "skin-corrupted", slot: "skin", name: "Corrupted", text: "Wear the crimson of the Corrupted Friends.", cost: C.rare, color: "#ff2e4d", look: "corrupted" },
   { id: "skin-ghost", slot: "skin", name: "Lost Light", text: "The lime ghost-glow of a Lost Friend.", cost: C.rare, color: "#ccff00", look: "ghost" },
   { id: "skin-frost", slot: "skin", name: "Frostbitten", text: "Pale ice-blue pixels.", cost: C.rare, color: "#8fe3ff", look: "frost" },
   { id: "skin-ember", slot: "skin", name: "Cinder", text: "Burning orange, like Cinderheart.", cost: C.rare, color: "#ff9a3c", look: "ember" },
   { id: "skin-shadow", slot: "skin", name: "Shadow", text: "A violet shade of yourself.", cost: C.rare, color: "#6b4fa0", look: "shadow" },
+  { id: "skin-moss", slot: "skin", name: "Mossback", text: "Grown over in the Rot Garden.", cost: C.rare, color: "#6ee07a", look: "moss" },
+  { id: "skin-ocean", slot: "skin", name: "Deep Water", text: "The blue of the Sunken Choir.", cost: C.rare, color: "#3ecbff", look: "ocean" },
+  { id: "skin-rose", slot: "skin", name: "Rose Quartz", text: "Soft pink stone.", cost: C.rare, color: "#ff8fb3", look: "rose" },
+  { id: "skin-brass", slot: "skin", name: "Clockwork Brass", text: "Polished like the Hour Engine.", cost: C.legendary, color: "#e8c07a", look: "brass" },
   { id: "skin-gold", slot: "skin", name: "Gilded", text: "Solid gold. Every Friend should be so lucky.", cost: C.legendary, color: "#ffd23c", look: "gold" },
   { id: "skin-void", slot: "skin", name: "Unminted Void", text: "Black as The Unminted, outlined in pink.", cost: C.legendary, color: "#ff3d7f", look: "void" },
+  { id: "skin-ink", slot: "skin", name: "Inkblot", text: "Your Friend in negative: black pixels, white outline.", cost: C.epic, color: "#0b0710", look: "ink" },
+  { id: "skin-neon", slot: "skin", name: "Neon", text: "Radioactive green. Visible from orbit.", cost: C.epic, color: "#39ff14", look: "neon" },
+  { id: "skin-glass", slot: "skin", name: "Mirror Glass", text: "Pale and faintly see-through, like the Reflection.", cost: C.epic, color: "#dcd6f7", look: "glass" },
+  { id: "skin-prism", slot: "skin", name: "Prism", text: "Every color, one after another.", cost: C.mythic, color: "prism", look: "prism" },
+  // Trails: what your steps leave behind.
   { id: "trail-none", slot: "trail", name: "No Trail", text: "Walk quietly.", cost: 0, color: "#6d6780" },
   { id: "trail-embers", slot: "trail", name: "Embers", text: "Sparks drift from your steps.", cost: C.common, color: "#ff9a3c" },
+  { id: "trail-snow", slot: "trail", name: "Snowfall", text: "A little weather of your own.", cost: C.common, color: "#e9f6ff" },
+  { id: "trail-petals", slot: "trail", name: "Petals", text: "Pink petals fall where you walk.", cost: C.common, color: "#ff8fb3" },
   { id: "trail-sparkles", slot: "trail", name: "Sparkles", text: "Glittering motes in your glow's color.", cost: C.rare, color: "#ffffff" },
   { id: "trail-void", slot: "trail", name: "Void Motes", text: "Tiny black holes, pink at the edges.", cost: C.rare, color: "#ff3d7f" },
+  { id: "trail-bubbles", slot: "trail", name: "Bubbles", text: "As if you never left the Sunken Choir.", cost: C.rare, color: "#a8e6ff" },
   { id: "trail-runes", slot: "trail", name: "Rune Steps", text: "Every step leaves a glowing rune.", cost: C.legendary, color: "#ccff00" },
+  { id: "trail-cogs", slot: "trail", name: "Brass Cogs", text: "Tiny gears tumble from your steps.", cost: C.legendary, color: "#e8c07a" },
+  { id: "trail-hearts", slot: "trail", name: "Hearts", text: "Every Friend deserves a few.", cost: C.legendary, color: "#ff3d7f" },
+  { id: "trail-coins", slot: "trail", name: "Coin Purse", text: "Gold coins pop out and bounce away. (They are not real.)", cost: C.epic, color: "#ffd23c" },
+  { id: "trail-glitch", slot: "trail", name: "Glitch", text: "Reality tears a little behind you.", cost: C.epic, color: "#3ef0ff" },
+  { id: "trail-static", slot: "trail", name: "Static", text: "Crackling lightning at your heels.", cost: C.mythic, color: "#e9f6ff" },
+  // Pets: little versions of the dungeon's creatures that follow you. Boss pets cannot be bought.
+  pet("none", "No Pet", "Just you and your Friend.", 0, "#6d6780", ""),
+  pet("wisp", "Tiny Wisp", "It hums the one note it knows.", C.legendary, "#c9c2e6", "wisp"),
+  pet("mite", "Pocket Mite", "Fast, small and devoted.", C.legendary, "#6ee07a", "mite"),
+  pet("bloodling", "Blob", "A very small Bloodling. It means well.", C.legendary, "#ff4d6d", "bloodling"),
+  pet("moth", "Frost Moth", "Flutters behind you, trailing cold.", C.epic, "#bfe8ff", "frostmoth"),
+  pet("imp", "Cinder Imp", "Hops along, warm to the touch.", C.epic, "#ff9a3c", "cinderimp"),
+  pet("spore", "Sporeling", "Grows a little every descent.", C.epic, "#b9ff6b", "sporeling"),
+  pet("cog", "Little Cog", "Tick. Tock. Follow.", C.epic, "#ffd23c", "cog"),
+  pet("shard", "Shardling", "A friendly splinter of mirror.", C.epic, "#f3eeff", "shardling"),
+  pet("seraph", "Null Cherub", "A Null Seraph, very young.", C.mythic, "#ff3d7f", "seraph"),
+  pet("goblin", "Loot Goblin", "It has your loot. It is keeping it safe.", C.mythic, "#ffd23c", "goblin"),
+  pet("warden", "Pocket Warden", "The jailer, key-sized.", 0, "#ff2e4d", "warden", "Defeat the Dungeon Warden for the first time"),
+  pet("beast", "Rare Beastling", "Every eye still watches. Adorably.", 0, "#ccff00", "beast", "Defeat The Rare Beast for the first time"),
+  pet("archivist", "Little Archivist", "Keeps a tiny frozen library.", 0, "#8fe3ff", "archivist", "Defeat The Archivist for the first time"),
+  pet("forgemaster", "Apprentice Smith", "Carries a very small hammer.", 0, "#ff9a3c", "forgemaster", "Defeat The Forgemaster for the first time"),
+  pet("bloom", "Bloom Bud", "A seedling of the Mother Bloom.", 0, "#ff8fb3", "bloom", "Defeat The Mother Bloom for the first time"),
+  pet("cantor", "Choirboy", "Sings the drowned hymn, off-key.", 0, "#7fd4ff", "cantor", "Defeat The Drowned Cantor for the first time"),
+  pet("hourengine", "Pocket Watch", "The Hour Engine, wind-up size.", 0, "#ffd23c", "hourengine", "Defeat The Hour Engine for the first time"),
+  pet("reflection", "Little Reflection", "Your Friend, in miniature, in glass.", 0, "#e9e4ff", "reflection", "Defeat The Reflection for the first time"),
+  pet("unminted", "Unmintling", "Never minted. Very small. Yours.", 0, "#ff3d7f", "unminted", "Defeat The Unminted for the first time"),
+  pet("firstfriend", "The Second Friend", "The First Friend's smallest follower.", 0, "#ffffff", "firstfriend", "Defeat The First Friend for the first time"),
+  // Hats: worn on top of your Friend's head.
+  hat("none", "No Hat", "Bare-headed and proud.", 0, "#6d6780"),
+  hat("party", "Party Hat", "Every floor cleared is a party.", C.rare, "#ff3d7f"),
+  hat("flower", "Flower Crown", "Picked in the Rot Garden (carefully).", C.rare, "#ff8fb3"),
+  hat("horns", "Little Horns", "Borrowed from the Warden.", C.legendary, "#e9e4ff"),
+  hat("top", "Top Hat", "For the very well-dressed dungeon crawler.", C.legendary, "#1a1624"),
+  hat("mushroom", "Mushroom Cap", "Grows back if you lose it.", C.legendary, "#ff4d6d"),
+  hat("wizard", "Wizard Hat", "Pointy, starry, magical-ish.", C.epic, "#5a3fb0"),
+  hat("halo", "Halo", "A ring of light that floats above you.", C.epic, "#ffe38a"),
+  hat("antlers", "Frost Antlers", "Ice, grown like a stag's.", C.epic, "#bfe8ff"),
+  hat("crown", "Gold Crown", "Heavy is the head.", C.mythic, "#ffd23c"),
+  hat("genesis", "Crown of the First Friend", "Taken from the bottom of the stairs.", 0, "#ffffff", "Conquer the Descent (beat The First Friend at depth 30)"),
+  // Finishers: what foes do when your Friend defeats them.
+  { id: "fin-dissolve", slot: "finisher", name: "Dissolve", text: "Foes flash white and fade away.", cost: 0, color: "#ffffff" },
+  { id: "fin-confetti", slot: "finisher", name: "Confetti", text: "Every defeat is a celebration.", cost: C.rare, color: "#ffd23c" },
+  { id: "fin-embers", slot: "finisher", name: "Ember Burst", text: "Foes go up in sparks.", cost: C.rare, color: "#ff9a3c" },
+  { id: "fin-frost", slot: "finisher", name: "Frost Shatter", text: "Foes freeze and break into ice.", cost: C.legendary, color: "#bfe8ff" },
+  { id: "fin-petals", slot: "finisher", name: "Petal Pop", text: "Foes burst into pink petals.", cost: C.legendary, color: "#ff8fb3" },
+  { id: "fin-coins", slot: "finisher", name: "Coin Burst", text: "A spray of (pretend) gold.", cost: C.legendary, color: "#ffd23c" },
+  { id: "fin-void", slot: "finisher", name: "Void Implosion", text: "Foes collapse into a point of darkness.", cost: C.epic, color: "#ff3d7f" },
+  { id: "fin-glitch", slot: "finisher", name: "Glitch Out", text: "Foes corrupt into colored static.", cost: C.epic, color: "#3ef0ff" },
+  { id: "fin-thunder", slot: "finisher", name: "Thunderclap", text: "A bolt of light strikes every fallen foe.", cost: C.mythic, color: "#e9f6ff" },
 ];
 export const cosmetic = (id: string) => COSMETICS.find(c => c.id === id);
-export const DEFAULT_COSMETICS: Readonly<Record<CosmeticSlot, string>> = { glow: "glow-lime", skin: "skin-hero", trail: "trail-none" };
+export const DEFAULT_COSMETICS: Readonly<Record<CosmeticSlot, string>> = { glow: "glow-lime", skin: "skin-canonical", trail: "trail-none", pet: "pet-none", hat: "hat-none", finisher: "fin-dissolve" };
+/** The pet each boss leaves behind the first time it falls. */
+export const BOSS_PETS: Readonly<Record<string, string>> = {
+  warden: "pet-warden", beast: "pet-beast", archivist: "pet-archivist", forgemaster: "pet-forgemaster", bloom: "pet-bloom", cantor: "pet-cantor",
+  hourengine: "pet-hourengine", reflection: "pet-reflection", unminted: "pet-unminted", firstfriend: "pet-firstfriend",
+};
+/** Conquering the Descent unlocks these too. */
+export const CONQUEST_COSMETICS = ["hat-genesis", "glow-genesis"] as const;
+
+/** Blessings from the camp's shrine: pay once, and the next descent carries the boost for the whole run. */
+export type Blessing = Readonly<{ id: string; name: string; text: string; mods: Readonly<Record<string, number>>; color: string; icon: string }>;
+export const BLESSINGS: readonly Blessing[] = [
+  { id: "might", name: "Might", text: "+20% damage", mods: { dmgPct: 20 }, color: "#ff4d6d", icon: "⚔" },
+  { id: "vigor", name: "Vigor", text: "+25% max HP", mods: { hpPct: 25 }, color: "#6ee07a", icon: "♥" },
+  { id: "swiftness", name: "Swiftness", text: "+12% movement speed and +8% dodge", mods: { moveSpeed: 12, dodge: 8 }, color: "#8fe3ff", icon: "»" },
+  { id: "fortune", name: "Fortune", text: "+20% loot chance and +20% RF find", mods: { luck: 20, rfFind: 20 }, color: "#ffd23c", icon: "✦" },
+  { id: "focus", name: "Focus", text: "+10% critical chance and +25% critical damage", mods: { critChance: 10, critDmg: 25 }, color: "#bb66ff", icon: "◎" },
+  { id: "wellspring", name: "Wellspring", text: "+2 potion capacity, and you start with them", mods: { potionMax: 2 }, color: "#ff8fb3", icon: "⚱" },
+  { id: "renewal", name: "Renewal", text: "+40% energy regeneration", mods: { energyRegen: 40 }, color: "#3ef0ff", icon: "↻" },
+];
+export const blessing = (id: string | null) => BLESSINGS.find(b => b.id === id);
+
+/** The camp can be restored in three tiers. Each is a look only: the sanctuary grows cleaner, then whole, then grand. */
+export const CAMP_TIERS: readonly Readonly<{ name: string; text: string }>[] = [
+  { name: "Ruined Sanctuary", text: "Where every Friend starts: rubble, broken columns and a campfire." },
+  { name: "Cleared Ruins", text: "Rubble hauled away, fresh lanterns, banners over the tents and a rug to the stairs." },
+  { name: "Rebuilt Sanctuary", text: "Columns stand again, walls are patched, braziers burn, and a carpet runs to the great stairs." },
+  { name: "Grand Sanctuary", text: "Restored statues with gold trim, a fountain, flowers and warm light everywhere." },
+];

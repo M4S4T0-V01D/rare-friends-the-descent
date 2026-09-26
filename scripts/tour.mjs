@@ -75,7 +75,15 @@ await testSite({
         await bot(false);
         const hit = await call("const b = g.boss; b.invulnT = 0; b.shield = 0; b.hp = 1; g.dealDamage(b, 1000, { source: 'nova' }); return { dead: b.dead, hp: b.hp, state: b.state, boss: Boolean(g.boss) }");
         await waitFor(s => !s.boss && s.interactables.some(it => it.kind === "waystone"), `waystone after ${BOSSES[depth]} (${JSON.stringify(hit)})`);
-        console.log(`depth ${depth}: ${fight.boss.name} beaten`);
+        const after = await st();
+        assert.ok(after.owned.includes(`pet-${BOSSES[depth]}`), `the first ${BOSSES[depth]} leaves its pet`);
+        if (depth === 30) {
+          await wait(600);
+          const paid = (await st()).history.find(tx => tx.reason === "Final boss: The First Friend");
+          assert.equal(paid?.amount, 100, "conquering pays 100 RF");
+          for (const id of ["hat-genesis", "glow-genesis"]) assert.ok((await st()).owned.includes(id), `${id} unlocked`);
+        }
+        console.log(`depth ${depth}: ${fight.boss.name} beaten, pet unlocked`);
         await settle();
       }
     }

@@ -2,7 +2,7 @@
 
 **Your Rare Friend descends into a dungeon where $RAREFRIENDS is the currency of risk.**
 
-A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Your own Generations NFT is the playable hero. It fights through procedurally generated floors of cursed crypts, finds randomized loot, and at every turn faces the same question: *spend 5 RF now, save for 10, or risk everything for 25?* Every run ends with a **score**, and RF can also dress your Friend in **cosmetic glows, skins and trails** at the camp. The dungeon is drawn in the Rare Friends style: black, white and grey, with muted color and soft, warm light.
+A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Your own Generations NFT is the playable hero. It fights through procedurally generated floors of cursed crypts, finds randomized loot, and at every turn faces the same question: *spend 5 RF now, save for 10, or risk everything for 25?* **30 floors and 10 bosses** stand between you and the bottom of the stairs. Every run ends with a **score**. Back at camp, RF buys **cosmetics in six categories** (glows, skins, trails, pets, hats and finishers), a **blessing** for the next descent, and the **restoration of the camp** itself. Every boss leaves you a pocket-sized **pet of itself** the first time it falls. The dungeon is drawn in the Rare Friends style: black, white and grey, with muted color and soft, warm light.
 
 | | |
 |---|---|
@@ -18,20 +18,51 @@ A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Yo
 
 ## Screenshots
 
-| | |
-|---|---|
-| ![The title screen: your verified Friend on a glowing rune circle](docs/screenshots/title.png) | ![The camp: a ruined Rare Friends sanctuary with tents, lanterns and a campfire](docs/screenshots/camp.png) |
-| **Title.** Your verified Friend, its kit, and the simulated-RF label. | **The camp.** Walk your Friend around a ruined sanctuary before each descent. |
-| ![The great stairs, flanked by two stone statues of your own Friend](docs/screenshots/camp-stairs.png) | ![Depth 1, the Ossuary: a Rune Slash into Cursed Friends](docs/screenshots/combat-depth-1.png) |
-| **The great stairs.** Two statues of *your* Friend guard the way down. | **Depth 1 · Ossuary.** Cursed Friends in the upper crypts. |
-| ![Depth 3, Warden's Vault: Hex Priest curse circles, Bone Gunner shots and a Loot Goblin](docs/screenshots/combat-depth-3.png) | ![Depth 5, Server Tombs: Signal Mites, a Relay Turret and a Static Drone](docs/screenshots/combat-depth-5.png) |
-| **Depth 3 · Warden's Vault.** Hex Priest curse circles and a Loot Goblin. | **Depth 5 · Server Tombs.** A mite swarm under turret fire. |
-| ![Depth 8, Vein Galleries: elite champions with modifiers and an Eye Stalk's needle stream](docs/screenshots/combat-depth-8.png) | ![The character sheet: a paper doll of equipped gear and the bag grouped by type](docs/screenshots/inventory.png) |
-| **Depth 8 · Vein Galleries.** Named champions and an Eye Stalk's needles. | **Character sheet.** Paper-doll gear and a bag grouped by item type. |
-| ![The bestiary: a page for every creature, unseen ones as silhouettes](docs/screenshots/bestiary.png) | ![The Friend picker with each Friend's on-chain artwork](docs/screenshots/picker.png) |
-| **Bestiary (B).** A page for every creature your Friend has met. | **Friend picker.** Each Friend's on-chain artwork and family (test fixture wallet shown). |
+Every screenshot is captured from the shipped site by `npm run screenshots` and `node scripts/tour.mjs docs/screenshots/depths`, using the FriendSDK's test wallet and its sample Friend #7730. All RF shown is simulated.
 
-Screenshots are captured from the shipped site by `node scripts/screenshots.mjs`, using the FriendSDK's mock wallet fixture and sample Friend #7730.
+### The camp
+
+| | | |
+|---|---|---|
+| ![The title screen](docs/screenshots/title.png) | ![The camp, a ruined sanctuary](docs/screenshots/camp.png) | ![The great stairs between two statues of your Friend](docs/screenshots/camp-stairs.png) |
+| **Title.** Your verified Friend and its kit. | **The camp.** Your Friend in its own black-and-white. | **The great stairs.** Two statues of your Friend guard the way down. |
+
+### Ten acts, thirty floors
+
+| | | |
+|---|---|---|
+| ![Depth 1, the Ossuary](docs/screenshots/combat-depth-1.png) | ![Depth 5, Server Tombs](docs/screenshots/combat-depth-5.png) | ![Depth 8, Vein Galleries](docs/screenshots/combat-depth-8.png) |
+| **Act 1 · The Upper Crypts.** Cursed Friends in the Ossuary. | **Act 2 · The Signal Vaults.** A mite swarm under turret fire. | **Act 3 · The Hollow Deep.** Named champions and an Eye Stalk. |
+| ![Depth 10, the Frozen Archive](docs/screenshots/depths/act-4-depth-10.png) | ![Depth 13, the Ember Forge](docs/screenshots/depths/act-5-depth-13.png) | ![Depth 16, the Rot Garden](docs/screenshots/depths/act-6-depth-16.png) |
+| **Act 4 · The Frozen Archive.** Frost Moths and Rime Knights. | **Act 5 · The Ember Forge.** Cinder Imps and Slag Golems. | **Act 6 · The Rot Garden.** Sporelings and Thorn Crawlers. |
+| ![Depth 19, the Sunken Choir](docs/screenshots/depths/act-7-depth-19.png) | ![Depth 22, the Clockwork Tomb](docs/screenshots/depths/act-8-depth-22.png) | ![Depth 25, the Mirror Halls](docs/screenshots/depths/act-9-depth-25.png) |
+| **Act 7 · The Sunken Choir.** Bell Divers and Choir Eels. | **Act 8 · The Clockwork Tomb.** Cog Sentries and Pendulum Knights. | **Act 9 · The Mirror Halls.** Glass Shardlings and Mirror Sentinels. |
+| ![Depth 28, the Null Throne](docs/screenshots/depths/act-10-depth-28.png) | ![The run summary after conquering the Descent](docs/screenshots/depths/conquered.png) | ![The bestiary](docs/screenshots/bestiary.png) |
+| **Act 10 · The Null Throne.** Null Seraphs at the bottom of the stairs. | **Conquered.** Beat The First Friend at depth 30 and escape. | **Bestiary.** 44 creatures, each unlocked on sight. |
+
+### Ten bosses
+
+| | | |
+|---|---|---|
+| ![The Dungeon Warden](docs/screenshots/depths/boss-3-warden.png) | ![The Warden of the Deep](docs/screenshots/depths/boss-6-warden.png) | ![The Rare Beast](docs/screenshots/depths/boss-9-beast.png) |
+| **Depth 3 · The Dungeon Warden.** | **Depth 6 · The Warden of the Deep.** | **Depth 9 · The Rare Beast.** |
+| ![The Archivist](docs/screenshots/depths/boss-12-archivist.png) | ![The Forgemaster](docs/screenshots/depths/boss-15-forgemaster.png) | ![The Mother Bloom](docs/screenshots/depths/boss-18-bloom.png) |
+| **Depth 12 · The Archivist.** | **Depth 15 · The Forgemaster.** | **Depth 18 · The Mother Bloom.** |
+| ![The Drowned Cantor](docs/screenshots/depths/boss-21-cantor.png) | ![The Hour Engine](docs/screenshots/depths/boss-24-hourengine.png) | ![The Reflection, drawn from your own Friend](docs/screenshots/depths/boss-27-reflection.png) |
+| **Depth 21 · The Drowned Cantor.** | **Depth 24 · The Hour Engine.** | **Depth 27 · The Reflection.** It fights with your Friend's art, bolt and signature. |
+| ![The First Friend, the final boss](docs/screenshots/depths/boss-30-firstfriend.png) | ![The character sheet](docs/screenshots/inventory.png) | ![The Friend picker](docs/screenshots/picker.png) |
+| **Depth 30 · The First Friend.** The final boss. | **Character sheet.** Paper-doll gear and the bag by type. | **Friend picker.** Each Friend's on-chain art (test wallet shown). |
+
+### Dress your Friend, restore the camp
+
+| | | |
+|---|---|---|
+| ![Your Friend wearing earned rewards](docs/screenshots/rewards-worn.png) | ![The Dye Altar pets](docs/screenshots/wardrobe-pets.png) | ![The Dye Altar hats](docs/screenshots/wardrobe-hats.png) |
+| **Earned rewards.** The Crown of the First Friend, the Genesis Halo and a Little Archivist pet. | **Pets.** Buy creature pets; every boss gives you its own the first time it falls. | **Hats.** Sit on top of your Friend's own artwork. |
+| ![The Dye Altar skins](docs/screenshots/wardrobe-skins.png) | ![The Blessing Shrine](docs/screenshots/blessing-shrine.png) | ![The mason's table](docs/screenshots/sanctuary.png) |
+| **Skins.** Recolor your Friend's pixels; the default is its canonical black-and-white. | **Blessing Shrine.** 25 RF for one boost through your next descent. | **Mason's table.** Restore the sanctuary in three tiers. |
+| ![The camp, Cleared Ruins](docs/screenshots/camp-tier-1.png) | ![The camp, Rebuilt Sanctuary](docs/screenshots/camp-tier-2.png) | ![The camp, Grand Sanctuary](docs/screenshots/camp-tier-3.png) |
+| **Cleared Ruins · 100 RF.** A rug to the stairs, banners and lanterns. | **Rebuilt Sanctuary · 250 RF.** Columns stand again; a carpet and braziers. | **Grand Sanctuary · 500 RF.** Restored statues, a fountain and flowers. |
 
 ---
 
@@ -41,17 +72,17 @@ Screenshots are captured from the shipped site by `node scripts/screenshots.mjs`
 The SDK verifies that you own the Friend, and the game then reads that Friend's canonical 16×16 on-chain artwork. The same pixels appear everywhere: walking and fighting through the dungeon with its real idle and walk animations, as the canonical black-on-white portrait in the HUD, on the title screen, at the camp, in boss introductions ("Hoverer #7730 vs Dungeon Warden"), in the character sheet and on the end-of-run summary. The elite enemy, the **Corrupted Friend**, is a crimson reflection of *your own* Friend. The secret boss, **The Unminted**, wears your Friend's silhouette as living void. Each Generations family also grants a unique passive (Skeleton, Mask, Family, Cellular, Asymmetry, Hoverer, Colossus, Sparkling, Hollow). On top of that, **every Friend gets its own combat kit** (see [Every Friend plays differently](#every-friend-plays-differently)).
 
 **Token Activity: RF is spent and earned constantly.**
-Every floor presents about **7–8 paid RF decisions**, measured across 900 generated floors: 1.5 shrines, 1 RF gate, about 1 paid event, a merchant on 58% of floors, and roughly 3.7 loot chests, each with an escalating 5 → 10 → 25 RF reroll. Revives cost 10 or 25 RF. Pay-to-play mini-games (5 or 10 RF) pay back on skill, and between runs the camp's **Dye Altar** sells 20 cosmetics for 5, 10 or 25 RF. Kills, elites, treasure, events and bosses pay RF back, and RF earned counts toward your score. Every movement shows up in a live **RF ACTIVITY** feed in the HUD, in a full ledger (Tab), and in the end-of-run summary.
+Every floor presents about **7–8 paid RF decisions**, measured across 900 generated floors: 1.5 shrines, 1 RF gate, about 1 paid event, a merchant on 58% of floors, and roughly 3.7 loot chests, each with an escalating 5 → 10 → 25 RF reroll. Revives cost 10 or 25 RF. Pay-to-play mini-games (5 or 10 RF) pay back on skill, and between runs the camp has three RF sinks: the **Dye Altar** sells 70+ cosmetics in six categories for 5 to 100 RF, the **Blessing Shrine** sells a 25 RF boost for the next descent, and the **mason's table** restores the camp for 100, 250 and 500 RF. Kills, elites, treasure, events and bosses pay RF back, and RF earned counts toward your score. Every movement shows up in a live **RF ACTIVITY** feed in the HUD, in a full ledger (Tab), and in the end-of-run summary.
 
 **Economy Potential: a small-number risk economy built for real RF later.**
-Every price lives in one file ([`src/economy/terms.ts`](src/economy/terms.ts)), uses only **5, 10 and 25 RF**, and is pinned by tests. Gameplay spends through a single [`TokenEconomy`](src/economy/TokenEconomy.ts) interface and grants an outcome only after the spend's receipt resolves. The shipped `SimulatedTokenEconomy` already uses the SDK's 18-decimal bigint RF units. A live adapter can replace it without touching combat, loot or UI code (see [Future real-token integration](#future-real-token-integration)).
+Every price lives in one file ([`src/economy/terms.ts`](src/economy/terms.ts)), keeps every in-dungeon decision to **5, 10 or 25 RF**, adds long-term camp goals at **50–500 RF** (premium cosmetics and camp restoration) so RF keeps a purpose after a run, and is pinned by tests. Gameplay spends through a single [`TokenEconomy`](src/economy/TokenEconomy.ts) interface and grants an outcome only after the spend's receipt resolves. The shipped `SimulatedTokenEconomy` already uses the SDK's 18-decimal bigint RF units. A live adapter can replace it without touching combat, loot or UI code (see [Future real-token integration](#future-real-token-integration)).
 
 ---
 
 ## How to play
 
 1. Connect your wallet and choose your Friend from a picker that shows each Friend's own on-chain artwork and family. The FriendSDK verifies ownership at a fresh block, and once you enter, that Friend is locked in for the session (reload the page to pick another).
-2. **Begin** at the title and arrive at **the camp**: a ruined sanctuary of the ancient Rare Friends. Walk around with your Friend among tents, a campfire, lanterns and broken columns. Use the stations (your stash, the Rune Tablet codex, the Obelisk of Descents with your scores, the RF Ledger, the Still Pool that shows your Friend's kit, and the **Dye Altar** wardrobe), then walk down **the great stairs**, through a ruined arch flanked by two stone statues of your own Friend, to descend. The arch's pillars are solid, and on the steps your Friend passes between them and under the lintel instead of clipping through.
+2. **Begin** at the title and arrive at **the camp**: a ruined sanctuary of the ancient Rare Friends. Walk around with your Friend among tents, a campfire, lanterns and broken columns. Use the stations (your stash, the Rune Tablet codex, the Obelisk of Descents with your scores, the RF Ledger, the Still Pool that shows your Friend's kit, the **Dye Altar** wardrobe, the **Blessing Shrine** and the **mason's table**), then walk down **the great stairs**, through a ruined arch flanked by two stone statues of your own Friend, to descend. The arch's pillars are solid, and on the steps your Friend passes between them and under the lintel instead of clipping through.
 3. Clear rooms, loot, make RF decisions, go deeper. A **guardian** (mini-boss) blocks the stairs on every floor without a boss, and a boss waits at the bottom of every act: **30 floors in 10 acts, 10 bosses**. Beat **The First Friend** at depth 30 and escape to conquer the Descent. Pay-to-play **mini-games** hide in event rooms, and every creature you meet unlocks a page in the **bestiary** (B).
 4. Escape at a Waystone with your loot, or die and decide whether RF can buy you another chance. Either way, the run is scored.
 
@@ -156,7 +187,10 @@ Title → wallet → Friend → camp → **Depth 1**. The first room holds three
 | **Merchant: Moth, the Peddler** | Health Potion (×2) · Cursed Mystery Box | Random Relic · Rare Item | Legendary Gamble |
 | **Events** | The Well · The Gambler | The Stranger · The Golden Door | The Black Door |
 | **Mini-games** | The Rune Gallery · The Shell Game | The Coin Dash | |
-| **Dye Altar cosmetics** (camp) | Common glows, Statue Stone skin, Embers trail | Rare glows, Corrupted / Lost Light / Frostbitten / Cinder / Shadow skins, Sparkles and Void Motes trails | Prismatic and Null Halo glows, Gilded and Unminted Void skins, Rune Steps trail |
+| **Dye Altar cosmetics** (camp) | Common glows, skins and trails | Rare glows, skins, trails and hats | Legendary glows, skins, trails, hats, finishers and pets |
+| **Blessing Shrine** (camp) | | | One boost of your choice for the whole next descent |
+
+**Long-term goals at the camp** (for players who keep earning): premium cosmetics at **50 RF** (Dawn, Aurora, Heartbeat, Inkblot, Neon, Mirror Glass, Coin Purse, Glitch, Wizard Hat, Halo, Frost Antlers, Void Implosion, Glitch Out and five pets) and **100 RF** (Eclipse, Prism, Static, Gold Crown, Thunderclap, Null Cherub, Loot Goblin), and **camp restoration at 100, 250 and 500 RF**.
 
 ### What RF pays back
 
@@ -170,7 +204,8 @@ Title → wallet → Friend → camp → **Depth 1**. The first room holds three
 | Guardian (the mini-boss before a floor's stairs) | **+3 RF** |
 | Mini-boss (Dungeon Warden, depths 3 and 6) | **+5 RF** |
 | Boss (The Rare Beast and every act boss after it, depths 9–27) | **+10 RF** |
-| Final boss (The First Friend, depth 30) | **+25 RF** |
+| Final boss (The First Friend, depth 30) | **+100 RF**, plus the Crown of the First Friend and the Genesis Halo |
+| First defeat of each boss | Its boss pet (unique cosmetic) |
 | Secret boss (The Unminted) | **+25 RF** |
 | The Gambler (5 RF stake) | 0 RF 45% · 5 RF 30% · 10 RF 17% · 25 RF 8% |
 | The Rune Gallery (5 RF) | 7+ runes 5 RF · 10+ 10 RF · 14+ 15 RF · 18+ 20 RF |
@@ -219,15 +254,48 @@ A timer and tally sit at the top of the screen while the Gallery or the Dash run
 
 ### The Dye Altar: cosmetics for RF
 
-At the bottom of the camp stands **the Dye Altar**, a tall mirror that shows your Friend as it is dressed. Its **Wardrobe** tab (also in the camp menu) sells cosmetics for simulated RF through the same `TokenEconomy` as every other spend, recorded in the ledger as `Dye Altar: <name>`. Owned looks can be swapped for free.
+At the bottom of the camp stands **the Dye Altar**, a tall mirror that shows your Friend as it is dressed. Its **Wardrobe** tab (also in the camp menu) sells cosmetics for simulated RF through the same `TokenEconomy` as every other spend, recorded in the ledger as `Dye Altar: <name>`. Owned looks can be swapped for free. There are **six categories**, priced from 5 up to 100 RF:
 
-| Slot | Options |
+| Category | Options |
 |---|---|
-| **Glows** (the light around your Friend) | Signal Lime (free) · Blood Moon, Relay Cyan, Crypt Violet (5 RF) · Hoard Gold, Void Rose, Frostlight (10 RF) · **Prismatic** (cycles every color) and **Null Halo** (a pocket of darkness with a burning rim) (25 RF) |
-| **Skins** (your Friend's pixel color) | Canonical (free) · Statue Stone (5 RF) · **Corrupted** (the crimson of the Corrupted Friends), Lost Light, Frostbitten, Cinder, Shadow (10 RF) · Gilded, Unminted Void (25 RF) |
-| **Trails** (what your steps leave behind) | None (free) · Embers (5 RF) · Sparkles, Void Motes (10 RF) · Rune Steps (25 RF) |
+| **Glows** (the light around your Friend) | Signal Lime (free) · Blood Moon, Relay Cyan, Crypt Violet (5 RF) · Hoard Gold, Void Rose, Frostlight, Forge Ember, Rot Moss, Tidal Blue (10 RF) · Brass Hour, Silvered, **Prismatic** (cycles every color), **Null Halo** (a halo of darkness) (25 RF) · Dawn, **Aurora** (slow ribbons of color), **Heartbeat** (a glow that beats) (50 RF) · **Eclipse** (a dark disc ringed in gold fire) (100 RF) · *Genesis Halo* (earned) |
+| **Skins** (your Friend's pixel colors) | **Canonical** (free: your Friend's own black pixels and white outline) · Statue Stone, Bone White, **Moonlit** (the white look) (5 RF) · Corrupted, Lost Light, Frostbitten, Cinder, Shadow, Mossback, Deep Water, Rose Quartz (10 RF) · Clockwork Brass, Gilded, Unminted Void (25 RF) · Inkblot, Neon, Mirror Glass (50 RF) · **Prism** (every color in turn) (100 RF) |
+| **Trails** (what your steps leave behind) | None (free) · Embers, Snowfall, Petals (5 RF) · Sparkles, Void Motes, Bubbles (10 RF) · Rune Steps, Brass Cogs, Hearts (25 RF) · Coin Purse, Glitch (50 RF) · **Static** (crackling lightning) (100 RF) |
+| **Pets** (a little follower) *new* | Tiny Wisp, Pocket Mite, Blob (a very small Bloodling) (25 RF) · Frost Moth, Cinder Imp, Sporeling, Little Cog, Shardling (50 RF) · Null Cherub, Loot Goblin (100 RF) · **ten boss pets, earned only** (see below) |
+| **Hats** (worn on your Friend's head) *new* | Party Hat, Flower Crown (10 RF) · Little Horns, Top Hat, Mushroom Cap (25 RF) · Wizard Hat, Halo, Frost Antlers (50 RF) · Gold Crown (100 RF) · *Crown of the First Friend* (earned) |
+| **Finishers** (what foes turn into when you defeat them) *new* | Dissolve (free) · Confetti, Ember Burst (10 RF) · Frost Shatter, Petal Pop, Coin Burst (25 RF) · Void Implosion, Glitch Out (50 RF) · **Thunderclap** (100 RF) |
 
-Cosmetics only **recolor** your Friend's canonical on-chain pixels and add light: the artwork's shape is never altered, and cosmetics give no power. The HUD portrait always shows the canonical black-on-white art. Worn looks appear in the dungeon, at the camp, on the title and summary screens, and in the Dye Altar's mirror. Like the stash, bought cosmetics are saved with your Friend (see [Saved progress](#saved-progress)).
+Skins only **recolor** your Friend's canonical on-chain pixels; the artwork's shape is never altered. Hats are found by reading the top of each animation frame of your Friend's own artwork, so they sit on any Friend's head. Pets follow a step behind and bob along. No cosmetic gives any power. The HUD portrait always shows the canonical black-on-white art. Cosmetics are saved with your Friend (see [Saved progress](#saved-progress)).
+
+### Earned rewards: boss pets and the conqueror's crown
+
+- **The first time each boss falls, it leaves a pocket-sized pet of itself**: the Pocket Warden, Rare Beastling, Little Archivist, Apprentice Smith, Bloom Bud, Choirboy, Pocket Watch, Little Reflection (your own Friend, in miniature, in glass), Unmintling and The Second Friend. They cannot be bought; the Dye Altar shows how to earn each one.
+- **Conquering the Descent** (beating The First Friend at depth 30) pays **100 RF** and unlocks the **Crown of the First Friend** (a gold crown for your Friend's head) and the **Genesis Halo** (a white-and-gold glow with turning rings).
+
+### The Blessing Shrine
+
+At the top of the camp, the **Blessing Shrine** takes **25 RF** for one boost of your choice that lasts your **whole next descent**, then fades. One blessing at a time:
+
+| Blessing | Boost |
+|---|---|
+| ⚔ Might | +20% damage |
+| ♥ Vigor | +25% max HP |
+| » Swiftness | +12% movement speed and +8% dodge |
+| ✦ Fortune | +20% loot chance and +20% RF find |
+| ◎ Focus | +10% critical chance and +25% critical damage |
+| ⚱ Wellspring | +2 potion capacity, and you start with them |
+| ↻ Renewal | +40% energy regeneration |
+
+### Restoring the camp
+
+Also at the top of the camp, the **mason's table** restores the sanctuary, one tier at a time. Each tier is a look only, and a long-term goal to work toward:
+
+| Tier | Price | What changes |
+|---|---|---|
+| Ruined Sanctuary | (start) | Rubble, broken columns, cracked and mossy statues, a campfire |
+| Cleared Ruins | **100 RF** | Rubble hauled away, a rug to the great stairs, banners and more lanterns |
+| Rebuilt Sanctuary | **250 RF** | Columns stand whole again, walls patched, a red carpet and braziers |
+| Grand Sanctuary | **500 RF** | Statues restored with gold trim, a fountain, flowers and warm light everywhere |
 
 ### Scoring
 
@@ -436,15 +504,15 @@ If your Playwright version has no matching browser download (for example in a sa
 |---|---|---|
 | `npm run typecheck` | TypeScript, strict | Pass |
 | `npm run lint` | ESLint (typescript-eslint, react-hooks) | Pass |
-| `npm run test:unit` | 31 tests: 30 floors in 10 acts with a distinct place per floor and each act's creatures arriving on its first floor; ten bosses, one per act, with the First Friend worth the most; enemy scaling that keeps climbing below depth 9 but stays beatable at 30; saves survive the JSON round trip, load only for their own Friend, and are cleaned field by field when damaged or edited; the economy resumes a saved balance and ledger; restored item ids are never reused; the camp's stair-arch pillars are solid and its steps walkable, guardian rooms on every boss-less floor from depth 2, a bestiary page for every creature, mini-game prices and payouts, per-floor themes and rosters (including all 8 new enemies), floor growth with depth plus full-tile reachability, economy ledger, bigint RF units, insufficient funds, all prices (cosmetics included) in the 5/10/25 family, small rewards, every odds table sums to 100%, prices come from the economy terms, generation determinism, reachability of every room (300 floors), floor-1 script, depth-2 Void shrine, loot and stats, player/enemy balance caps, run scoring and outcome multipliers, cosmetic catalogue, every sprite mask is a clean rectangle | 31/31 pass |
+| `npm run test:unit` | 33 tests: six cosmetic categories with at least seven new options each and 50/100 RF tiers, a unique pet for every boss, conquest cosmetics, the canonical black-and-white default skin, the 25 RF Blessing Shrine and the 100/250/500 RF camp restorations; 30 floors in 10 acts with a distinct place per floor and each act's creatures arriving on its first floor; ten bosses, one per act, with the First Friend worth the most; enemy scaling that keeps climbing below depth 9 but stays beatable at 30; saves survive the JSON round trip, load only for their own Friend, and are cleaned field by field when damaged or edited; the economy resumes a saved balance and ledger; restored item ids are never reused; the camp's stair-arch pillars are solid and its steps walkable, guardian rooms on every boss-less floor from depth 2, a bestiary page for every creature, mini-game prices and payouts, per-floor themes and rosters (including all 8 new enemies), floor growth with depth plus full-tile reachability, economy ledger, bigint RF units, insufficient funds, all prices (cosmetics included) in the 5/10/25 family, small rewards, every odds table sums to 100%, prices come from the economy terms, generation determinism, reachability of every room (300 floors), floor-1 script, depth-2 Void shrine, loot and stats, player/enemy balance caps, run scoring and outcome multipliers, cosmetic catalogue, every sprite mask is a clean rectangle | 33/33 pass |
 | `npm run check` | FriendSDK game validation (imports, sandbox boundary, definition) | Pass |
 | `npm run build` | Static preview build | Pass |
-| `npm run test:browser` | 30 end-to-end checks in headless Chromium against **the site as shipped** (The Descent host plus the SDK runtime pieces) with the SDK's own mock wallet and RPC fixture: picker thumbnails, Friend locked in during play, walking the camp and descending the great stairs, every floor mood, every special-room tune and family voice, title and verified Friend, keyboard movement, locked-room combat with real key presses, first loot, level-up, **5 RF** shrine (and its tune fading in inside the shrine room and out after leaving), +3 RF treasure, **5 → 10 → 25** rerolls with no 4th, **5 RF** gate, events, **10 RF** revive, **25 RF** full revival, **25 RF** Void shrine (including the secret-boss path and +25 RF), merchant **5 RF** and **10 RF** buys, potion, pause, mute, reduced motion, depth-3 boss with +5 RF, Waystone, escape summary with its score breakdown, **Copy image** putting a 1200×675 PNG scoreboard on the clipboard and **Post on X** opening X's composer with the run text and a link back, restart with no free RF top-up, death and End Run, **10 RF + 5 RF** Dye Altar buys (Corrupted skin, Blood Moon glow) and free swaps, the bestiary unlocking and opening with B (and several new creatures sharing one toast), every enemy bullet kind playing its own shot sound, a guardian fight paying +3 RF, a **5 RF** Shell Game won by following the real shuffle (+15 RF) and a **5 RF** Rune Gallery paying by runes shattered, artwork-load error with retry, wrong-network unmount and recheck, **progress saved under the Friend's wallet and restored after a browser refresh** (balance, stash, cosmetics, bestiary, scores; the 25 RF start granted once), the save relay ignoring forged messages from outside the game frame and refusing saves for another Friend, touch joystick and buttons, zero console errors | 30/30 pass |
+| `npm run test:browser` | 33 end-to-end checks in headless Chromium against **the site as shipped** (The Descent host plus the SDK runtime pieces) with the SDK's own mock wallet and RPC fixture: picker thumbnails, Friend locked in during play, walking the camp and descending the great stairs, every floor mood, every special-room tune and family voice, title and verified Friend, keyboard movement, locked-room combat with real key presses, first loot, level-up, **5 RF** shrine (and its tune fading in inside the shrine room and out after leaving), +3 RF treasure, **5 → 10 → 25** rerolls with no 4th, **5 RF** gate, events, **10 RF** revive, **25 RF** full revival, **25 RF** Void shrine (including the secret-boss path and +25 RF), merchant **5 RF** and **10 RF** buys, potion, pause, mute, reduced motion, depth-3 boss with +5 RF, Waystone, escape summary with its score breakdown, **Copy image** putting a 1200×675 PNG scoreboard on the clipboard and **Post on X** opening X's composer with the run text and a link back, restart with no free RF top-up, death and End Run, **10 RF + 5 RF** Dye Altar buys (Corrupted skin, Blood Moon glow) and free swaps, the bestiary unlocking and opening with B (and several new creatures sharing one toast), a bought pet following the Friend and a hat on its head (with the Pocket Warden earned from the depth-3 fight and other boss pets locked), **100 RF restoring the camp**, a **25 RF blessing** carried into the next descent and then used up, every enemy bullet kind playing its own shot sound, a guardian fight paying +3 RF, a **5 RF** Shell Game won by following the real shuffle (+15 RF) and a **5 RF** Rune Gallery paying by runes shattered, artwork-load error with retry, wrong-network unmount and recheck, **progress saved under the Friend's wallet and restored after a browser refresh** (balance, stash, cosmetics, bestiary, scores; the 25 RF start granted once), the save relay ignoring forged messages from outside the game frame and refusing saves for another Friend, touch joystick and buttons, zero console errors | 33/33 pass |
 | `npm run perf` / `npm run perf:golden <dir>` | `perf` times update and render per frame in five scenes (camp, depth 1, depth 5, a depth-8 stress room with 16 extra foes and ~150 bullets, the Rare Beast), optionally on a CPU slowed down 4× (`node scripts/perf.mjs bench 4`). `perf:golden` replays the game deterministically (seeded randomness, virtual clock and timers, the bot at the controls) and saves 13 exact frames; `node scripts/perf.mjs compare <a> <b>` checks two replays pixel by pixel and state by state | Replays are identical run to run; the layered renderer matches the old one within 3 color levels (rounding only) |
-| `npm run test:tour` | A guided tour of **all 30 floors** on the shipped site: the bot fights on the first floor of every act and every creature of the lower acts is spawned, then all 10 bosses are fought, beaten and must leave a Waystone; escaping after The First Friend must end the run as **Conquered**. Zero page errors allowed. Screenshots in `artifacts/tour/` | Pass (conquered at depth 30, 0 errors) |
+| `npm run test:tour` | A guided tour of **all 30 floors** on the shipped site: the bot fights on the first floor of every act and every creature of the lower acts is spawned, then all 10 bosses are fought, beaten and must leave a Waystone and unlock their pet; The First Friend must pay 100 RF and unlock the Crown of the First Friend and the Genesis Halo; escaping after The First Friend must end the run as **Conquered**. Zero page errors allowed. Screenshots in `artifacts/tour/` | Pass (conquered at depth 30, 0 errors) |
 | `npm run balance [depths]` | Balance probe: at each boss depth the Friend gets a typical level and gear, then the bot clears three combat rooms and fights the boss; damage taken is reported as multiples of max HP so every act compares on one scale | Used to tune depths 10–30: act bosses take about 50–120 s for the probe bot, and The First Friend is the hardest fight |
 | `npm run test:showcase` | The no-wallet showcase at desktop and phone widths, with a wallet present in the browser: the Play link goes to the gated game, all nine families match the game's kit, the trailer and all nine clips can play, every screenshot loads, a family voice plays, and there are **zero wallet calls**, no outside requests, no horizontal scroll and no console errors | 12/12 pass |
-| `npm run test:real` (or `TARGET_URL=<preview> node scripts/test-real-gate.mjs`) | **Live Robinhood mainnet**, read-only, also run against the published GitHub Pages preview: a stand-in wallet that refuses every signing method reports a real holder's public address. The real SDK picker discovered the holder's 5 hardwired Friends, freshly verified ownership, and the game loaded that Friend's on-chain artwork. An address with only a generation-0 Friend was refused, and a wrong-network wallet was stopped before play. | 3/3 pass |
+| `MY_WALLET=0xYourAddress npm run test:real` (or with `TARGET_URL=<preview>`) | **Live Robinhood mainnet**, read-only, also run against the published GitHub Pages preview. A stand-in wallet that refuses every signing method reports **your own** address (from `MY_WALLET`); the real SDK picker discovers your Friends, freshly verifies ownership, and the game loads your Friend's on-chain artwork. An address with no Generations NFTs is refused, and a wrong-network wallet is stopped before play. It never looks up anyone else's wallet or scans the collection; without `MY_WALLET` the holder check is skipped. | Pass (no-Friends and wrong-network checks pass; the holder check runs with your address) |
 | `npm run playtest` | A bot plays the real engine at accelerated speed using only player controls, reporting depth, deaths, damage by source and RF flow | Used for balance. After the difficulty pass, a bot that never dodges usually falls at depths 2–4 (often to the Dungeon Warden) and takes about 3× the damage per floor it used to; a bot that sidesteps bullets reaches about depth 5–6 instead of clearing all 9 floors. Deep runs earn about 40–110 RF. |
 
 ---
