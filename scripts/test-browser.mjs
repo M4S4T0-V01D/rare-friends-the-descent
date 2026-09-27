@@ -473,7 +473,7 @@ await testSite({
       const intent = new URL(x.url());
       assert.equal(`${intent.origin}${intent.pathname}`, "https://x.com/intent/post");
       assert.match(intent.searchParams.get("text"), /^My Rare Friend .+ escaped The Descent from depth 3: [\d,]+ points/);
-      assert.ok(intent.searchParams.get("url").startsWith("http://127.0.0.1:"), "links back to the game page");
+      assert.equal(intent.searchParams.get("url"), "https://rarefriends.com/", "links to rarefriends.com");
       await x.close();
       await game.getByText(/The image is on your clipboard/).waitFor();
       await page.context().unroute("https://x.com/**");

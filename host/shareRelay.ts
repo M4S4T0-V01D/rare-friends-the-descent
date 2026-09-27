@@ -6,12 +6,14 @@
  * from the game's own iframe, checks their shape, and then:
  *   - "copy": writes the PNG score card to the clipboard;
  *   - "post": copies the card (so it can be pasted into the post) and opens X's post composer.
- * The X URL is built here, from a fixed base and this page's own address; the game supplies only
+ * The X URL is built here, from a fixed base and a fixed link to rarefriends.com; the game supplies only
  * the post text, which is length-checked. Clicks inside the frame count as user activation for this
  * page too, so the clipboard and the new window are allowed.
  */
 const MAX_PNG_BYTES = 8 * 1024 * 1024;
 const MAX_TEXT = 240;
+/** Every post links to Rare Friends itself. */
+export const SHARE_LINK = "https://rarefriends.com/";
 
 type Request = { type: "descent:share"; id: string; action: "copy" | "post"; png: Blob; text: string };
 
@@ -42,9 +44,8 @@ export function installShareRelay(): () => void {
       let copied = true;
       try { await copyImage(request.png); } catch { copied = false; }
       if (request.action === "copy") { reply(copied, copied ? undefined : "clipboard"); return; }
-      const page = `${location.origin}${location.pathname}`;
       // With noopener, window.open returns null even when it works, so there is nothing more to check.
-      window.open(postUrl(request.text, page), "_blank", "noopener,noreferrer");
+      window.open(postUrl(request.text, SHARE_LINK), "_blank", "noopener,noreferrer");
       reply(true, copied ? undefined : "clipboard");
     })().catch(() => reply(false, "error"));
   };
