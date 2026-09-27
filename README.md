@@ -527,7 +527,7 @@ If your Playwright version has no matching browser download (for example in a sa
 - **The public Robinhood RPC can reject bursts.** Friend discovery occasionally fails on the first try; the SDK picker's **Retry loading Friends** button resolves it.
 - **Phones:** the game is landscape 3:2. On a portrait phone the frame is small, and the SDK's wallet toolbar takes proportionally more space. Touch controls work; landscape is recommended.
 - **Audio** starts after your first click or key press (browser autoplay rules).
-- **Not yet done:** a playthrough with a real wallet extension. Live-chain reads were verified with the read-only stand-in wallet described above. Balance was tuned with bot playtests, not a large human playtest.
+- **Real-wallet playtest:** done. The builder has played extensively with a real wallet extension on Robinhood mainnet, on top of the read-only stand-in wallet checks described above. Balance was tuned with bot playtests and the builder's own play, not a large group playtest.
 - **Out of scope:** no real token transfers, contracts, trading, wearable NFTs or creator fees.
 
 ---
