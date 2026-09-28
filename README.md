@@ -475,6 +475,8 @@ The FriendSDK v0.1.2 package archive is vendored at `vendor/rarefriends-friendsd
 
 **How the site is built:** `npm run build` runs `scripts/site.mjs`. The FriendSDK CLI's `buildGame` builds the sandboxed game exactly as `friendsdk build` does. Then The Descent's trusted host page (`host/`) replaces the default runtime bundle. The host uses the SDK's own wallet session (`createFriendWalletSession`), owner-filtered discovery (`readOwnedFriends`) and `ConnectedGameHost`, which performs the fresh ownership and generation check before every session. Only the Friend picker is custom: it adds artwork thumbnails and locks the chosen Friend for the session. `npm run dev` builds and serves at http://127.0.0.1:4173 (re-run it after edits).
 
+**Viewport:** the game keeps the SDK's **960 × 640** viewport. The frame uses the SDK's own sizing (960 × 640, scaled down on smaller screens), and the game draws a fixed 960 × 640 stage inside it. The dungeon itself is much larger and scrolls with a camera, which the vibeathon rules explicitly allow. Every HUD element, menu, dialog and toast stays inside the frame.
+
 If your Playwright version has no matching browser download (for example in a sandbox with a preinstalled Chromium), point the browser checks at it with `CHROMIUM_PATH=/path/to/chromium npm run test:browser`.
 
 **Build a static preview:** `npm run build` writes `site/`. Serve that folder from any HTTPS static host, keeping its relative paths and the child document's CSP. The included GitHub Actions workflow (`.github/workflows/pages.yml`) runs the checks, builds and deploys to GitHub Pages on every push to `main`. In the repository settings, set **Pages → Source** to **GitHub Actions**.

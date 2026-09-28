@@ -1,13 +1,9 @@
 /* Trusted runtime styling for the FriendSDK host page (loaded by the CLI as host.css).
-   It themes the SDK's own wallet, Friend picker and confirmation UI to match the game, and sizes
-   the 3:2 frame to fill the browser window. It never hides or replaces the trusted controls. */
+   It themes the SDK's own wallet, Friend picker and confirmation UI to match the game, and centers
+   the frame on the page. The frame keeps the SDK's own 960 × 640 viewport (smaller screens scale it
+   down), and everything the game draws stays inside it. It never hides or replaces the trusted controls. */
 @font-face { font-family: "Jacquard 24"; src: url("./assets/fonts/Jacquard24-latin.woff2") format("woff2"); font-display: swap; }
 @font-face { font-family: "VT323"; src: url("./assets/fonts/VT323-latin.woff2") format("woff2"); font-display: swap; }
-
-:root {
-  --rf-game-max-width: min(1440px, calc((100vh - 16px) * 1.5), 100vw);
-  --rf-game-aspect-ratio: 3 / 2;
-}
 
 html body {
   min-height: 100vh;
