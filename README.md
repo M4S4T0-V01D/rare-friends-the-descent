@@ -8,7 +8,7 @@ A dark bullet-hell action-RPG dungeon crawler for the Rare Friends Vibeathon. Yo
 |---|---|
 | **Builder** | M4S4T0 · GitHub [@M4S4T0-V01D](https://github.com/M4S4T0-V01D) |
 | **Category** | Game (FriendSDK). Entered for **Character Spotlight**, **Token Activity** and **Economy Potential** |
-| **Stack** | FriendSDK **v0.1.2** runtime · TypeScript · React 19 (UI) · Canvas 2D renderer · Web Audio |
+| **Stack** | FriendSDK **v0.1.3** runtime · TypeScript · React 19 (UI) · Canvas 2D renderer · Web Audio |
 | **Playable preview** | **https://m4s4t0-v01d.github.io/rare-friends-the-descent/** (wallet and Generations NFT required) |
 | **Showcase (no wallet)** | **https://m4s4t0-v01d.github.io/rare-friends-the-descent/live-preview/**: gameplay trailer with sound, a family-by-family guide to every Friend's kit (with each family's voice), and screenshots |
 | **Requirements** | A browser wallet on **Robinhood mainnet (chain 4663)** holding a **hardwired Rare Friends Generations NFT (generation ≥ 1)** |
@@ -471,7 +471,7 @@ npm ci
 npm run dev          # http://127.0.0.1:4173
 ```
 
-The FriendSDK v0.1.2 package archive is vendored at `vendor/rarefriends-friendsdk-0.1.2.tgz` (built with `npm pack` from [spokesz/friendsdk](https://github.com/spokesz/friendsdk) at the v0.1.2 release commit), so `npm ci` needs nothing else.
+The FriendSDK v0.1.3 package archive is vendored at `vendor/rarefriends-friendsdk-0.1.3.tgz` (built with `npm pack` from [spokesz/friendsdk](https://github.com/spokesz/friendsdk) at the v0.1.3 release commit), so `npm ci` needs nothing else.
 
 **How the site is built:** `npm run build` runs `scripts/site.mjs`. The FriendSDK CLI's `buildGame` builds the sandboxed game exactly as `friendsdk build` does. Then The Descent's trusted host page (`host/`) replaces the default runtime bundle. The host uses the SDK's own wallet session (`createFriendWalletSession`), owner-filtered discovery (`readOwnedFriends`) and `ConnectedGameHost`, which performs the fresh ownership and generation check before every session. Only the Friend picker is custom: it adds artwork thumbnails and locks the chosen Friend for the session. `npm run dev` builds and serves at http://127.0.0.1:4173 (re-run it after edits).
 
@@ -544,7 +544,7 @@ The game is structured so the simulated economy can become a real one without re
 4. **Persistence.** Saves are already filed per Friend wallet, but only in the player's browser. A shared, tamper-proof record (a save API in the SDK, a signed server record, or on-chain state tied to the Friend's wallet) would let progress follow the Friend across devices and back a real leaderboard.
 5. **Starting balance.** The preview grants 25 simulated RF once per Friend. In a real economy, players bring RF from their Friend's wallet instead.
 
-**Capability gaps in SDK v0.1.2** (to raise with the Rare Friends team): no additional-currency, upgrade or persistence APIs; the chance-game client supports one consumable and one outcome table, which cannot express 5/10/25 multi-tier spends directly.
+**Capability gaps in SDK v0.1.3** (to raise with the Rare Friends team): no additional-currency, upgrade or persistence APIs; the chance-game client supports one consumable and one outcome table, which cannot express 5/10/25 multi-tier spends directly.
 
 ---
 

@@ -138,7 +138,7 @@ function CampPanel({ game, ui, tab }: { game: Game; ui: UiState; tab: CampTab })
           {game.hall.length ? <ol className="dx-hall">{game.hall.map((run, i) => <li key={i}>
             <b className="dx-hall-score">{formatScore(run.score.total)}</b> · Depth {run.depth} · {run.kills} kills · {OUTCOME_LABEL[run.outcome].toLowerCase()} · {run.rarest ? <span style={{ color: RARITY_STYLE[run.rarest.rarity].color }}>{run.rarest.name}</span> : "no loot"}
           </li>)}</ol> : <p>No descents yet.</p>}
-          <p className="dx-dim">Global leaderboard: coming soon. FriendSDK v0.1.2 has no persistence API yet.</p>
+          <p className="dx-dim">Global leaderboard: coming soon. FriendSDK v0.1.3 has no persistence API yet.</p>
         </>}
         {tab === "blessing" && <BlessingShrine game={game} ui={ui} />}
         {tab === "sanctuary" && <Sanctuary game={game} ui={ui} />}
