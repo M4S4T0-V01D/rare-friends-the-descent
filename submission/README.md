@@ -2,7 +2,7 @@
 
 Your Rare Friend descends into a dark bullet-hell action-RPG dungeon where **$RAREFRIENDS is the currency of risk**. Fight, loot, and at every shrine, gate, reroll, revive and mini-game decide: *spend 5 RF now, save for 10, or risk everything for 25?*
 
-**Builder:** M4S4T0 · [@M4S4T0-V01D](https://github.com/M4S4T0-V01D) · **Category:** Character Spotlight · Token Activity · Economy Potential · **SDK:** FriendSDK v0.1.3
+**Builder:** M4S4T0 · [@M4S4T0-V01D](https://github.com/M4S4T0-V01D) · **Category:** Character Spotlight · Token Activity · Economy Potential · **SDK:** FriendSDK v0.1.4
 
 [Source code](https://github.com/M4S4T0-V01D/rare-friends-the-descent) · [Full rules, odds and economy](https://github.com/M4S4T0-V01D/rare-friends-the-descent#the-rarefriends-economy-simulated) · **[Play the preview](https://m4s4t0-v01d.github.io/rare-friends-the-descent/)** (wallet required) · **[Watch the trailer and meet every family](https://m4s4t0-v01d.github.io/rare-friends-the-descent/live-preview/)** (no wallet needed)
 

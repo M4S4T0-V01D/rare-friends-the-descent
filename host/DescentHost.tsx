@@ -4,8 +4,24 @@ import { GameFrame } from "@rarefriends/friendsdk/frame";
 import type { ChanceGameDefinition } from "@rarefriends/friendsdk/game";
 import { readOwnedFriends, type OwnedFriend } from "@rarefriends/friendsdk/owned";
 import { ConnectedGameHost } from "@rarefriends/friendsdk/runtime";
-import { createFriendReader, type GenerationSprites } from "@rarefriends/friendsdk/sprites";
-import { createFriendPublicClient, createFriendWalletSession, type FriendWalletSession } from "@rarefriends/friendsdk/wallet";
+import { GENERATION_SPRITE_MANIFEST, createFriendReader, type GenerationSprites } from "@rarefriends/friendsdk/sprites";
+import { createFriendWalletSession, type FriendWalletSession } from "@rarefriends/friendsdk/wallet";
+import { createClient, http, type PublicClient } from "viem";
+import { getBlockNumber, getChainId, getLogs, readContract } from "viem/actions";
+
+/**
+ * A read-only RPC client with just the reads Friend discovery and the ownership check need, like the SDK's own preview
+ * client, so the page carries no transaction-sending actions (FriendSDK v0.1.4 preview builds).
+ */
+function createReadClient(): Pick<PublicClient, "getBlockNumber" | "getChainId" | "getLogs" | "readContract"> {
+  const client = createClient({ transport: http(GENERATION_SPRITE_MANIFEST.rpcUrl), cacheTime: 0, pollingInterval: 1_000 });
+  return {
+    getBlockNumber: parameters => getBlockNumber(client, parameters),
+    getChainId: () => getChainId(client),
+    getLogs: parameters => getLogs(client, parameters),
+    readContract: parameters => readContract(client, parameters),
+  } as Pick<PublicClient, "getBlockNumber" | "getChainId" | "getLogs" | "readContract">;
+}
 import { setSaveTarget } from "./saveRelay";
 
 /**
@@ -19,7 +35,7 @@ import { setSaveTarget } from "./saveRelay";
  */
 export function DescentHost({ definition, frameUrl }: { definition: ChanceGameDefinition; frameUrl: string }) {
   const [session] = useState(() => createFriendWalletSession());
-  const [publicClient] = useState(() => createFriendPublicClient());
+  const [publicClient] = useState(createReadClient);
   useEffect(() => () => session.dispose(), [session]);
   const wallet = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot);
   const [attempt, setAttempt] = useState(0);

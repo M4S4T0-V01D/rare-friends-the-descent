@@ -16,7 +16,8 @@ export async function buildSite(outdir = path.join(root, "site")) {
   await build({
     absWorkingDir: root, entryPoints: { runtime: path.join(root, "host/main.tsx") }, outdir: game.outdir,
     bundle: true, format: "iife", platform: "browser", target: "es2022", jsx: "automatic", minify: true, logLevel: "warning",
-    define: { "process.env.NODE_ENV": '"production"' },
+    // A preview build, like the SDK's own: the runtime's live RF transfers, approvals and signing compile out (FriendSDK v0.1.4).
+    define: { "process.env.NODE_ENV": '"production"', "globalThis.__FRIENDSDK_LIVE__": "false" },
     loader: { ".woff2": "file", ".json": "json" }, assetNames: "assets/[name]-[hash]",
   });
   await buildShowcase(path.join(game.outdir, "live-preview"));

@@ -2,7 +2,7 @@
   "name": "rare-friends-the-descent",
   "version": "1.0.0",
   "private": true,
-  "description": "Rare Friends: The Descent — a dark action-RPG dungeon crawler starring your Rare Friend, with a simulated $RAREFRIENDS risk economy. Built on FriendSDK v0.1.3.",
+  "description": "Rare Friends: The Descent — a dark action-RPG dungeon crawler starring your Rare Friend, with a simulated $RAREFRIENDS risk economy. Built on FriendSDK v0.1.4.",
   "type": "module",
   "license": "Apache-2.0",
   "engines": {
@@ -29,9 +29,10 @@
     "balance": "node scripts/balance-probe.mjs"
   },
   "dependencies": {
-    "@rarefriends/friendsdk": "file:vendor/rarefriends-friendsdk-0.1.3.tgz",
+    "@rarefriends/friendsdk": "file:vendor/rarefriends-friendsdk-0.1.4.tgz",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "viem": "^2.56.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
